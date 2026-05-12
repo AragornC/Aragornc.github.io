@@ -3,21 +3,20 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>AI Agent Orchestration：从 Transformer 到 Agent 编排</title>
+  <title>AragornC · Agent Knowledge</title>
   <style>
     :root {
-      --bg: #f7f7f4;
+      --bg: #f6f6f1;
       --paper: #ffffff;
-      --ink: #202124;
-      --muted: #626761;
-      --line: #deded7;
-      --soft: #f0f2ed;
+      --ink: #1f2328;
+      --muted: #626b64;
+      --line: #deded5;
+      --soft: #eff3ef;
       --accent: #245f73;
-      --accent-2: #7a4b25;
-      --evidence: #eef6f8;
-      --example: #fff6e8;
-      --warn: #f8eded;
-      --shadow: 0 18px 48px rgba(35, 38, 33, 0.08);
+      --accent-dark: #153f4d;
+      --warm: #8a4e27;
+      --warn: #b84a36;
+      --shadow: 0 18px 44px rgba(31, 35, 40, 0.08);
     }
 
     * {
@@ -28,147 +27,185 @@
       margin: 0;
       color: var(--ink);
       background:
-        linear-gradient(180deg, rgba(255, 255, 255, 0.7), rgba(247, 247, 244, 0.92)),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(246, 246, 241, 0.94)),
         var(--bg);
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
         "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
-      line-height: 1.72;
+      line-height: 1.7;
     }
 
     a {
-      color: var(--accent);
+      color: inherit;
       text-decoration: none;
-      border-bottom: 1px solid rgba(36, 95, 115, 0.28);
     }
 
-    a:hover {
-      border-bottom-color: currentColor;
+    .page {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 34px 24px 72px;
     }
 
-    .shell {
-      display: grid;
-      grid-template-columns: 268px minmax(0, 1fr);
-      min-height: 100vh;
-    }
-
-    aside {
-      position: sticky;
-      top: 0;
-      height: 100vh;
-      padding: 28px 22px;
-      border-right: 1px solid var(--line);
-      background: rgba(255, 255, 255, 0.72);
-      backdrop-filter: blur(18px);
-      overflow: auto;
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      padding-bottom: 28px;
+      border-bottom: 1px solid var(--line);
     }
 
     .brand {
       display: grid;
-      gap: 8px;
-      margin-bottom: 28px;
+      gap: 4px;
     }
 
-    .brand .kicker {
+    .kicker {
       color: var(--accent);
       font-size: 12px;
-      font-weight: 700;
-      letter-spacing: 0.08em;
+      font-weight: 800;
+      letter-spacing: 0.11em;
       text-transform: uppercase;
     }
 
-    .brand h1 {
+    h1, h2, h3, p {
       margin: 0;
-      font-size: 22px;
-      line-height: 1.22;
+    }
+
+    .brand h1 {
+      font-size: 26px;
+      line-height: 1.2;
       letter-spacing: 0;
     }
 
     nav {
-      display: grid;
-      gap: 6px;
-    }
-
-    nav a {
-      display: grid;
-      gap: 2px;
-      padding: 10px 11px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
       color: var(--muted);
-      border: 0;
-      border-radius: 8px;
-    }
-
-    nav a.current {
-      color: var(--ink);
-      background: var(--soft);
+      font-size: 14px;
       font-weight: 700;
     }
 
-    .nav-main {
-      font-size: 13px;
-      font-weight: 800;
-      line-height: 1.35;
+    nav a {
+      padding: 8px 10px;
+      border-radius: 8px;
     }
 
-    .nav-sub {
-      color: inherit;
-      opacity: 0.78;
-      font-size: 12px;
-      font-weight: 600;
-      line-height: 1.35;
-    }
-
-    nav a:focus-visible {
-      outline: 2px solid rgba(36, 95, 115, 0.42);
-      outline-offset: 2px;
-    }
-
-    main {
-      padding: 48px min(5vw, 72px) 72px;
+    nav a:hover {
+      background: var(--soft);
+      color: var(--ink);
     }
 
     .hero {
-      max-width: 1040px;
-      padding-bottom: 28px;
-      border-bottom: 1px solid var(--line);
-      margin-bottom: 34px;
+      display: grid;
+      grid-template-columns: minmax(0, 0.95fr) minmax(340px, 1.05fr);
+      gap: 46px;
+      align-items: center;
+      padding: 56px 0 46px;
+    }
+
+    .hero-copy {
+      display: grid;
+      gap: 22px;
     }
 
     .hero h2 {
-      margin: 0 0 14px;
-      font-size: clamp(30px, 4vw, 52px);
-      line-height: 1.08;
+      max-width: 700px;
+      font-size: clamp(38px, 6vw, 70px);
+      line-height: 1.02;
       letter-spacing: 0;
     }
 
     .hero p {
-      max-width: 860px;
-      margin: 0;
+      max-width: 660px;
       color: var(--muted);
       font-size: 18px;
     }
 
-    .throughline {
-      max-width: 1040px;
-      margin-bottom: 40px;
-      padding: 20px 22px;
-      border: 1px solid #e0d2bd;
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 42px;
+      padding: 10px 16px;
+      border: 1px solid var(--line);
       border-radius: 8px;
-      background: var(--example);
+      background: var(--paper);
+      color: var(--ink);
+      font-weight: 800;
+      box-shadow: 0 8px 20px rgba(31, 35, 40, 0.05);
     }
 
-    .throughline h3 {
-      margin: 0 0 8px;
-      font-size: 16px;
+    .button.primary {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: #fff;
     }
 
-    .throughline p {
-      margin: 0;
-      color: #5f4a2f;
+    .visual {
+      position: relative;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fbfaf5;
+      box-shadow: var(--shadow);
+      overflow: hidden;
     }
 
-    .stage {
-      max-width: 1040px;
-      margin: 0 0 36px;
+    .visual img {
+      display: block;
+      width: 100%;
+      max-height: 680px;
+      object-fit: cover;
+      object-position: top;
+    }
+
+    .visual-caption {
+      position: absolute;
+      right: 18px;
+      bottom: 18px;
+      max-width: 300px;
+      padding: 12px 14px;
+      border: 1px solid rgba(36, 95, 115, 0.24);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.9);
+      color: var(--accent-dark);
+      font-size: 14px;
+      font-weight: 800;
+      backdrop-filter: blur(12px);
+    }
+
+    .section {
+      padding: 42px 0 0;
+      border-top: 1px solid var(--line);
+    }
+
+    .section-head {
+      display: grid;
+      gap: 8px;
+      max-width: 780px;
+      margin-bottom: 22px;
+    }
+
+    .section-head h2 {
+      font-size: 28px;
+      line-height: 1.22;
+    }
+
+    .section-head p {
+      color: var(--muted);
+    }
+
+    .topic {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 24px;
+      align-items: stretch;
       border: 1px solid var(--line);
       border-radius: 10px;
       background: var(--paper);
@@ -176,2183 +213,225 @@
       overflow: hidden;
     }
 
-    .stage-header {
+    .topic-body {
       display: grid;
-      grid-template-columns: 120px minmax(0, 1fr);
-      gap: 22px;
-      align-items: end;
-      padding: 26px 28px;
-      background: #fbfbf8;
-      border-bottom: 1px solid var(--line);
+      gap: 18px;
+      padding: 26px;
     }
 
-    .stage-number {
-      color: var(--accent);
-      font-size: 13px;
-      font-weight: 800;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
+    .topic h3 {
+      font-size: 26px;
+      line-height: 1.25;
     }
 
-    .stage-title h2 {
-      margin: 0 0 6px;
-      font-size: 28px;
-      line-height: 1.24;
-      letter-spacing: 0;
-    }
-
-    .stage-era {
-      margin: 0 0 4px;
-      color: var(--accent-2);
-      font-size: 15px;
-      font-weight: 800;
-    }
-
-    .stage-title p {
-      margin: 0;
+    .topic p {
       color: var(--muted);
     }
 
-    .stage-figure {
-      margin: 0;
-      padding: 22px 24px 26px;
-      border-bottom: 1px solid var(--line);
-      background: #fbfbf8;
-    }
-
-    .stage-figure img {
-      display: block;
-      width: 100%;
-      height: auto;
-      border: 1px solid var(--line);
-      background: #f7f6f1;
-    }
-
-    .stage-figure figcaption {
-      margin-top: 10px;
-      color: var(--muted);
-      font-size: 13px;
-      line-height: 1.6;
-    }
-
-    .module {
-      display: grid;
-      grid-template-columns: 160px minmax(0, 1fr);
-      border-bottom: 1px solid var(--line);
-    }
-
-    .module.detailed {
-      grid-template-columns: 160px 140px minmax(0, 1fr);
-    }
-
-    .module:last-child {
-      border-bottom: 0;
-    }
-
-    .module-label {
-      padding: 22px 24px;
-      background: #fbfbf8;
-      color: var(--accent);
-      font-weight: 800;
-    }
-
-    .module-label.rowspan {
-      grid-row: span 3;
-    }
-
-    .module-label.rowspan-4 {
-      grid-row: span 4;
-    }
-
-    .sub-label {
-      padding: 22px 18px;
-      border-left: 1px solid var(--line);
-      background: #fcfcfa;
-      color: #525850;
-      font-size: 14px;
-      font-weight: 800;
-      letter-spacing: 0.03em;
-    }
-
-    .row-sep {
-      border-top: 1px solid var(--line);
-    }
-
-    .module-body {
-      padding: 22px 28px;
-      border-left: 1px solid var(--line);
-    }
-
-    .module-body p {
-      margin: 0;
-    }
-
-    .module-body p + p {
-      margin-top: 12px;
-    }
-
-    .note-quote {
-      margin: 14px 0 0;
-      padding: 10px 14px;
-      border-left: 3px solid var(--accent);
-      background: #fbfcfb;
-      color: var(--muted);
-      font-size: 15px;
-      line-height: 1.8;
-    }
-
-    .note-quote p {
-      margin: 0 0 8px;
-    }
-
-    .note-quote p:last-child {
-      margin-bottom: 0;
-    }
-
-    .inline-block {
-      margin-top: 12px;
-    }
-
-    .inline-label {
-      display: inline;
-      font-weight: 800;
-      margin-right: 6px;
-    }
-
-    .term {
-      padding: 0;
-      border: 0;
-      border-bottom: 1px dotted rgba(36, 95, 115, 0.55);
-      background: transparent;
-      color: var(--accent);
-      cursor: pointer;
-      font: inherit;
-    }
-
-    .example-text {
-      color: #70746f;
-    }
-
-    .example-text strong {
-      color: #70746f;
-    }
-
-    .example-steps {
-      display: grid;
-      gap: 10px;
-      color: #70746f;
-    }
-
-    .example-step {
-      display: grid;
-      grid-template-columns: 96px minmax(0, 1fr);
-      gap: 12px;
-      align-items: start;
-    }
-
-    .example-step strong {
-      color: #555a54;
-      font-weight: 800;
-    }
-
-    .evidence-table {
-      width: 100%;
-      border-collapse: collapse;
-      color: #505753;
-      font-size: 14px;
-      line-height: 1.55;
-    }
-
-    .evidence-table th,
-    .evidence-table td {
-      padding: 8px 10px;
-      border-top: 1px solid var(--line);
-      text-align: left;
-      vertical-align: top;
-    }
-
-    .evidence-table th {
-      width: 136px;
-      color: #6f756f;
-      font-weight: 800;
-      background: #fbfbf8;
-    }
-
-    .warning-text {
-      color: #7c3030;
-    }
-
-    .cite-marker {
-      padding: 0 2px;
-      border: 0;
-      background: transparent;
-      color: var(--accent);
-      font-size: 0.8em;
-      font-weight: 800;
-      cursor: pointer;
-      vertical-align: super;
-    }
-
-    details.citation {
-      display: inline;
-      color: var(--muted);
-    }
-
-    details.citation summary {
-      display: inline;
-      cursor: pointer;
-      color: var(--accent);
-      font-weight: 800;
-      list-style: none;
-    }
-
-    details.citation summary::-webkit-details-marker {
-      display: none;
-    }
-
-    details.citation[open] {
-      display: block;
-      margin: 8px 0 0;
-      padding: 9px 12px;
-      border-left: 3px solid var(--accent);
-      background: transparent;
-      font-size: 14px;
-    }
-
-    .inline-popover {
-      width: min(720px, 100%);
-      margin: 10px 0 0;
-      padding: 12px 14px;
-      border-left: 3px solid var(--accent);
-      background: #fbfcfb;
-      color: var(--muted);
-      font-size: 14px;
-      line-height: 1.65;
-    }
-
-    .inline-popover h3 {
-      margin: 0 0 6px;
-      color: var(--ink);
-      font-size: 15px;
-      line-height: 1.4;
-    }
-
-    .inline-popover p {
-      margin: 0 0 8px;
-    }
-
-    .inline-popover p:last-child {
-      margin-bottom: 0;
-    }
-
-    .chips {
+    .meta {
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
-      margin-top: 14px;
-    }
-
-    .chip {
-      display: inline-flex;
-      align-items: center;
-      min-height: 28px;
-      padding: 4px 10px;
-      border: 1px solid var(--line);
-      border-radius: 999px;
-      background: #fafaf7;
-      color: var(--muted);
+      color: var(--accent-dark);
       font-size: 13px;
-      white-space: nowrap;
+      font-weight: 800;
     }
 
-    .transition {
-      max-width: 1040px;
-      margin: 18px 0 0;
-      padding: 18px 22px;
-      border-left: 4px solid var(--accent);
-      background: rgba(36, 95, 115, 0.07);
-      color: #34535d;
+    .meta span {
+      padding: 5px 9px;
+      border-radius: 999px;
+      background: #eef6f8;
+    }
+
+    .topic-preview {
+      min-height: 320px;
+      background: #f9f8f1;
+    }
+
+    .topic-preview img {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: top;
+    }
+
+    .map {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .map-item {
+      min-height: 150px;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--paper);
+    }
+
+    .map-item strong {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--accent-dark);
+      font-size: 17px;
+    }
+
+    .map-item span {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .status {
+      display: grid;
+      gap: 12px;
+      padding: 22px;
+      border: 1px solid #e0d2bd;
+      border-radius: 10px;
+      background: #fff6e8;
+      color: #5f4a2f;
+    }
+
+    .status strong {
+      color: var(--warm);
+    }
+
+    footer {
+      margin-top: 46px;
+      padding-top: 22px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 14px;
     }
 
     @media (max-width: 880px) {
-      .shell {
-        display: block;
+      header,
+      .hero,
+      .topic {
+        grid-template-columns: 1fr;
       }
 
-      aside {
-        position: static;
-        height: auto;
-        border-right: 0;
-        border-bottom: 1px solid var(--line);
+      header {
+        align-items: flex-start;
       }
 
-      nav {
+      .map {
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
+    }
 
-      main {
-        padding: 32px 18px 48px;
+    @media (max-width: 560px) {
+      .page {
+        padding: 22px 16px 48px;
       }
 
-      .stage-header,
-      .module {
+      header {
+        display: grid;
+      }
+
+      .hero {
+        padding-top: 38px;
+      }
+
+      .map {
         grid-template-columns: 1fr;
-      }
-
-      .module.detailed {
-        grid-template-columns: 1fr;
-      }
-
-      .module-label.rowspan {
-        grid-row: auto;
-      }
-
-      .module-label.rowspan-4 {
-        grid-row: auto;
-      }
-
-      .sub-label {
-        border-left: 0;
-        border-top: 1px solid var(--line);
-        padding-bottom: 8px;
-      }
-
-      .module-label {
-        padding-bottom: 8px;
-      }
-
-      .module-body {
-        border-left: 0;
-        padding-top: 8px;
       }
     }
   </style>
 </head>
 <body>
-  <div class="shell">
-    <aside>
+  <div class="page">
+    <header>
       <div class="brand">
-        <div class="kicker">Agent Orchestration</div>
-        <h1>从 Transformer 到 Agent 编排</h1>
+        <div class="kicker">AragornC · Agent Knowledge</div>
+        <h1>个人 Agent 知识管理</h1>
       </div>
-      <nav aria-label="阶段导航">
-        <a class="current" href="#stage-1">
-          <span class="nav-main">阶段一 · 2017-2019 · 语言建模底座时代</span>
-          <span class="nav-sub">Transformer 与预训练语言模型</span>
-        </a>
-        <a href="#stage-2">
-          <span class="nav-main">阶段二 · 2020-2022 上 · 规模化底座时代</span>
-          <span class="nav-sub">Scaling、Foundation Model 与 ICL</span>
-        </a>
-        <a href="#stage-3">
-          <span class="nav-main">阶段三 · 2022 中-2023 上 · 助手对齐时代</span>
-          <span class="nav-sub">Instruction Alignment 与产品化助手</span>
-        </a>
-        <a href="#stage-4">
-          <span class="nav-main">阶段四 · 2022 末-2023 上 · 推理行动原语时代</span>
-          <span class="nav-sub">推理原语与行动原语</span>
-        </a>
-        <a href="#stage-5">
-          <span class="nav-main">阶段五 · 2022-2023 · 第一代编排(Orchestration)时代</span>
-          <span class="nav-sub">静态 Workflow 与动态 Agent Loop</span>
-        </a>
-        <a href="#stage-6">
-          <span class="nav-main">阶段六 · 2024 · 状态化编排时代</span>
-          <span class="nav-sub">状态化 Agent 框架与生产化表达</span>
-        </a>
-        <a href="#stage-7">
-          <span class="nav-main">阶段七 · 2024 下-2025 · Coding Harness 时代</span>
-          <span class="nav-sub">Reasoning Models 与 Agentic Coding Harness</span>
-        </a>
-        <a href="#stage-8">
-          <span class="nav-main">阶段八 · 2025-2026 · 协议与 SDK 时代</span>
-          <span class="nav-sub">协议生态与官方 Agent SDK</span>
-        </a>
+      <nav aria-label="主导航">
+        <a href="#topics">专题</a>
+        <a href="#map">知识地图</a>
+        <a href="#system">系统规划</a>
       </nav>
-    </aside>
+    </header>
 
     <main>
       <section class="hero">
-        <h2>AI Agent Orchestration：结构化时间线</h2>
-        <p>
-          这份文档追问一个问题：为什么今天会出现 agent、workflow、orchestration、
-          harness、MCP、A2A、Agents SDK 这些东西？它们不是同一层概念，也不是一夜之间出现的。
-        </p>
+        <div class="hero-copy">
+          <div class="kicker">Knowledge base for agentic systems</div>
+          <h2>把 AI Agent 的概念、证据、产品和工程模式沉淀成可复用知识。</h2>
+          <p>
+            这里会持续记录 agent、workflow、orchestration、harness、MCP、A2A、Agents SDK
+            等主题。目标不是堆资料，而是把来源、术语、阶段、例子、证据和图解整理成可以反复调用的个人知识系统。
+          </p>
+          <div class="actions">
+            <a class="button primary" href="topics/agent-orchestration/">阅读第一个专题</a>
+            <a class="button" href="#map">查看知识地图</a>
+          </div>
+        </div>
+        <figure class="visual">
+          <img src="assets/agent-orchestration/stage-08-protocol-sdk-summary-v1.png" alt="协议生态与官方 Agent SDK 信息图预览">
+          <figcaption class="visual-caption">
+            当前专题：从 Transformer 到 Agent 编排，8 个阶段串起 agent 能力演进。
+          </figcaption>
+        </figure>
       </section>
 
-      <section class="throughline">
-        <h3>贯穿场景</h3>
-        <p>
-          想象一个企业知识工作系统：它要读懂公司年报、公告、代码仓库、表格和内部文档，
-          能按用户指令生成可靠答案，必要时检索资料、调用工具、计算指标、核对引用、修复脚本，
-          并把结果交给另一个 agent 或业务系统继续处理。下面 8 个阶段不是在讲 8 个互不相干的产品，
-          而是在追问同一个场景逐层需要什么能力：先有语言建模底座，再有 prompt 任务接口、
-          助手对齐、推理与工具原语、workflow / agent loop、状态化编排、coding harness，
-          最后走向 MCP、A2A 和 Agent SDK 这样的协议与开发者原语。
-        </p>
+      <section class="section" id="topics">
+        <div class="section-head">
+          <div class="kicker">Topics</div>
+          <h2>专题库</h2>
+          <p>每个专题都尽量做到：有明确来源、有术语解释、有例子牵引、有证据支撑、有结构化图解。</p>
+        </div>
+        <article class="topic">
+          <div class="topic-body">
+            <div class="meta">
+              <span>8 阶段</span>
+              <span>论文 / 官方文档 / 产品</span>
+              <span>长文 + 图解</span>
+            </div>
+            <h3>AI Agent Orchestration：从 Transformer 到 Agent 编排</h3>
+            <p>
+              从语言建模底座开始，追踪 scaling、instruction alignment、reason/action 原语、
+              workflow 与 agent loop、状态化框架、coding harness、协议与 SDK 的出现原因和边界。
+            </p>
+            <div class="actions">
+              <a class="button primary" href="topics/agent-orchestration/">打开专题</a>
+            </div>
+          </div>
+          <a class="topic-preview" href="topics/agent-orchestration/" aria-label="打开 AI Agent Orchestration 专题">
+            <img src="assets/agent-orchestration/stage-01-transformer-summary-v5.png" alt="Transformer 与预训练语言模型信息图预览">
+          </a>
+        </article>
       </section>
 
-      <article class="stage" id="stage-1">
-        <header class="stage-header">
-          <div class="stage-number">Stage 01</div>
-          <div class="stage-title">
-            <h2>Transformer 与预训练语言模型</h2>
-            <div class="stage-era">2017-2019 · 语言建模底座时代</div>
-            <p>先解决语言建模底座，还没有 agent 能力。</p>
-          </div>
-        </header>
+      <section class="section" id="map">
+        <div class="section-head">
+          <div class="kicker">Knowledge Map</div>
+          <h2>知识地图</h2>
+          <p>后续内容会围绕这些入口继续拆分，避免把模型、框架、产品、协议和工程实践混成一团。</p>
+        </div>
+        <div class="map">
+          <div class="map-item"><strong>模型与训练</strong><span>Transformer、pre-training、scaling、alignment、reasoning models。</span></div>
+          <div class="map-item"><strong>Agent 模式</strong><span>workflow、agent loop、state graph、multi-agent handoff。</span></div>
+          <div class="map-item"><strong>工程 Harness</strong><span>repo、shell、test、patch、trace、sandbox、human-in-the-loop。</span></div>
+          <div class="map-item"><strong>协议与生态</strong><span>MCP、A2A、Agents SDK、ADK、平台治理和互操作。</span></div>
+        </div>
+      </section>
 
-        <figure class="stage-figure">
-          <img src="./stage-01-transformer-summary-v5.png" alt="Stage 01 Transformer 与预训练语言模型信息图">
-          <figcaption>一图压缩：2017-2019 语言建模底座时代，从 RNN/LSTM 的长距离与并行瓶颈，到 self-attention 机制突破，再到 BERT、GPT-2、Hugging Face Transformers 与 Google Search × BERT 的工业产物。</figcaption>
-        </figure>
-
-        <section class="module detailed">
-          <div class="module-label rowspan">起点瓶颈</div>
-          <div class="sub-label">论述</div>
-          <div class="module-body">
-            <p>
-              2017 年以前，处理文本序列的主流路线长期依赖
-              <button class="term" type="button" data-term="rnn">RNN</button>
-              及其改进模型，例如
-              <button class="term" type="button" data-term="lstm">LSTM</button>。
-              LSTM 缓解了早期 RNN 的 <button class="term" type="button" data-term="long-time-lag">长时滞训练</button> 问题，但它仍然属于循环序列模型：信息需要沿时间步一格一格传递，
-              训练也难以像后来的 <button class="term" type="button" data-term="attention-arch">attention 架构</button> 那样在序列维度充分并行。真正的起点瓶颈是：
-              这条路线在
-              <button class="term" type="button" data-term="long-dependency">长距离依赖</button>
-              和 <button class="term" type="button" data-term="parallel-training">长序列并行训练</button> 上仍然受结构限制。
-              <button class="cite-marker" type="button" data-cite="rnn-bottleneck">[1]</button>
-              <button class="cite-marker" type="button" data-cite="transformer-complexity">[2]</button>
-            </p>
-          </div>
-
-          <div class="sub-label row-sep">例子</div>
-          <div class="module-body row-sep">
-            <div class="example-steps">
-              <div class="example-step">
-                <strong>任务</strong>
-                <span>客户问：“Acme 2023 年研发投入暴涨 32%，钱花到哪个业务上去了？”</span>
-              </div>
-              <div class="example-step">
-                <strong>原文</strong>
-                <span>“Acme Corporation, which after divesting its legacy printer division in 2022 has refocused around AI infrastructure, increased R&amp;D spending 32% in 2023 because it accelerated GPU cluster procurement and chip design hiring.”</span>
-              </div>
-              <div class="example-step">
-                <strong>关系</strong>
-                <span>模型必须知道 `it` 指的是句首的 Acme，而不是最近的 `AI infrastructure`；还要把 `GPU cluster procurement / chip design hiring` 和 `refocused around AI infrastructure` 连起来。</span>
-              </div>
-              <div class="example-step">
-                <strong>错法</strong>
-                <span>如果模型抓不住远距离关系，可能写成“研发增长来自打印业务扩张”，但原文说打印业务已经在 2022 年剥离；也可能把 `it` 错绑到 `AI infrastructure`，导致因果主体混乱。</span>
-              </div>
-              <div class="example-step">
-                <strong>对应瓶颈</strong>
-                <span>在 RNN/LSTM 中，`Acme` 的信息要沿很多 token 一步步传到 `it`，中间还夹着剥离打印业务、转向 AI 基础设施等干扰信息；文本越长，远处主语和因果关系越容易在传递中变弱。</span>
-              </div>
-            </div>
-          </div>
-
-          <div class="sub-label row-sep">证据</div>
-          <div class="module-body row-sep">
-            <table class="evidence-table">
-              <thead>
-                <tr>
-                  <th>同一指标</th>
-                  <td>RNN 系模型 vs Transformer</td>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <th>要证明的瓶颈</th>
-                  <td>在同一个机器翻译任务上，RNN 系模型即使使用 <button class="term" type="button" data-term="ensemble">ensemble</button> 和 <button class="term" type="button" data-term="rl">强化学习</button>，也在质量和训练成本上被 Transformer 拉开。</td>
-                </tr>
-                <tr>
-                  <th>翻译质量</th>
-                  <td><button class="term" type="button" data-term="wmt2014">WMT 2014</button> 英德翻译 <button class="term" type="button" data-term="bleu">BLEU</button>：<strong><button class="term" type="button" data-term="gnmt-rl">GNMT + RL Ensemble</button> 26.30</strong>；<strong><button class="term" type="button" data-term="transformer-big">Transformer (big)</button> 28.4</strong>。同任务同指标，Transformer 高出 <strong>2.10 BLEU</strong>。</td>
-                </tr>
-                <tr>
-                  <th>训练成本</th>
-                  <td>同一表中的训练 <button class="term" type="button" data-term="flops">FLOPs</button>：<strong><button class="term" type="button" data-term="gnmt-rl">GNMT + RL Ensemble</button> 1.8 × 10²⁰</strong>；<strong><button class="term" type="button" data-term="transformer-big">Transformer (big)</button> 2.3 × 10¹⁹</strong>。Transformer 用约 <strong>1/8</strong> 的训练计算量取得更高 <button class="term" type="button" data-term="bleu">BLEU</button>。</td>
-                </tr>
-                <tr>
-                  <th>结构解释</th>
-                  <td>Transformer 论文 Table 1 给出机制层解释：recurrent layer 的 <button class="term" type="button" data-term="sequential-ops">sequential operations</button> 和 <button class="term" type="button" data-term="max-path">maximum path length</button> 都是 <strong><button class="term" type="button" data-term="big-o">O(n)</button></strong>，self-attention 都是 <strong><button class="term" type="button" data-term="big-o">O(1)</button></strong>。这解释了为什么同任务下会出现“更低成本 + 更高 BLEU”的结果。</td>
-                </tr>
-                <tr>
-                  <th>来源</th>
-                  <td>Transformer 论文 Table 1 / Table 2 <button class="cite-marker" type="button" data-cite="transformer-complexity">[2]</button>；LSTM 作为 RNN 改进路线的历史背景 <button class="cite-marker" type="button" data-cite="rnn-bottleneck">[1]</button></td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-        </section>
-
-        <section class="module detailed">
-          <div class="module-label rowspan-4">突破与产出</div>
-          <div class="sub-label">论述</div>
-          <div class="module-body">
-            <p>
-              关键机制变化是：把
-              <button class="term" type="button" data-term="self-attention">self-attention</button>
-              放到序列建模的中心。每个
-              <button class="term" type="button" data-term="token">token</button>
-              不再只能沿着 RNN/LSTM 的时间步一格一格传递信息，而是可以在同一层里直接和其他位置计算相关性。
-              这就是 <button class="term" type="button" data-term="transformer">Transformer</button>
-              的核心取舍：牺牲一部分按时间递推的直觉，换来更短的信息路径和更好的序列维度并行。
-              <button class="cite-marker" type="button" data-cite="transformer-complexity">[2]</button>
-            </p>
-            <p>
-              之后的关键决策不是马上出现 agent，而是先把 Transformer 变成可复用的语言底座：
-              <button class="term" type="button" data-term="bert">BERT</button>
-              走 <button class="term" type="button" data-term="encoder">encoder</button>
-              路线，强调双向语言理解；
-              <button class="term" type="button" data-term="gpt2">GPT-2</button>
-              走 <button class="term" type="button" data-term="decoder">decoder</button>
-              路线，强调自回归生成。二者共同把
-              <button class="term" type="button" data-term="pretraining">pre-training</button>
-              变成主流范式：先在大规模文本中学习通用语言能力，再通过
-              <button class="term" type="button" data-term="finetuning">fine-tuning</button>
-              或提示适配具体任务。
-              <button class="cite-marker" type="button" data-cite="bert-gpt2">[3]</button>
-            </p>
-          </div>
-
-          <div class="sub-label row-sep">例子</div>
-          <div class="module-body row-sep example-text">
-            <div class="example-steps">
-              <div class="example-step">
-                <strong>同一任务</strong>
-                <span>客户问：“Acme 2023 年研发投入为什么上升？”模型仍然只拿到一段英文年报摘要，没有工具、没有检索、也不会自己打开财报。</span>
-              </div>
-              <div class="example-step">
-                <strong>这次变化</strong>
-                <span>在 “Acme ... increased R&amp;D because it accelerated GPU cluster procurement” 这类句子里，self-attention 允许 “it” 直接和 “Acme” 计算关系，也允许 “increased R&amp;D” 直接关注后面的 “GPU cluster procurement”。</span>
-              </div>
-              <div class="example-step">
-                <strong>解锁能力</strong>
-                <span>所以它更容易判断：研发投入上升不是因为已剥离的打印机业务，而是因为 AI 基础设施扩张；也更容易把这段英文翻译、分类、抽取成一句中文结论。</span>
-              </div>
-              <div class="example-step">
-                <strong>边界</strong>
-                <span>但它还只是“读懂给到它的文本”。如果任务变成“去找 Acme 三年年报、抽表、核算趋势、写带引用的备忘录”，这还不是当前阶段的模型能力。</span>
-              </div>
-            </div>
-          </div>
-
-          <div class="sub-label row-sep">证据</div>
-          <div class="module-body row-sep">
-            <table class="evidence-table">
-              <thead>
-                <tr>
-                  <th>能力维度</th>
-                  <td>对照结果</td>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <th>机器翻译</th>
-                  <td>
-                    Transformer (big) 在 WMT 2014 英德翻译达到
-                    <button class="term" type="button" data-term="bleu">28.4 BLEU</button>，
-                    英法翻译达到 41.8 BLEU；同一论文还给出比 GNMT + RL Ensemble 更高的英德 BLEU 和更低训练 FLOPs。
-                    <button class="cite-marker" type="button" data-cite="transformer-complexity">[2]</button>
-                  </td>
-                </tr>
-                <tr>
-                  <th>语言理解</th>
-                  <td>
-                    BERT 在
-                    <button class="term" type="button" data-term="glue">GLUE</button>
-                    上达到 80.5，论文摘要报告相对先前系统提升 7.7 个百分点；Google Research 官方博客也报告 BERT 在 GLUE 上带来 7.6 个百分点绝对提升。
-                    <button class="cite-marker" type="button" data-cite="bert-gpt2">[3]</button>
-                  </td>
-                </tr>
-                <tr>
-                  <th>产品落地</th>
-                  <td>
-                    Google 2019 年把 BERT 用到 Search 的 ranking 和 featured snippets，官方称它会帮助 Search 更好理解美国英语里约 10% 的搜索。
-                    <button class="cite-marker" type="button" data-cite="google-search-bert">[4]</button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div class="sub-label row-sep">产物</div>
-          <div class="module-body row-sep">
-            <table class="evidence-table">
-              <thead>
-                <tr>
-                  <th>类型</th>
-                  <td>名称</td>
-                  <td>说明</td>
-                  <td>具体应用</td>
-                  <td>来源</td>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <th>架构</th>
-                  <td><button class="term" type="button" data-term="transformer">Transformer</button></td>
-                  <td>以 <button class="term" type="button" data-term="self-attention">self-attention</button> 为核心的序列建模架构。</td>
-                  <td>先在机器翻译上验证，后来成为主流大语言模型的底层骨架。</td>
-                  <td><button class="cite-marker" type="button" data-cite="transformer-complexity">[2]</button></td>
-                </tr>
-                <tr>
-                  <th>模型</th>
-                  <td><button class="term" type="button" data-term="bert">BERT</button></td>
-                  <td><button class="term" type="button" data-term="encoder">encoder-only</button> Transformer，使用双向预训练做语言理解。</td>
-                  <td>可做问答、分类、检索理解；随后进入 Google Search 的查询理解与排序。</td>
-                  <td><button class="cite-marker" type="button" data-cite="bert-gpt2">[3]</button> <button class="cite-marker" type="button" data-cite="google-search-bert">[4]</button></td>
-                </tr>
-                <tr>
-                  <th>模型</th>
-                  <td><button class="term" type="button" data-term="gpt2">GPT-2</button></td>
-                  <td><button class="term" type="button" data-term="decoder-only">decoder-only</button> Transformer，自回归生成文本。</td>
-                  <td>展示开放文本生成、<button class="term" type="button" data-term="zero-shot">零样本</button>任务迁移和更通用的生成式语言模型路线。</td>
-                  <td><button class="cite-marker" type="button" data-cite="bert-gpt2">[3]</button></td>
-                </tr>
-                <tr>
-                  <th>框架/库</th>
-                  <td><button class="term" type="button" data-term="hf-transformers">Hugging Face Transformers</button></td>
-                  <td>开源模型库，把 BERT、GPT-2 等预训练模型封装成开发者可调用组件。</td>
-                  <td>开发者可以加载预训练模型、用 pipeline 做推理、用 Trainer 做微调。</td>
-                  <td><button class="cite-marker" type="button" data-cite="hf-transformers">[5]</button></td>
-                </tr>
-                <tr>
-                  <th>产品集成</th>
-                  <td>Google Search × <button class="term" type="button" data-term="bert">BERT</button></td>
-                  <td>把 BERT 用在搜索查询理解、ranking 和 featured snippets 中。</td>
-                  <td>官方 2019 年公告称影响美国英语约 10% 搜索，尤其是长查询和介词关系。</td>
-                  <td><button class="cite-marker" type="button" data-cite="google-search-bert">[4]</button></td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        <section class="module">
-          <div class="module-label">仍未解决</div>
-          <div class="module-body">
-            <p>
-              这时还没有今天 LLM agent 的能力。模型主要是语言理解/生成底座，不会稳定遵循自然语言任务，
-              不会读外部文件，不会调用工具，也不会自己规划行动。
-            </p>
-          </div>
-        </section>
-
-        <section class="module">
-          <div class="module-label">易错点</div>
-          <div class="module-body">
-            <p class="warning-text">
-              <span class="inline-label">不要把架构说成 agent：</span>
-              Transformer 是模型架构，不是 agent 架构；BERT/GPT-2 也不是“会执行任务的助手”。
-            </p>
-          </div>
-        </section>
-      </article>
-
-      <div class="transition" id="next">
-        过渡：Transformer 证明“注意力架构 + 预训练”是一条可扩展路线，但应用一个新任务仍常常需要微调或专门设计。
-        下一步的关键决策是扩大规模，并让 prompt 本身成为任务接口。
-      </div>
-
-      <article class="stage" id="stage-2">
-        <header class="stage-header">
-          <div class="stage-number">Stage 02</div>
-          <div class="stage-title">
-            <h2>规模化、Foundation Model 与 In-context Learning</h2>
-            <div class="stage-era">2020-2022 上 · 规模化底座时代</div>
-            <p>prompt 从“文本开头”变成任务接口。</p>
-          </div>
-        </header>
-
-        <figure class="stage-figure">
-          <img src="./stage-02-scaling-summary-v1.png" alt="Stage 02 规模化与 In-context Learning 信息图">
-          <figcaption>一图压缩：2020-2022 上，任务接口从“每个任务单独 fine-tuning”转向“同一底座通过 prompt 临时适配任务”，但还没有外部工具或 agent 能力。</figcaption>
-        </figure>
-
-        <section class="module detailed">
-          <div class="module-label rowspan">起点瓶颈</div>
-          <div class="sub-label">论述</div>
-          <div class="module-body">
-            <p>
-              阶段一让语言能力底座变得可扩展，但使用接口仍停留在“为每个任务单独适配”的阶段。当时常见路线是
-              <button class="term" type="button" data-term="pretraining">pre-training</button>
-              加
-              <button class="term" type="button" data-term="task-finetuning">task-specific fine-tuning</button>：
-              每加一个新任务，就要重走“收集
-              <button class="term" type="button" data-term="labeled-data">标注数据</button>
-              -> <button class="term" type="button" data-term="finetuning">fine-tuning</button>
-              -> 评估 -> 部署”一遍。这条路线的结构性瓶颈不是模型不会处理文本，而是
-              <button class="term" type="button" data-term="task-interface">任务接口</button>
-              太重：每多一个任务，就多一份数据、一条训练流水线、一个分叉的
-              <button class="term" type="button" data-term="model-weights">模型权重</button>
-              副本和一个独立部署。问题因此被推到更抽象的位置：能不能让同一份训练好的权重，仅靠输入来切换任务，而不再训练？
-            </p>
-          </div>
-          <div class="sub-label row-sep">例子</div>
-          <div class="module-body row-sep example-text">
-            <div class="example-steps">
-              <div class="example-step"><strong>任务</strong><span>分析师面对同一份 Acme 年报，要同时完成三件事：把“风险因素”段落改写成客户能读的一句话摘要；把每条风险归到市场、监管、供应链、汇率等类别；根据财务表回答具体数字问题。</span></div>
-              <div class="example-step"><strong>旧做法</strong><span>三个需求等于三套 fine-tuning：分别收集摘要样本、分类标签、问答对；分别训练、上线、评估。如果客户下周又加一种需求，这条链条还要重来。</span></div>
-              <div class="example-step"><strong>关键问题</strong><span>同一个底座能否只换输入完成这些任务？这才是这一阶段的核心问题，不是“模型够不够大”。</span></div>
-            </div>
-          </div>
-          <div class="sub-label row-sep">证据</div>
-          <div class="module-body row-sep">
-            <table class="evidence-table">
-              <tbody>
-                <tr><th>路线成本</th><td>BERT 在 GLUE 上达到 80.5，是在 GLUE 9 个子任务上各自 fine-tuning 得到的结果。这个成功也暴露了旧路线的成本：同一个预训练底座之外，还要为下游任务保留各自的微调流程和权重副本。<button class="cite-marker" type="button" data-cite="bert-gpt2">[3]</button></td></tr>
-                <tr><th>问题起点</th><td>GPT-3 论文开头把当时主流路径概括为：先做大规模无监督预训练，再在下游任务上 fine-tune；论文正是从“能否减少对任务数据和任务微调的依赖”这个问题出发。<button class="cite-marker" type="button" data-cite="gpt3-foundation">[6]</button></td></tr>
-                <tr><th>要证明的瓶颈</th><td>瓶颈不是“微调没用”，而是“每个任务都要独立适配”。对企业应用来说，这意味着数据、训练、评估和部署成本随任务数增长。</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        <section class="module detailed">
-          <div class="module-label rowspan-4">突破与产出</div>
-          <div class="sub-label">论述</div>
-          <div class="module-body">
-            <p>
-              关键变化不是出现 agent，而是
-              <button class="term" type="button" data-term="scaling">scaling</button>
-              与 <button class="term" type="button" data-term="in-context-learning">in-context learning</button>
-              共同改变了模型使用方式：模型能力来自大规模预训练，任务适配则更多发生在推理时的
-              <button class="term" type="button" data-term="prompt">prompt</button>
-              上下文里。这里的“学习”不是训练时学习，不会改权重；它更像是模型根据上下文里的说明、示例和格式约束，临时条件化自己的输出。
-            </p>
-          </div>
-          <div class="sub-label row-sep">例子</div>
-          <div class="module-body row-sep example-text">
-            <div class="example-steps">
-              <div class="example-step"><strong>这次变化</strong><span>prompt 里放三条样例：“原文片段 -> 客户能看懂的一句话风险摘要”，再放 Acme 新片段。模型不需要微调，就能尝试模仿这个映射。</span></div>
-              <div class="example-step"><strong>解锁能力</strong><span>同一个模型可以用不同 prompt 临时切换任务：风险摘要、财务问答、标题生成、分类、翻译，都可以先用上下文试出来。</span></div>
-              <div class="example-step"><strong>边界</strong><span>这仍然不是工具能力。Acme 的完整年报如果没有放进上下文，模型看不到；如果上下文太长放不下，它也不会自己去检索。</span></div>
-            </div>
-          </div>
-          <div class="sub-label row-sep">证据</div>
-          <div class="module-body row-sep">
-            <table class="evidence-table">
-              <tbody>
-                <tr><th>上下文适配</th><td>GPT-3 论文报告，在 <button class="term" type="button" data-term="closed-book-qa">TriviaQA closed-book QA</button> 上，GPT-3 175B <button class="term" type="button" data-term="zero-shot">zero-shot</button> 为 64.3%、<button class="term" type="button" data-term="one-shot">one-shot</button> 为 68.0%、<button class="term" type="button" data-term="few-shot">few-shot</button> 为 71.2%。同一模型随 prompt 示例增加而改善，说明 prompt 已经成为任务接口的一部分。<button class="cite-marker" type="button" data-cite="gpt3-foundation">[6]</button></td></tr>
-                <tr><th>底座迁移</th><td>2021 年 OpenAI Codex 把 GPT 路线迁移到代码生成；GitHub Copilot 官方发布时说明它由 OpenAI Codex 驱动。这里的 Codex 是代码模型，不是后来的 coding agent。<button class="cite-marker" type="button" data-cite="codex-copilot-2021">[7]</button></td></tr>
-                <tr><th>概念锚点</th><td>Stanford 2021 报告提出 <button class="term" type="button" data-term="foundation-model">foundation model</button>：一次大规模训练出的模型，可以适配大量下游任务。这个概念把“一个底座，多种任务”的变化说清楚了。<button class="cite-marker" type="button" data-cite="gpt3-foundation">[6]</button></td></tr>
-              </tbody>
-            </table>
-          </div>
-          <div class="sub-label row-sep">产物</div>
-          <div class="module-body row-sep">
-            <table class="evidence-table">
-              <tbody>
-                <tr><th>API/模型</th><td><button class="term" type="button" data-term="gpt3">GPT-3</button> API：把大模型能力作为服务接口交给开发者，prompt 成为主要使用方式。<button class="cite-marker" type="button" data-cite="gpt3-foundation">[6]</button></td></tr>
-                <tr><th>代码模型</th><td><button class="term" type="button" data-term="codex-2021">OpenAI Codex</button>：把自然语言和代码生成连接起来，是 Copilot 的底层模型路线之一。<button class="cite-marker" type="button" data-cite="codex-copilot-2021">[7]</button></td></tr>
-                <tr><th>产品</th><td>GitHub Copilot：面向开发者的代码补全/建议产品，不是自治 agent，而是 IDE 内的模型能力入口。<button class="cite-marker" type="button" data-cite="codex-copilot-2021">[7]</button></td></tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        <section class="module"><div class="module-label">仍未解决</div><div class="module-body"><p>模型仍更像“补全引擎”。它只能处理 prompt 里放得下的内容，不能访问最新年报或私有资料，也不保证按用户真实意图安全、有用地回答。</p></div></section>
-        <section class="module"><div class="module-label">易错点</div><div class="module-body"><p class="warning-text"><span class="inline-label">不要把上下文学习说成工具能力：</span>in-context learning 是用输入引导模型，不等于模型有外部记忆、文件访问或行动能力。</p></div></section>
-      </article>
-
-      <div class="transition">过渡：规模化模型让 prompt 变强，但用户真正想要的是“听得懂要求、按要求完成任务”的助手，而不是只会续写文本的模型。下一步的关键决策是 instruction alignment。</div>
-
-      <article class="stage" id="stage-3">
-        <header class="stage-header"><div class="stage-number">Stage 03</div><div class="stage-title"><h2>Instruction Alignment 与产品化助手</h2><div class="stage-era">2022 中-2023 上 · 助手对齐时代</div><p>模型开始更像“听指令的助手”。</p></div></header>
-        <figure class="stage-figure">
-          <img src="./stage-03-alignment-summary-v1.png" alt="Stage 03 Instruction Alignment 与产品化助手信息图">
-          <figcaption>一图压缩：2022 中-2023 上，训练目标从纯续写推进到助手对齐，SFT、reward model、RLHF 和 Constitutional AI 让模型更接近按用户意图协作。</figcaption>
-        </figure>
-        <section class="module detailed">
-          <div class="module-label rowspan">起点瓶颈</div><div class="sub-label">论述</div><div class="module-body"><p>阶段二让 <button class="term" type="button" data-term="prompt">prompt</button> 成为任务接口，但预训练语言模型的核心训练目标仍是 <button class="term" type="button" data-term="language-modeling-objective">language modeling objective</button>：根据上下文做 <button class="term" type="button" data-term="next-token-prediction">next-token prediction</button>。这个目标能训练出强大的语言续写能力，却不等于模型会稳定遵循 <button class="term" type="button" data-term="user-intent">用户意图</button>。当用户开始用自然语言提出任务时，真正暴露的瓶颈变成 <button class="term" type="button" data-term="alignment-gap">alignment gap</button>：模型生成“像答案的文本”，和输出 <button class="term" type="button" data-term="helpful-honest-harmless">helpful / honest / harmless</button> 的助手回复，不是同一件事。</p></div>
-          <div class="sub-label row-sep">例子</div><div class="module-body row-sep example-text"><div class="example-steps"><div class="example-step"><strong>任务</strong><span>用户把 Acme 年报片段贴给模型，并说：“请给客户写一段风险备忘录。只使用我给的材料；每个判断都附原文依据；如果证据不足，直接说证据不足；语气要给非技术客户也能读懂。”</span></div><div class="example-step"><strong>问题</strong><span>纯续写型模型可能会写出一段很像咨询备忘录的文本，但它优化的是“下一段最像什么”，不是“是否严格遵守每条要求”。它可能补一个看似合理但材料里没有的风险，可能不给出处，也可能把“证据不足”写成确定结论。</span></div><div class="example-step"><strong>瓶颈</strong><span>所以这里缺的不是更会写，而是让模型把“用户给出的约束”当成行为目标：要有用、诚实、按要求做，并在不能做时明确边界。</span></div></div></div>
-          <div class="sub-label row-sep">证据</div><div class="module-body row-sep"><table class="evidence-table"><tbody><tr><th>目标错配</th><td><button class="term" type="button" data-term="instructgpt">InstructGPT</button> 论文把问题明确表述为：语言模型目标和“遵循用户意图”并不一致；论文因此引入对齐方法，在突破侧详述。<button class="cite-marker" type="button" data-cite="instructgpt-chatgpt">[8]</button></td></tr><tr><th>真实偏差</th><td><button class="term" type="button" data-term="truthfulqa">TruthfulQA</button> 用 817 个容易诱发错误信念的问题测试模型；论文报告，较大的 GPT-3 模型在真实性上反而低于较小模型，说明“规模更大”不会自动等于“更诚实地回答用户”。<button class="cite-marker" type="button" data-cite="truthfulqa">[21]</button></td></tr><tr><th>人类基线差距</th><td>TruthfulQA 论文报告，表现最好的 GPT-3-175B helpful prompt 在生成任务上 58% truthful、21% truthful and informative；人类基线为 94% truthful、87% truthful and informative。这个差距直接证明“像人类文本”仍远未等于“真实且有用地回答”。<button class="cite-marker" type="button" data-cite="truthfulqa">[21]</button></td></tr></tbody></table></div>
-        </section>
-        <section class="module detailed">
-          <div class="module-label rowspan-4">突破与产出</div><div class="sub-label">论述</div><div class="module-body"><p>关键变化是 <button class="term" type="button" data-term="alignment">instruction alignment</button>：后训练阶段不再只让模型预测下一个 token，而是把“人类希望怎样回答”显式放进训练。<button class="term" type="button" data-term="sft">SFT</button> 用人工写好的指令-答案样本教模型基本助手格式；<button class="term" type="button" data-term="reward-model">reward model</button> 从人类偏好比较里学习“哪个回答更好”；<button class="term" type="button" data-term="rlhf">RLHF</button> 再用这个奖励信号优化模型输出。Anthropic 的 <button class="term" type="button" data-term="constitutional-ai">Constitutional AI</button> 则把一组原则引入自我批判和改写过程，减少对逐条人工反馈的依赖。这里形成的是 <button class="term" type="button" data-term="assistant-behavior">assistant behavior</button>，还不是 agent loop。</p></div>
-          <div class="sub-label row-sep">例子</div><div class="module-body row-sep example-text"><div class="example-steps"><div class="example-step"><strong>这次变化</strong><span>同样是 Acme 风险备忘录，对齐后的助手更可能先确认材料范围，再按“结论、依据、风险、缺口”组织输出；当材料里没有引用时，它更应该说“当前片段不足以支持这个判断”，而不是补一个漂亮但不存在的出处。</span></div><div class="example-step"><strong>解锁能力</strong><span>用户不再需要把任务伪装成续写题，也不必写一堆 <button class="term" type="button" data-term="few-shot">few-shot</button> 示例来暗示格式。自然语言指令本身开始成为可靠交互方式，模型行为更接近“按要求协作”。</span></div><div class="example-step"><strong>边界</strong><span>它仍然只处理已经给到上下文里的材料。没有外部文件访问、检索、计算器或执行环境时，它不会自己打开年报、核对引用、重试失败步骤。</span></div></div></div>
-          <div class="sub-label row-sep">证据</div><div class="module-body row-sep"><table class="evidence-table"><tbody><tr><th>偏好提升</th><td>Ouyang et al. 2022 的人类偏好评估报告：在论文测试分布上，1.3B <button class="term" type="button" data-term="instructgpt">InstructGPT</button> 输出被偏好于 175B GPT-3。这里证明的是“对齐训练改变人类偏好质量”，不是“模型一定更事实正确”。<button class="cite-marker" type="button" data-cite="instructgpt-chatgpt">[8]</button></td></tr><tr><th>训练路径</th><td><button class="term" type="button" data-term="instructgpt">InstructGPT</button> 论文给出 SFT、reward model、RLHF 的三步后训练流程；这说明突破来自训练目标和反馈机制变化，而不是 ChatGPT 这个产品名字本身。<button class="cite-marker" type="button" data-cite="instructgpt-chatgpt">[8]</button></td></tr><tr><th>安全权衡</th><td>Constitutional AI 论文展示了用原则驱动自我批判、改写和 AI feedback 的路径，目标是在 helpfulness 与 harmlessness 之间改善权衡。<button class="cite-marker" type="button" data-cite="constitutional-ai">[9]</button></td></tr><tr><th>产品门槛</th><td>OpenAI 于 2022-11-30 发布 <button class="term" type="button" data-term="chatgpt">ChatGPT</button>；Anthropic 于 2023-03-14 发布 <button class="term" type="button" data-term="claude">Claude</button>；OpenAI 于 2023-03-14 发布 <button class="term" type="button" data-term="gpt4">GPT-4</button>。这说明“助手式交互”从研究训练方法进入大众产品入口。<button class="cite-marker" type="button" data-cite="assistant-products">[22]</button></td></tr></tbody></table></div>
-          <div class="sub-label row-sep">产物</div><div class="module-body row-sep"><table class="evidence-table"><tbody><tr><th>训练方法</th><td>SFT + RLHF：把人工示范、人类偏好和强化学习组合成 instruction-following 的后训练路线；代表产物是 <button class="term" type="button" data-term="instructgpt">InstructGPT</button> 和 ChatGPT 背后的对齐训练。<button class="cite-marker" type="button" data-cite="instructgpt-chatgpt">[8]</button></td></tr><tr><th>训练方法</th><td>Constitutional AI：用原则驱动模型自我批判、修正和 AI feedback；代表 Anthropic 的对齐研究路线。<button class="cite-marker" type="button" data-cite="constitutional-ai">[9]</button></td></tr><tr><th>产品入口</th><td>ChatGPT：产品化对话接口，不是底层架构名；它是模型、对齐、服务、UI、安全策略的组合。<button class="cite-marker" type="button" data-cite="instructgpt-chatgpt">[8]</button></td></tr><tr><th>产品入口</th><td>Claude：Anthropic 的助手产品入口，强调有用、诚实、无害和可控的交互体验。<button class="cite-marker" type="button" data-cite="assistant-products">[22]</button></td></tr><tr><th>模型</th><td>GPT-4：OpenAI 2023 年发布的多模态大模型，通过 ChatGPT Plus 和 API 提供；它是模型，不是 agent 编排框架。<button class="cite-marker" type="button" data-cite="assistant-products">[22]</button></td></tr></tbody></table></div>
-        </section>
-        <section class="module"><div class="module-label">仍未解决</div><div class="module-body"><p>它仍主要是在“回答”。没有天然读文件能力，没有外部工具权限，没有可靠长流程状态，也不能在执行失败后自动重试。</p></div></section>
-        <section class="module"><div class="module-label">易错点</div><div class="module-body"><p class="warning-text"><span class="inline-label">不要把 ChatGPT 当成架构：</span>ChatGPT 是产品入口；它背后包含模型、对齐、服务、UI 和安全策略。</p></div></section>
-      </article>
-
-      <div class="transition">过渡：助手会听指令以后，用户开始提出更复杂的问题：先找证据、再计算、再写结论、再检查引用。下一步的关键决策是加入推理原语和行动原语。</div>
-
-      <article class="stage" id="stage-4">
-        <header class="stage-header"><div class="stage-number">Stage 04</div><div class="stage-title"><h2>推理原语与行动原语</h2><div class="stage-era">2022 末-2023 上 · 推理行动原语时代</div><p>从“直接回答”走向“分步骤 + 请求工具”。</p></div></header>
-        <figure class="stage-figure">
-          <img src="./stage-04-reason-act-summary-v1.png" alt="Stage 04 推理原语与行动原语信息图">
-          <figcaption>一图压缩：2022 末-2023 上，CoT、self-consistency、Toolformer、Plugins 和 Function Calling 把“分步骤”和“请求工具”变成可组合原语。</figcaption>
-        </figure>
-        <section class="module detailed">
-          <div class="module-label rowspan">起点瓶颈</div><div class="sub-label">论述</div><div class="module-body"><p>阶段三让模型更像助手，但真实任务往往不是单问单答。它同时需要 <button class="term" type="button" data-term="multi-step-reasoning">多步推理</button> 和触达模型权重之外的 <button class="term" type="button" data-term="external-action">外部能力</button>。如果系统只要求模型直接吐出最终答案，推理上的 <button class="term" type="button" data-term="intermediate-steps">中间步骤</button> 不可检查，行动上的 <button class="term" type="button" data-term="structured-action">结构化动作</button> 也没有接口。瓶颈从“愿不愿意按要求回答”推进到“能不能把思考过程拆开，并把外部动作表达成可执行请求”。</p></div>
-          <div class="sub-label row-sep">例子</div><div class="module-body row-sep example-text"><div class="example-steps"><div class="example-step"><strong>任务</strong><span>用户问：“请基于 Acme 年报，找出 2021-2023 年研发投入，计算 <button class="term" type="button" data-term="cagr">CAGR</button>，并解释研发投入变化是否带来经营风险。”这不是一句摘要题，而是查数、算数、解释、引用四件事连在一起。</span></div><div class="example-step"><strong>问题</strong><span>如果模型只能直接回答，它可能写出“研发投入持续增长，风险可控”这种顺滑结论，却没有列出三年数字、没有展示公式、没有说明风险来自哪一段材料，也无法请求计算器核算。</span></div><div class="example-step"><strong>瓶颈</strong><span>这里缺的不是更漂亮的表达，而是把任务拆成可检查步骤，并把“查表、计算、检索、读取文件”这类动作变成系统能执行的接口。</span></div></div></div>
-          <div class="sub-label row-sep">证据</div><div class="module-body row-sep"><table class="evidence-table"><tbody><tr><th>推理被压扁</th><td><button class="term" type="button" data-term="chain-of-thought">Chain-of-Thought</button> 论文中的基线能证明瓶颈本身：PaLM 540B 在 <button class="term" type="button" data-term="gsm8k">GSM8K</button> 上使用 standard prompting 只有 17.9%。这说明强模型直接给最终答案时，多步数学推理仍明显不足。<button class="cite-marker" type="button" data-cite="cot-tools">[10]</button></td></tr><tr><th>行动缺位</th><td>Toolformer 论文把问题表述为：语言模型可以背很多知识，却仍会在精确计算、事实查询、翻译等场景受限；它研究的正是模型何时应该调用 API。OpenAI 后续发布 Function Calling，也说明工程上需要把外部动作变成结构化接口。<button class="cite-marker" type="button" data-cite="function-toolformer">[11]</button></td></tr></tbody></table></div>
-        </section>
-        <section class="module detailed">
-          <div class="module-label rowspan-4">突破与产出</div><div class="sub-label">论述</div><div class="module-body"><p>这一阶段出现两类积木。<button class="term" type="button" data-term="reasoning-primitive">推理原语</button> 让模型把问题分成中间步骤，例如 <button class="term" type="button" data-term="chain-of-thought">Chain-of-Thought</button> 和 <button class="term" type="button" data-term="self-consistency">Self-Consistency</button>；<button class="term" type="button" data-term="action-primitive">行动原语</button> 让模型用结构化格式请求外部函数、检索、计算器或 API，例如 <button class="term" type="button" data-term="function-calling">Function Calling</button>、<button class="term" type="button" data-term="chatgpt-plugins">ChatGPT Plugins</button> 和 <button class="term" type="button" data-term="toolformer">Toolformer</button>。但这还不是 agent：它只提供“推理步骤”和“动作接口”，没有自动管理完整任务流程。</p></div>
-          <div class="sub-label row-sep">例子</div><div class="module-body row-sep example-text"><div class="example-steps"><div class="example-step"><strong>这次变化</strong><span>模型不再直接写结论，而是先展开：“1. 找 2021-2023 R&D expense；2. 记录出处；3. 调用计算函数算 CAGR；4. 对照风险因素章节；5. 最后写客户备忘录。”</span></div><div class="example-step"><strong>工具接口</strong><span>如果系统提供函数，模型可以输出 <button class="term" type="button" data-term="json">JSON</button> 形式的请求，例如 `{"name":"calculate_cagr","arguments":{"values":[120,150,210]}}`。真正执行函数的是外层系统，不是模型文本本身。</span></div><div class="example-step"><strong>边界</strong><span>模型能提出下一步和工具请求，但谁来管理多次调用、失败重试、权限、停止条件，还没有被这个阶段统一解决。</span></div></div></div>
-          <div class="sub-label row-sep">证据</div><div class="module-body row-sep"><table class="evidence-table"><tbody><tr><th>推理原语</th><td>在同一 PaLM 540B 和 GSM8K 任务上，standard prompting 是 17.9%，Chain-of-Thought prompting 提升到 56.9%；Self-Consistency 在 GSM8K 上进一步报告 74.4%。这说明“显式中间步骤”和“多路径投票”带来可测量增益。<button class="cite-marker" type="button" data-cite="cot-tools">[10]</button></td></tr><tr><th>行动原语</th><td>OpenAI 2023-06-13 发布 Function Calling，让模型返回包含函数名和参数的结构化调用请求；Toolformer 论文则从研究侧探索语言模型学习调用 API 的机制。<button class="cite-marker" type="button" data-cite="function-toolformer">[11]</button></td></tr><tr><th>产品化入口</th><td>OpenAI 2023-03-23 发布 ChatGPT Plugins，把 ChatGPT 接入浏览器、代码解释器和第三方服务；这标志着“对话助手调用外部能力”进入产品形态。<button class="cite-marker" type="button" data-cite="function-toolformer">[11]</button></td></tr></tbody></table></div>
-          <div class="sub-label row-sep">产物</div><div class="module-body row-sep"><table class="evidence-table"><thead><tr><th>类型</th><th>名称</th><th>一句话说明</th><th>具体应用</th><th>来源</th></tr></thead><tbody><tr><td>推理技巧</td><td>Chain-of-Thought</td><td>让模型显式写出中间推理步骤。</td><td>数学题、常识推理、分步分析。</td><td><button class="cite-marker" type="button" data-cite="cot-tools">[10]</button></td></tr><tr><td>推理技巧</td><td>Self-Consistency</td><td>采样多条推理路径，再用投票得到答案。</td><td>降低单条推理链偶然错误。</td><td><button class="cite-marker" type="button" data-cite="cot-tools">[10]</button></td></tr><tr><td>产品功能</td><td>ChatGPT Plugins</td><td>把对话助手接入外部服务。</td><td>浏览网页、调用 Wolfram、连接 Expedia/Zapier 等服务。</td><td><button class="cite-marker" type="button" data-cite="function-toolformer">[11]</button></td></tr><tr><td>API</td><td>OpenAI Function Calling</td><td>让模型输出函数名和参数。</td><td>开发者执行搜索、计算、数据库查询、业务 API。</td><td><button class="cite-marker" type="button" data-cite="function-toolformer">[11]</button></td></tr><tr><td>研究方向</td><td>Toolformer</td><td>研究模型如何学习何时调用 API。</td><td>计算器、检索、翻译等外部工具调用学习。</td><td><button class="cite-marker" type="button" data-cite="function-toolformer">[11]</button></td></tr></tbody></table></div>
-        </section>
-        <section class="module"><div class="module-label">仍未解决</div><div class="module-body"><p>推理原语和工具调用只是积木。它们不能自动组织完整任务，也没有天然状态、重试、分支、权限、停止条件和错误恢复。</p></div></section>
-        <section class="module"><div class="module-label">易错点</div><div class="module-body"><p class="warning-text"><span class="inline-label">Function calling 不是 agent：</span>它只是让模型能请求外部函数；是否形成 agent，取决于外层是否有观察、决策、执行和反馈循环。</p></div></section>
-      </article>
-
-      <div class="transition">过渡：一旦有了“会想步骤”和“能叫工具”的积木，工程问题就变成：谁来组织多次模型调用、多次工具调用、检索、状态和错误处理？这就是 LLM 语境下 orchestration 进入主舞台的原因。</div>
-
-      <article class="stage" id="stage-5">
-        <header class="stage-header"><div class="stage-number">Stage 05</div><div class="stage-title"><h2>第一代 Orchestration：静态 Workflow 与动态 Agent Loop</h2><div class="stage-era">2022-2023 · 第一代编排(Orchestration)时代</div><p>代码控制流程，与模型动态决策开始分叉。</p></div></header>
-        <figure class="stage-figure">
-          <img src="./stage-05-orchestration-summary-v1.png" alt="Stage 05 第一代 Orchestration 信息图">
-          <figcaption>一图压缩：2022-2023，RAG、ReAct、LangChain 等把模型、检索、工具、状态和控制流组织起来，静态 workflow 与动态 agent loop 开始分叉。</figcaption>
-        </figure>
-        <section class="module detailed">
-          <div class="module-label rowspan">起点瓶颈</div><div class="sub-label">论述</div><div class="module-body"><p>阶段四让模型有了推理与行动积木，但单次调用仍无法承担一个完整任务。真实应用需要把多次模型调用、多次工具调用、外部检索、中间状态、错误处理组织起来。瓶颈从“积木有没有”变成“谁来组织积木”：<button class="term" type="button" data-term="control-flow">控制流</button>、<button class="term" type="button" data-term="state">状态</button>、<button class="term" type="button" data-term="retry">重试</button>、<button class="term" type="button" data-term="stopping">停止条件</button>、<button class="term" type="button" data-term="grounding">事实接地</button> 这些工程问题，在一个 prompt 里没有稳定位置。</p></div>
-          <div class="sub-label row-sep">例子</div><div class="module-body row-sep example-text"><div class="example-steps"><div class="example-step"><strong>任务</strong><span>Acme 完整年报在 PDF 里，用户要求：“给出 2021-2023 年研发投入趋势，解释相关风险，并且每个数字和风险判断都附原文引用。”</span></div><div class="example-step"><strong>单次调用问题</strong><span>即使模型会写步骤、会提出工具请求，一次调用也无法稳定完成整条链路：先要读取 PDF，再切分页面，再检索相关段落，再抽取表格数字，再计算趋势，再验证引用，最后生成备忘录。任何一步失败，后续结论都可能建立在错误上。</span></div><div class="example-step"><strong>瓶颈</strong><span>缺的是流程层：它要记录已经找到哪些证据、调用过哪些工具、哪一步失败、是否需要换策略，以及什么时候可以停止。</span></div></div></div>
-          <div class="sub-label row-sep">证据</div><div class="module-body row-sep"><table class="evidence-table"><tbody><tr><th>外部知识瓶颈</th><td>RAG 论文把知识密集型任务的基线问题说得很直观：closed-book 生成模型只依赖参数记忆；论文列出的 T5-11B closed-book Natural Questions 结果为 34.5 EM，说明“只靠模型记忆回答外部知识”存在上限。<button class="cite-marker" type="button" data-cite="rag-chains-react">[12]</button></td></tr><tr><th>流程组织瓶颈</th><td><button class="term" type="button" data-term="ai-chains">AI Chains</button>、<button class="term" type="button" data-term="promptchainer">PromptChainer</button> 和 <button class="term" type="button" data-term="decomposed-prompting">Decomposed Prompting</button> 都把复杂任务拆成多个 prompt 或子任务来研究；这说明问题已经从单次生成扩展到“多步 LLM 应用如何组合、检查和调试”。<button class="cite-marker" type="button" data-cite="rag-chains-react">[12]</button></td></tr></tbody></table></div>
-        </section>
-        <section class="module detailed">
-          <div class="module-label rowspan-4">突破与产出</div><div class="sub-label">论述</div><div class="module-body"><p>这里出现两条分叉。<button class="term" type="button" data-term="static-workflow">静态 workflow</button> 是代码决定下一步，例如“切文档 -> 检索 -> 摘要 -> 校验引用”；<button class="term" type="button" data-term="dynamic-agent-loop">动态 agent loop</button> 是模型读取 <button class="term" type="button" data-term="observation">observation</button> 后决定下一步。<button class="term" type="button" data-term="orchestration">Orchestration</button> 开始成为组织模型、prompt、工具、检索、状态和控制流的工程层。</p><blockquote class="note-quote"><p>这里几个常被混用的词其实在不同层：<button class="term" type="button" data-term="rag">RAG</button> 是“接入外部知识”的模式；<button class="term" type="button" data-term="prompt-chaining">prompt chaining</button> 是“把多次 LLM 调用串成预设步骤”的方法；<button class="term" type="button" data-term="langchain">LangChain</button> 是“把模型、检索、工具、memory 组合起来”的工程框架；<button class="term" type="button" data-term="react">ReAct</button> 是“模型根据 observation 动态决定下一步”的 agent loop 方法。</p><p>RAG 和 prompt chaining 通常落在静态 workflow 一侧，ReAct 是动态 agent loop 的代表，LangChain 则是承载这些模式的工程层。</p></blockquote></div>
-          <div class="sub-label row-sep">例子</div><div class="module-body row-sep example-text"><div class="example-steps"><div class="example-step"><strong>静态 workflow</strong><span>上传 PDF -> 切块并生成 <button class="term" type="button" data-term="embedding">embedding</button> -> 存入 <button class="term" type="button" data-term="vector-store">vector store</button> -> 检索研发投入和风险因素 -> 抽取数字 -> 计算趋势 -> 生成备忘录 -> 检查引用。这里下一步由代码写死。</span></div><div class="example-step"><strong>动态 agent loop</strong><span>如果 `R&amp;D expense` 找不到，模型根据 observation 改搜 `research and development costs`、`technology investment` 或表格脚注；如果表格解析失败，它可以选择换 OCR、换页码或向用户追问。这里下一步由模型根据观察决定。</span></div><div class="example-step"><strong>区别</strong><span>workflow 强在可控和可复现；agent loop 强在遇到未预设状态时能换策略。但早期 agent loop 往往成本高、脆弱、难评估。</span></div></div></div>
-          <div class="sub-label row-sep">证据</div><div class="module-body row-sep"><table class="evidence-table"><tbody><tr><th>静态 workflow</th><td>RAG-Sequence 在 Natural Questions 上报告 44.5 EM，高于同论文列出的 T5-11B closed-book 34.5 EM；这说明“检索外部文档 -> 再生成答案”的组织方式能缓解参数记忆不足。<button class="cite-marker" type="button" data-cite="rag-chains-react">[12]</button></td></tr><tr><th>任务拆解</th><td>PromptChainer 提供可视化 prompt chain 调试；Decomposed Prompting 用多个子问题/子程序处理复杂任务。这些工作支撑静态 workflow 的工程化路线。<button class="cite-marker" type="button" data-cite="rag-chains-react">[12]</button></td></tr><tr><th>动态循环</th><td>ReAct 把 reasoning、action、observation 放在同一个循环；论文报告在 ALFWorld 和 WebShop 上相对 imitation learning / reinforcement learning 方法分别提升 34 和 10 个绝对百分点。<button class="cite-marker" type="button" data-cite="rag-chains-react">[12]</button></td></tr><tr><th>框架化</th><td>LangChain 文档把它定位为构建 LLM 应用和 agents 的框架，用来组合模型、检索、工具、memory 等部件；它不是模型，也不是 agent 本体。<button class="cite-marker" type="button" data-cite="langchain-products">[13]</button></td></tr></tbody></table></div>
-          <div class="sub-label row-sep">产物</div><div class="module-body row-sep"><table class="evidence-table"><thead><tr><th>类型</th><th>名称</th><th>一句话说明</th><th>具体应用</th><th>来源</th></tr></thead><tbody><tr><td>模式</td><td>RAG</td><td>先检索外部文档，再把片段交给模型生成答案。</td><td>知识库问答、企业搜索、带引用回答。</td><td><button class="cite-marker" type="button" data-cite="rag-chains-react">[12]</button></td></tr><tr><td>框架</td><td>LangChain</td><td>组合模型、prompt、检索、工具和 memory 的 LLM 应用框架。</td><td>RAG、chain、tool calling、agent 应用。</td><td><button class="cite-marker" type="button" data-cite="langchain-products">[13]</button></td></tr><tr><td>框架</td><td><button class="term" type="button" data-term="llamaindex">LlamaIndex</button></td><td>连接私有/领域数据和 LLM 应用的数据框架。</td><td>文档索引、检索、知识助手。</td><td><button class="cite-marker" type="button" data-cite="langchain-products">[13]</button></td></tr><tr><td>早期动态 agent 演示</td><td>AutoGPT / BabyAGI</td><td>让 LLM 在循环里拆任务、排队、执行和观察结果。</td><td>2023 社区演示把 dynamic agent loop 推到大众视野，但工程稳定性有限。</td><td><button class="cite-marker" type="button" data-cite="early-agent-demos">[23]</button></td></tr><tr><td>具体产品</td><td>Glean / Perplexity / Microsoft 365 Copilot / Amazon Q Business</td><td>把检索、企业数据和生成式问答产品化。</td><td>企业搜索、带引用回答、办公数据问答、业务知识助手。</td><td><button class="cite-marker" type="button" data-cite="enterprise-rag-products">[14]</button></td></tr></tbody></table></div>
-        </section>
-        <section class="module"><div class="module-label">仍未解决</div><div class="module-body"><p>静态 workflow 可控但不灵活，遇到未预设状态就卡住；早期动态 agent 灵活但脆弱、昂贵、难评估，长链任务容易错误累积。</p></div></section>
-        <section class="module"><div class="module-label">易错点</div><div class="module-body"><p class="warning-text"><span class="inline-label">LangChain 和 RAG 都不是 agent：</span>LangChain 是应用框架，RAG 是检索增强模式；agent loop 是另一种控制流。</p></div></section>
-      </article>
-
-      <div class="transition">过渡：第一代 orchestration 让 LLM 应用真正能接文档、接工具、跑流程，但工程上暴露出状态管理、恢复能力、可观测性和安全边界不足。下一步的关键决策是把 workflow/agent 表达成更明确的状态化系统。</div>
-
-      <article class="stage" id="stage-6">
-        <header class="stage-header"><div class="stage-number">Stage 06</div><div class="stage-title"><h2>状态化 Agent 框架与生产化表达</h2><div class="stage-era">2024 · 状态化编排时代</div><p>workflow 和 agent 的边界被工程化说清楚。</p></div></header>
-        <figure class="stage-figure">
-          <img src="./stage-06-stategraph-summary-v1.png" alt="Stage 06 状态化 Agent 框架信息图">
-          <figcaption>一图压缩：2024，LangGraph、Anthropic workflow patterns、MCP 和 Computer Use 把状态、节点、checkpoint、人工接管和工具连接推到工程主线。</figcaption>
-        </figure>
-        <section class="module detailed">
-          <div class="module-label rowspan">起点瓶颈</div><div class="sub-label">论述</div><div class="module-body"><p>第一代 orchestration 能把步骤串起来，但生产任务还要求流程可以暂停、恢复、观察、回放和人工接管。瓶颈不再只是“下一步由代码还是模型决定”，而是整个任务执行过程有没有清晰的 <button class="term" type="button" data-term="stateful-workflow">有状态流程</button>：哪些信息写入 <button class="term" type="button" data-term="state">state</button>，哪些步骤是 <button class="term" type="button" data-term="node">node</button>，什么条件沿着 <button class="term" type="button" data-term="edge">edge</button> 跳转，失败后能否从 <button class="term" type="button" data-term="checkpoint">checkpoint</button> 恢复，关键节点是否允许 <button class="term" type="button" data-term="human-in-the-loop">human-in-the-loop</button>。</p></div>
-          <div class="sub-label row-sep">例子</div><div class="module-body row-sep example-text"><div class="example-steps"><div class="example-step"><strong>任务状态</strong><span>Acme 年报任务跑到一半时，系统必须知道：已检索哪些页、R&D 数字是否已抽取、引用是否回到原文验证、表格解析失败了几次、是否等客户确认风险措辞。</span></div><div class="example-step"><strong>失败路径</strong><span>如果表格解析失败，系统应跳到“换解析器 / 重新检索 / 请求人工确认”节点，而不是带着空数字继续生成备忘录。</span></div><div class="example-step"><strong>瓶颈</strong><span>缺的是能表达状态、节点、边、恢复点和人工介入的流程结构，而不是再多写一个 prompt。</span></div></div></div>
-          <div class="sub-label row-sep">证据</div><div class="module-body row-sep"><table class="evidence-table"><tbody><tr><th>边界混乱</th><td>Anthropic 的 Building Effective Agents 明确区分 workflow 和 agent：workflow 通过预定义代码路径编排 LLM 与工具，agent 则由 LLM 动态指导自身流程和工具使用。这说明业界需要把“代码控制”和“模型动态控制”的边界工程化说清楚。<button class="cite-marker" type="button" data-cite="anthropic-effective-agents">[15]</button></td></tr><tr><th>长流程需求</th><td>LangGraph 文档把目标放在 long-running、stateful workflow 和 agent，并强调 durable execution、persistence、streaming、human-in-the-loop 等能力；这些能力正对应“流程能否恢复、观察和人工接管”的瓶颈。<button class="cite-marker" type="button" data-cite="langgraph-mcp">[16]</button></td></tr><tr><th>证据边界</th><td>这一阶段更多是工程框架和架构经验材料，不是一个统一 benchmark。因此文档只引用框架能力和架构定义，不伪造“状态图成功率”数字。</td></tr></tbody></table></div>
-        </section>
-        <section class="module detailed">
-          <div class="module-label rowspan-4">突破与产出</div><div class="sub-label">论述</div><div class="module-body"><p>关键变化是 <button class="term" type="button" data-term="state-graph">state graph</button>：把任务表达成有状态的图。节点表示步骤，边表示跳转，state 保存文档片段、工具结果、错误、重试次数、人工审批结果和最终产物。它让 workflow/agent 从“脚本拼接”走向 <button class="term" type="button" data-term="durable-execution">durable execution</button>、可审计、可暂停、可恢复的生产化表达。</p><blockquote class="note-quote"><p><button class="term" type="button" data-term="anthropic-workflow-patterns">Anthropic 5 类 workflow 模式</button> 是静态/半静态编排的官方术语锚；<button class="term" type="button" data-term="langgraph">LangGraph</button> 是状态图框架；<button class="term" type="button" data-term="autogen">AutoGen</button> 和 <button class="term" type="button" data-term="crewai">CrewAI</button> 更偏多 agent 编程/编排框架；<button class="term" type="button" data-term="mcp">MCP</button> 是工具与数据源连接协议；<button class="term" type="button" data-term="computer-use">Computer Use</button> 则把模型动作推进到 GUI/桌面环境。它们经常一起出现，但不是同一层。</p></blockquote></div>
-          <div class="sub-label row-sep">例子</div><div class="module-body row-sep example-text"><div class="example-steps"><div class="example-step"><strong>图结构</strong><span>检索年报 -> 抽取 R&D 数字 -> 计算趋势 -> 验证引用 -> 生成备忘录；每一步都把结果写入 state，下一步根据 state 决定。</span></div><div class="example-step"><strong>恢复</strong><span>引用缺失时回到“检索证据”；客户要求确认风险措辞时进入 human-in-the-loop；工具报错时从 checkpoint 恢复，而不是整条任务重跑。</span></div><div class="example-step"><strong>边界</strong><span>状态图改善控制流和恢复能力，但不会自动提高模型推理质量，也不会自动让工具安全可靠。</span></div></div></div>
-          <div class="sub-label row-sep">证据</div><div class="module-body row-sep"><table class="evidence-table"><tbody><tr><th>官方模式命名</th><td>Anthropic Building Effective Agents 列出 prompt chaining、routing、parallelization、orchestrator-workers、evaluator-optimizer 等 workflow 模式，给静态/半静态编排提供了清晰术语。<button class="cite-marker" type="button" data-cite="anthropic-effective-agents">[15]</button></td></tr><tr><th>状态图能力</th><td>LangGraph 文档将其定位为构建 long-running、stateful workflow 和 agent 的基础设施，强调 durable execution、streaming、human-in-the-loop、persistence 等能力。<button class="cite-marker" type="button" data-cite="langgraph-mcp">[16]</button></td></tr><tr><th>Checkpoint</th><td>LangGraph persistence 文档说明 checkpoint 支持 human-in-the-loop、memory、time travel debugging 和 fault-tolerant execution。<button class="cite-marker" type="button" data-cite="langgraph-mcp">[16]</button></td></tr><tr><th>多 agent 框架</th><td>AutoGen 文档将其描述为用于构建 scalable multi-agent AI systems 的事件驱动编程框架；CrewAI 官方材料将其定位为面向工程师的 multi-agent automation / orchestration 框架。<button class="cite-marker" type="button" data-cite="state-agent-frameworks">[24]</button></td></tr><tr><th>真实环境入口</th><td>Anthropic 2024-10 发布 Computer Use beta，让 Claude 通过 API 感知并操作计算机界面；这把 agent 从文本/工具调用推进到 GUI 环境。<button class="cite-marker" type="button" data-cite="computer-use-source">[27]</button></td></tr><tr><th>工具连接</th><td>Anthropic 2024 年提出 MCP，目标是把 AI assistant 连接到内容仓库、业务工具和开发环境。<button class="cite-marker" type="button" data-cite="langgraph-mcp">[16]</button></td></tr></tbody></table></div>
-          <div class="sub-label row-sep">产物</div><div class="module-body row-sep"><table class="evidence-table"><thead><tr><th>类型</th><th>名称</th><th>一句话说明</th><th>具体应用</th><th>来源</th></tr></thead><tbody><tr><td>工程定式</td><td>Anthropic 5 类 workflow 模式</td><td>官方命名 prompt chaining、routing、parallelization、orchestrator-workers、evaluator-optimizer。</td><td>静态/半静态 workflow 的术语锚定。</td><td><button class="cite-marker" type="button" data-cite="anthropic-effective-agents">[15]</button></td></tr><tr><td>状态图框架</td><td>LangGraph</td><td>用 state、node、edge 表达 long-running workflow 和 agent。</td><td>可恢复执行、人工介入、checkpoint、调试回放。</td><td><button class="cite-marker" type="button" data-cite="langgraph-mcp">[16]</button></td></tr><tr><td>多 agent 框架</td><td>AutoGen</td><td>事件驱动的多 agent AI 系统编程框架。</td><td>多个 agent 协作、工具使用、对话式任务执行。</td><td><button class="cite-marker" type="button" data-cite="state-agent-frameworks">[24]</button></td></tr><tr><td>多 agent 编排</td><td>CrewAI</td><td>面向工程师的 multi-agent automation / orchestration 框架。</td><td>角色分工、任务委派、流程自动化。</td><td><button class="cite-marker" type="button" data-cite="state-agent-frameworks">[24]</button></td></tr><tr><td>协议</td><td>MCP</td><td>连接 assistant 与工具、数据源、开发环境的开放标准。</td><td>让 agent 访问文件、数据库、业务工具、开发环境。</td><td><button class="cite-marker" type="button" data-cite="langgraph-mcp">[16]</button></td></tr><tr><td>产品能力</td><td>Anthropic Computer Use</td><td>让模型感知并操作 GUI/桌面界面。</td><td>网页、桌面、表格、开发环境等视觉/交互任务。</td><td><button class="cite-marker" type="button" data-cite="computer-use-source">[27]</button></td></tr></tbody></table></div>
-        </section>
-        <section class="module"><div class="module-label">仍未解决</div><div class="module-body"><p>状态图能改善控制和恢复，但不能自动解决模型能力、工具安全、权限边界、跨厂商互操作和评估问题。</p></div></section>
-        <section class="module"><div class="module-label">易错点</div><div class="module-body"><p class="warning-text"><span class="inline-label">状态图不是智能本身：</span>图画得再好，也不能替代模型能力、数据质量和工具可靠性。</p></div></section>
-      </article>
-
-      <div class="transition">过渡：状态化框架把“流程如何运行”说清楚了，但真正复杂的开发任务还要求模型能长时间读代码、改文件、运行命令、看失败日志并修复。下一步的关键场景是 agentic coding harness。</div>
-
-      <article class="stage" id="stage-7">
-        <header class="stage-header"><div class="stage-number">Stage 07</div><div class="stage-title"><h2>Reasoning Models 与 Agentic Coding Harness</h2><div class="stage-era">2024 下-2025 · Coding Harness 时代</div><p>模型能力与真实执行环境开始合体。</p></div></header>
-        <figure class="stage-figure">
-          <img src="./stage-07-coding-harness-summary-v2.png" alt="Stage 07 Reasoning Models 与 Coding Harness 信息图">
-          <figcaption>一图压缩：2024 下-2025，reasoning model、coding harness、repo/test feedback 叠加，推动 Claude Code、OpenAI Codex、Cursor、Devin 等 coding agent 产品化。</figcaption>
-        </figure>
-        <section class="module detailed">
-          <div class="module-label rowspan">起点瓶颈</div><div class="sub-label">论述</div><div class="module-body"><p>状态化框架能表达流程，但真实软件任务还要求 agent 进入工程环境：读仓库、定位文件、编辑代码、运行命令、看测试失败、生成 <button class="term" type="button" data-term="patch">patch</button>、隔离风险、保留日志。瓶颈从“流程能不能恢复”推进到“模型能不能在真实 <button class="term" type="button" data-term="repo-context">代码库上下文</button> 和 <button class="term" type="button" data-term="execution-environment">执行环境</button> 里闭环工作”。这需要模型能力，也需要模型外的 <button class="term" type="button" data-term="coding-harness">coding harness</button>。</p></div>
-          <div class="sub-label row-sep">例子</div><div class="module-body row-sep example-text"><div class="example-steps"><div class="example-step"><strong>任务转写</strong><span>年报任务变成：“写脚本从 Acme PDF 抽取研发投入表格，运行脚本，发现解析失败，查看日志，修解析逻辑，再生成备忘录。”</span></div><div class="example-step"><strong>真实难点</strong><span>模型不仅要知道 CAGR 怎么算，还要找到 PDF 解析代码、理解依赖、编辑文件、运行测试、根据报错改 patch，并避免破坏其他功能。</span></div><div class="example-step"><strong>瓶颈</strong><span>这已经不是问答，而是需要文件系统、shell、测试、沙箱、补丁、回滚和权限边界的执行任务。</span></div></div></div>
-          <div class="sub-label row-sep">证据</div><div class="module-body row-sep"><table class="evidence-table"><tbody><tr><th>真实任务难度</th><td><button class="term" type="button" data-term="swe-bench">SWE-bench</button> 用真实 GitHub issue 评估模型修复代码问题。OpenAI 介绍 SWE-bench Verified 时指出，截至 2024-08-05，原 SWE-bench leaderboard 上 top agents 在 SWE-bench 约 20%、SWE-bench Lite 约 43%，说明真实代码修复仍是硬问题。<button class="cite-marker" type="button" data-cite="swe-o1">[17]</button></td></tr><tr><th>评估噪声</th><td><button class="term" type="button" data-term="swe-bench-verified">SWE-bench Verified</button> 的推出说明，早期真实 issue 评估存在可执行性、描述清晰度和测试可靠性问题；要讨论 coding agent，必须关心可运行环境和评估质量。<button class="cite-marker" type="button" data-cite="swe-o1">[17]</button></td></tr></tbody></table></div>
-        </section>
-        <section class="module detailed">
-          <div class="module-label rowspan-4">突破与产出</div><div class="sub-label">论述</div><div class="module-body"><p>这里必须分两层：<button class="term" type="button" data-term="reasoning-model">reasoning model</button> 是模型能力，让模型更擅长复杂问题；<button class="term" type="button" data-term="test-time-compute">test-time compute</button> 是推理时投入更多计算来换取更可靠推理；<button class="term" type="button" data-term="coding-harness">coding harness</button> 是模型外工程系统，提供仓库读取、搜索、编辑、shell、测试、patch、权限、日志和恢复循环。真正的 <button class="term" type="button" data-term="coding-agent">coding agent</button> 是二者叠加：模型会判断，harness 让判断进入真实工程环境。</p><blockquote class="note-quote"><p><button class="term" type="button" data-term="claude-code">Claude Code</button>、<button class="term" type="button" data-term="codex-agent">OpenAI Codex</button>、<button class="term" type="button" data-term="cursor">Cursor</button>、<button class="term" type="button" data-term="devin">Devin</button> 都是 coding agent 产品形态；Aider、Cline 则代表更轻量或开源的开发者 harness 路线。注意：2021 年 Codex 是代码模型；2025 年后的 Codex 是 OpenAI 的软件工程 agent 产品线/能力，既有本地 CLI、IDE、App 配对工作形态，也有云端委派任务形态，同名但层级不同。</p></blockquote></div>
-          <div class="sub-label row-sep">例子</div><div class="module-body row-sep example-text"><div class="example-steps"><div class="example-step"><strong>Harness 做什么</strong><span>读仓库、搜索 PDF 解析代码、编辑文件、运行测试、看失败日志、提交 patch，并把这些动作记录成可审查的执行轨迹。</span></div><div class="example-step"><strong>Reasoning 做什么</strong><span>判断失败原因、设计修复步骤、决定先改解析器还是先补测试，并在多个可能路径之间取舍。</span></div><div class="example-step"><strong>边界</strong><span>它更能执行真实任务，但仍需要权限控制、成本控制、可复现环境、人工审查和回滚机制。</span></div></div></div>
-          <div class="sub-label row-sep">证据</div><div class="module-body row-sep"><table class="evidence-table"><tbody><tr><th>模型能力层</th><td>OpenAI o1 公告报告，2024 AIME 上 GPT-4o 平均解出 12%，o1 单样本为 74%。这说明 reasoning model 和 test-time compute 是模型能力层的变化，但它本身还不是 coding harness。<button class="cite-marker" type="button" data-cite="swe-o1">[17]</button></td></tr><tr><th>Harness 结果</th><td>Claude 3.7 Sonnet 公告同时发布 Claude Code，并报告在 SWE-bench Verified 489 个可运行子集上，基础 <button class="term" type="button" data-term="pass-at-1">pass@1</button> 为 63.7%，高计算设置为 70.3%。<button class="cite-marker" type="button" data-cite="claude-code-codex">[18]</button></td></tr><tr><th>工具环境</th><td>Claude Code 文档说明它能理解代码库、编辑文件、运行命令并协助开发任务；OpenAI Codex 文档/公告说明 Codex 可在隔离环境中读取、修改和运行代码。<button class="cite-marker" type="button" data-cite="claude-code-codex">[18]</button></td></tr><tr><th>产品形态</th><td>Cursor 官方文档描述其 Agent 可跨多个文件读写代码；Devin 文档描述其具备 shell、代码编辑器并能写、运行和测试代码；Aider 与 Cline 文档分别代表终端 pair programming 与编辑器内开源 coding agent 路线。<button class="cite-marker" type="button" data-cite="coding-products">[25]</button></td></tr></tbody></table></div>
-          <div class="sub-label row-sep">产物</div><div class="module-body row-sep"><table class="evidence-table"><thead><tr><th>类型</th><th>名称</th><th>一句话说明</th><th>具体应用</th><th>来源</th></tr></thead><tbody><tr><td>模型能力</td><td>OpenAI o1</td><td>强化复杂推理能力的 reasoning model。</td><td>数学、代码、科学推理等需要长链推理的任务。</td><td><button class="cite-marker" type="button" data-cite="swe-o1">[17]</button></td></tr><tr><td>本地/终端 agent</td><td>Claude Code</td><td>把 Claude 接入代码库、文件编辑和命令执行。</td><td>读仓库、改文件、运行命令、修测试失败。</td><td><button class="cite-marker" type="button" data-cite="claude-code-codex">[18]</button></td></tr><tr><td>本地 + 云端 coding agent</td><td>OpenAI Codex</td><td>本地 CLI/IDE/App 中配对工作，也可把任务委派到云端隔离环境。</td><td>本地读写仓库、运行命令和测试；云端并行修 bug、写功能、准备 PR。</td><td><button class="cite-marker" type="button" data-cite="claude-code-codex">[18]</button></td></tr><tr><td>开发环境产品</td><td>Cursor / Devin</td><td>把 coding agent 融入编辑器或云端工程环境。</td><td>多文件修改、长期任务、测试反馈、工程协作。</td><td><button class="cite-marker" type="button" data-cite="coding-products">[25]</button></td></tr><tr><td>开源/轻量 harness</td><td>Aider / Cline</td><td>把模型、repo 读写、终端或编辑器动作组合起来。</td><td>终端 pair programming、编辑器内自主代码修改。</td><td><button class="cite-marker" type="button" data-cite="coding-products">[25]</button></td></tr></tbody></table></div>
-        </section>
-        <section class="module"><div class="module-label">仍未解决</div><div class="module-body"><p>Coding harness 提升了真实任务可执行性，但仍需要权限控制、成本控制、任务评估、环境可复现、长任务监督，以及与非代码工具/其他 agent 的互通。</p></div></section>
-        <section class="module"><div class="module-label">易错点</div><div class="module-body"><p class="warning-text"><span class="inline-label">Reasoning model 和 harness 不能混为一谈：</span>一个是模型能力，一个是让模型接触真实工程环境的系统。</p></div></section>
-      </article>
-
-      <div class="transition">过渡：coding agent 证明“模型 + harness + 环境反馈”可以完成更真实的任务，但每个产品都有自己的工具接口、上下文协议和协作方式。下一步的关键决策是协议化和 SDK 化。</div>
-
-      <article class="stage" id="stage-8">
-        <header class="stage-header"><div class="stage-number">Stage 08</div><div class="stage-title"><h2>协议生态与官方 Agent SDK</h2><div class="stage-era">2025-2026 · 协议与 SDK 时代</div><p>工具连接、agent 协作和开发者原语开始标准化。</p></div></header>
-        <figure class="stage-figure">
-          <img src="./stage-08-protocol-sdk-summary-v1.png" alt="Stage 08 协议生态与官方 Agent SDK 信息图">
-          <figcaption>一图压缩：2025-2026，MCP、A2A、Agents SDK、Claude Agent SDK、Google ADK 与平台产品把工具连接、agent 交接和开发者原语分层。</figcaption>
-        </figure>
-        <section class="module detailed">
-          <div class="module-label rowspan">起点瓶颈</div><div class="sub-label">论述</div><div class="module-body"><p>Coding agent 证明了“模型 + harness + 环境反馈”能处理真实任务，但生态开始碎片化：每个 agent、工具、数据源、平台都有自己的连接方式、状态格式、权限边界和任务交接方式。瓶颈从“单个 agent 能不能干活”推进到“多个 agent、工具和平台能不能互相发现、交换任务、传递产物、保留权限边界”。这里需要 <button class="term" type="button" data-term="interoperability">互操作</button>、<button class="term" type="button" data-term="tool-protocol">工具连接协议</button> 和开发者层的 <button class="term" type="button" data-term="agent-sdk">agent SDK</button>。</p></div>
-          <div class="sub-label row-sep">例子</div><div class="module-body row-sep example-text"><div class="example-steps"><div class="example-step"><strong>多 agent</strong><span>财务文档 agent 找年报与公告，表格 agent 计算研发投入趋势，邮件 agent 写客户备忘录，CRM agent 把结果同步到客户记录。</span></div><div class="example-step"><strong>互通问题</strong><span>如果每个 agent 都用自己的工具协议、状态字段、产物格式和权限模型，财务 agent 很难把“已验证的研发投入表”安全交给邮件 agent。</span></div><div class="example-step"><strong>瓶颈</strong><span>缺的是跨系统通信对象、工具连接协议、任务交接语义，以及开发者构建 agent 时可复用的标准原语。</span></div></div></div>
-          <div class="sub-label row-sep">证据</div><div class="module-body row-sep"><table class="evidence-table"><tbody><tr><th>互操作碎片化</th><td>A2A 规范的引言把问题背景说清楚：agent 可能由不同框架、语言或供应商构建，因此需要共同语言和交互模型。这里证明的是“跨系统互操作成为瓶颈”，不是把 A2A 当作瓶颈本身。<button class="cite-marker" type="button" data-cite="a2a-openai-sdk">[19]</button></td></tr><tr><th>工具连接碎片化</th><td>MCP 公告把目标放在连接 AI assistants 与内容仓库、业务工具、开发环境；这反映出工具/数据源接入已经从单应用问题变成生态级连接问题。<button class="cite-marker" type="button" data-cite="langgraph-mcp">[16]</button></td></tr><tr><th>开发者原语碎片化</th><td>OpenAI、Anthropic、Google 分别推出 Agents SDK、Claude Agent SDK、ADK，说明开发者需要复用 agent、tool、handoff、guardrail、tracing、session 等构建原语，而不是每个项目重写一套。<button class="cite-marker" type="button" data-cite="a2a-openai-sdk">[19]</button><button class="cite-marker" type="button" data-cite="claude-agent-sdk">[26]</button><button class="cite-marker" type="button" data-cite="responses-adk-vertex">[20]</button></td></tr></tbody></table></div>
-        </section>
-        <section class="module detailed">
-          <div class="module-label rowspan-4">突破与产出</div><div class="sub-label">论述</div><div class="module-body"><p>关键变化是协议、SDK、平台三层开始分开：协议定义跨系统对象和连接方式；SDK 定义开发者构建 agent 的通用原语，例如 <button class="term" type="button" data-term="tool">tool</button>、<button class="term" type="button" data-term="handoff">handoff</button>、<button class="term" type="button" data-term="guardrail">guardrail</button>、<button class="term" type="button" data-term="tracing">tracing</button>、<button class="term" type="button" data-term="session">session</button>；平台则负责部署、治理、评估和运行。Orchestration 从“自己拼框架”走向官方 API/SDK 和跨系统协议。</p><blockquote class="note-quote"><p>MCP 偏工具/数据源连接，A2A 偏 agent 间互操作；OpenAI Agents SDK、Claude Agent SDK、Google ADK 偏开发者构建原语；Vertex AI Agent Builder / Agent Engine 这类产品偏平台化运行与治理。</p></blockquote></div>
-          <div class="sub-label row-sep">例子</div><div class="module-body row-sep example-text"><div class="example-steps"><div class="example-step"><strong>MCP 侧</strong><span>财务 agent 通过 MCP 连接年报库、数据库、文件系统或企业工具，不需要每个工具都写一套私有接入方式。</span></div><div class="example-step"><strong>A2A 侧</strong><span>财务 agent 把“已验证的研发投入表”作为 artifact 交给邮件 agent，邮件 agent 继续生成客户备忘录。</span></div><div class="example-step"><strong>SDK / 平台侧</strong><span>开发者用 Agents SDK 定义 tool、handoff、guardrail 和 trace，再把 agent 部署到平台里观察、治理和迭代。</span></div></div></div>
-          <div class="sub-label row-sep">证据</div><div class="module-body row-sep"><table class="evidence-table"><tbody><tr><th>A2A 对象</th><td><button class="term" type="button" data-term="a2a">A2A</button> 规范定义 <button class="term" type="button" data-term="agent-card">Agent Card</button>、message、task、<button class="term" type="button" data-term="artifact">artifact</button> 等对象，用于 agent 之间的发现、任务和产物交换。<button class="cite-marker" type="button" data-cite="a2a-openai-sdk">[19]</button></td></tr><tr><th>OpenAI SDK</th><td>OpenAI 2025-03-11 发布 Responses API、内置工具和 Agents SDK，并说明 Agents SDK 用于 orchestrating single-agent and multi-agent workflows。<button class="cite-marker" type="button" data-cite="a2a-openai-sdk">[19]</button></td></tr><tr><th>MCP 进入 API</th><td>OpenAI 2025-05-21 给 Responses API 加入 <button class="term" type="button" data-term="remote-mcp-server">remote MCP server</button> 支持，并称自 2025-03 发布以来已有数十万开发者使用 Responses API 处理数万亿 token。<button class="cite-marker" type="button" data-cite="responses-adk-vertex">[20]</button></td></tr><tr><th>Claude SDK</th><td>Anthropic 的 Claude Agent SDK 文档和工程文章将其描述为基于 Claude Code 构建 agents 的工具集合。<button class="cite-marker" type="button" data-cite="claude-agent-sdk">[26]</button></td></tr><tr><th>Google 生态</th><td>Google ADK 文档把 ADK 定义为开发和部署 AI agents 的模块化框架；Vertex AI Agent Builder 是 Google Cloud 用于构建、扩展和治理生产级 AI agents 的产品套件。<button class="cite-marker" type="button" data-cite="responses-adk-vertex">[20]</button></td></tr></tbody></table></div>
-          <div class="sub-label row-sep">产物</div><div class="module-body row-sep"><table class="evidence-table"><thead><tr><th>类型</th><th>名称</th><th>一句话说明</th><th>具体应用</th><th>来源</th></tr></thead><tbody><tr><td>工具/数据协议</td><td>MCP</td><td>连接 assistant/agent 与工具、数据源、开发环境。</td><td>文件系统、数据库、业务系统、代码环境接入。</td><td><button class="cite-marker" type="button" data-cite="langgraph-mcp">[16]</button></td></tr><tr><td>Agent 间协议</td><td>A2A</td><td>定义 agent 发现、任务、消息和 artifact 交换对象。</td><td>跨框架、跨供应商 agent 协作。</td><td><button class="cite-marker" type="button" data-cite="a2a-openai-sdk">[19]</button></td></tr><tr><td>SDK</td><td>OpenAI Agents SDK / Claude Agent SDK / Google ADK</td><td>把 agent、tool、handoff、guardrail、trace、session 等原语包装成开发接口。</td><td>构建 single-agent 和 multi-agent workflows。</td><td><button class="cite-marker" type="button" data-cite="a2a-openai-sdk">[19]</button><button class="cite-marker" type="button" data-cite="claude-agent-sdk">[26]</button><button class="cite-marker" type="button" data-cite="responses-adk-vertex">[20]</button></td></tr><tr><td>产品/平台</td><td>Codex / Claude Code / Vertex AI Agent Builder / Vertex AI Agent Engine</td><td>把 agent 构建、运行、治理和工程任务执行推向产品化。</td><td>软件工程、企业流程、生产级 agent 部署和治理。</td><td><button class="cite-marker" type="button" data-cite="claude-code-codex">[18]</button><button class="cite-marker" type="button" data-cite="responses-adk-vertex">[20]</button></td></tr></tbody></table></div>
-        </section>
-        <section class="module"><div class="module-label">仍未解决</div><div class="module-body"><p>协议和 SDK 仍在快速演化。Multi-agent interoperability 不是已经彻底解决的问题，而是正在形成的工程共识：工具连接、任务交接、权限、状态语义、评估和安全都还在迭代。</p></div></section>
-        <section class="module"><div class="module-label">易错点</div><div class="module-body"><p class="warning-text"><span class="inline-label">MCP 和 A2A 不是同一层：</span>MCP 主要解决模型/agent 如何连接工具和数据源；A2A 主要解决 agent 之间如何互操作。</p></div></section>
-      </article>
+      <section class="section" id="system">
+        <div class="section-head">
+          <div class="kicker">Next System</div>
+          <h2>后续系统化方向</h2>
+        </div>
+        <div class="status">
+          <p><strong>当前阶段：</strong>先把个人主页拆成“首页 + 专题页 + 资源目录”的静态知识库骨架。</p>
+          <p><strong>下一步：</strong>逐步加入术语索引、资料来源库、专题图册、更新日志，以及面向 agent 的结构化内容数据。</p>
+        </div>
+      </section>
     </main>
+
+    <footer>
+      AragornC.github.io · personal agent knowledge base
+    </footer>
   </div>
-
-  <script>
-    const info = {
-      terms: {
-        rnn: {
-          title: "RNN 是什么？",
-          body: `
-            <p>RNN 是 Recurrent Neural Network，循环神经网络。它按时间步处理序列：读第 1 个词，更新内部状态；再读第 2 个词，再更新状态；一直读到句子结束。</p>
-            <p>这种结构天然适合文本、语音、时间序列，但因为信息要一步步传递，距离越远，早期信息越容易在训练中衰减或变得不稳定。</p>
-          `
-        },
-        lstm: {
-          title: "LSTM 是什么？",
-          body: `
-            <p>LSTM 是 Long Short-Term Memory，长短期记忆网络，是 RNN 的重要改进。</p>
-            <p>它通过门控结构保存和遗忘信息，目标是缓解传统 RNN 难以学习 long time lag 的问题。它说明当时的序列模型确实存在长距离依赖瓶颈，但它仍然没有解决并行训练和超长上下文组织等后续问题。</p>
-          `
-        },
-        "long-dependency": {
-          title: "长距离依赖是什么？",
-          body: `
-            <p>长距离依赖指相隔很远的两个 token 或片段之间存在语义关系。</p>
-            <p>例如一句话前面提到公司名，后面用 it 指代；或者年报前文说某项投资，几十页后在风险因素里解释原因。模型需要把远处信息联系起来，才能理解完整含义。</p>
-          `
-        },
-        "long-time-lag": {
-          title: "长时滞训练是什么？",
-          body: `
-            <p>长时滞训练指模型要学会“很早以前出现的信息，会在很久以后才产生作用”。这里的“滞”就是中间隔了很多时间步或 token。</p>
-            <p>对 RNN 来说，信息要一步步传递到后面；隔得越远，训练信号越容易变弱或不稳定。LSTM 用门控机制缓解了这个问题，但仍然没有改变“按时间步循环推进”的基本结构。</p>
-          `
-        },
-        "attention-arch": {
-          title: "Attention 架构是什么？",
-          body: `
-            <p>Attention 架构让序列里的每个 token 直接计算自己应该关注哪些其他 token。</p>
-            <p>和 RNN/LSTM 一步步传递状态不同，self-attention 可以让远处位置直接建立连接，所以更适合长距离依赖，也更容易在序列维度并行计算。</p>
-          `
-        },
-        "parallel-training": {
-          title: "长序列并行训练是什么？",
-          body: `
-            <p>长序列并行训练指处理一长串 token 时，能否把很多位置同时计算，而不是必须从第 1 个 token 顺序算到第 n 个 token。</p>
-            <p>RNN/LSTM 的循环结构必须按时间步推进；self-attention 可以同时计算多个位置之间的关系，因此训练长序列时更容易并行。</p>
-          `
-        },
-        wmt2014: {
-          title: "WMT 2014 是什么？",
-          body: `
-            <p>WMT 是 Workshop on Machine Translation，机器翻译领域常用评测集合。WMT 2014 英德翻译指 2014 年英文到德文的标准翻译测试任务。</p>
-            <p>这里用它是因为 Transformer 论文和此前系统都在同一任务上报告 BLEU，适合做同维度对比。</p>
-          `
-        },
-        bleu: {
-          title: "BLEU 是什么？",
-          body: `
-            <p>BLEU 是 Bilingual Evaluation Understudy，机器翻译自动评估指标。它比较机器译文和参考译文的 n-gram 重合度。</p>
-            <p>简单理解：BLEU 越高，译文通常越接近标准参考译文。但它只是翻译质量的自动指标，不等于完整的人类评价。</p>
-          `
-        },
-        "gnmt-rl": {
-          title: "GNMT + RL Ensemble 是什么？",
-          body: `
-            <p>GNMT 是 Google Neural Machine Translation，Google 的神经机器翻译系统，属于 Transformer 出现前的强基线之一。</p>
-            <p>RL 表示强化学习优化；Ensemble 表示多个模型组合投票或融合输出。也就是说，这不是一个弱基线，而是当时很强的 RNN 系机器翻译系统组合。</p>
-          `
-        },
-        "transformer-big": {
-          title: "Transformer (big) 是什么？",
-          body: `
-            <p>Transformer (big) 是 Attention Is All You Need 论文里的大模型配置，相比 base 配置更宽、更大。</p>
-            <p>证据表里用它和 GNMT + RL Ensemble 比，是为了在同一个 WMT 2014 英德翻译任务上比较质量和训练成本。</p>
-          `
-        },
-        flops: {
-          title: "FLOPs 是什么？",
-          body: `
-            <p>FLOPs 是 floating-point operations，浮点运算次数。这里用来估算训练计算量。</p>
-            <p>训练 FLOPs 越低，通常表示达到相近效果需要的计算资源越少。证据表里 Transformer 用约 1/8 的训练计算量得到更高 BLEU。</p>
-          `
-        },
-        ensemble: {
-          title: "Ensemble 是什么？",
-          body: `
-            <p>Ensemble 是集成模型，把多个模型的输出组合起来，通常能比单个模型更强。</p>
-            <p>所以 GNMT + RL Ensemble 不是普通单模型，而是增强后的强对照基线。</p>
-          `
-        },
-        rl: {
-          title: "强化学习是什么？",
-          body: `
-            <p>强化学习是 Reinforcement Learning，模型通过奖励信号优化行为。</p>
-            <p>在这里它表示 GNMT 系统不是简单训练出来就结束，而是额外用强化学习方法优化过翻译质量。</p>
-          `
-        },
-        "sequential-ops": {
-          title: "Sequential operations 是什么？",
-          body: `
-            <p>Sequential operations 指处理一个长度为 n 的序列时，需要按顺序执行多少步。</p>
-            <p>RNN/LSTM 要一步步读 token，所以是 O(n)；self-attention 可以在序列维度并行计算，所以是 O(1)。</p>
-          `
-        },
-        "max-path": {
-          title: "Maximum path length 是什么？",
-          body: `
-            <p>Maximum path length 指两个位置的信息要互相影响时，需要经过的最长计算路径。</p>
-            <p>路径越长，远距离信息越难直接交互。Transformer 论文用它解释为什么 self-attention 更适合长距离依赖。</p>
-          `
-        },
-        "big-o": {
-          title: "O(n) / O(1) 是什么？",
-          body: `
-            <p>这是复杂度记号。O(n) 表示成本会随着序列长度 n 线性增长；O(1) 表示在这个维度上基本是常数级。</p>
-            <p>在这里，它不是具体秒数，而是说明结构随序列变长时的扩展趋势。</p>
-          `
-        },
-        "self-attention": {
-          title: "Self-attention 是什么？",
-          body: `
-            <p>Self-attention 是“同一段输入内部”的注意力机制：每个 token 都会和其他 token 计算相关性，再决定该从哪些位置取信息。</p>
-            <p>它解决的不是“让模型拥有行动能力”，而是让模型在文本内部更直接地建立远距离关系。</p>
-          `
-        },
-        token: {
-          title: "Token 是什么？",
-          body: `
-            <p>Token 是模型处理文本时的基本片段，可以近似理解成“词、词的一部分或标点”。</p>
-            <p>模型不是直接按人类看到的完整句子思考，而是先把文本切成 token 序列，再在这些位置上计算。</p>
-          `
-        },
-        transformer: {
-          title: "Transformer 是什么？",
-          body: `
-            <p>Transformer 是 2017 年 Attention Is All You Need 提出的神经网络架构，以 self-attention 替代传统循环结构作为序列建模核心。</p>
-            <p>它最早在机器翻译上验证价值，后来成为 BERT、GPT 系列等大语言模型的重要底座。</p>
-          `
-        },
-        encoder: {
-          title: "Encoder 是什么？",
-          body: `
-            <p>Encoder 偏向“理解输入”：把一段文本编码成上下文表示，适合分类、检索、问答抽取等理解任务。</p>
-            <p>BERT 是典型的 encoder-only Transformer。</p>
-          `
-        },
-        decoder: {
-          title: "Decoder 是什么？",
-          body: `
-            <p>Decoder 偏向“生成输出”：按从左到右的顺序预测下一个 token，适合续写、摘要、对话等生成任务。</p>
-            <p>GPT-2 是典型的 decoder-only Transformer。</p>
-          `
-        },
-        pretraining: {
-          title: "Pre-training 是什么？",
-          body: `
-            <p>Pre-training 是预训练：先让模型在大规模文本上学习通用语言规律，而不是一开始就只训练某个小任务。</p>
-            <p>它让一个模型底座可以迁移到很多下游任务，是 2018-2019 年这一轮发展的关键范式。</p>
-          `
-        },
-        finetuning: {
-          title: "Fine-tuning 是什么？",
-          body: `
-            <p>Fine-tuning 是微调：在预训练模型基础上，再用具体任务数据继续训练，让模型适配分类、问答、抽取等任务。</p>
-            <p>可以把它理解成“先学通识，再补专业课”。</p>
-          `
-        },
-        bert: {
-          title: "BERT 是什么？",
-          body: `
-            <p>BERT 是 Bidirectional Encoder Representations from Transformers，意思是“来自 Transformer 的双向编码器表示”。</p>
-            <p>它强调双向上下文理解，适合语言理解任务，例如搜索查询理解、问答和文本分类。</p>
-          `
-        },
-        gpt2: {
-          title: "GPT-2 是什么？",
-          body: `
-            <p>GPT-2 是 Generative Pre-trained Transformer 2，OpenAI 2019 年发布的生成式预训练 Transformer 模型。</p>
-            <p>它走 decoder-only 路线，用“预测下一个 token”的方式生成连贯文本。</p>
-          `
-        },
-        glue: {
-          title: "GLUE 是什么？",
-          body: `
-            <p>GLUE 是 General Language Understanding Evaluation，一组语言理解评测任务集合。</p>
-            <p>它不是单一题目，而是把情感分类、句子相似度、自然语言推理等任务放在一起，看模型的综合语言理解能力。</p>
-          `
-        },
-        "decoder-only": {
-          title: "Decoder-only 是什么？",
-          body: `
-            <p>Decoder-only 指模型主要由 Transformer decoder 堆叠而成，按从左到右的方式预测下一个 token。</p>
-            <p>GPT 系列常走这条路线，因此更自然地适合生成和续写。</p>
-          `
-        },
-        "zero-shot": {
-          title: "零样本是什么？",
-          body: `
-            <p>零样本是 zero-shot：模型没有针对某个具体任务再训练，就直接根据提示去完成任务。</p>
-            <p>例如不提供任何示例，直接问：“把这段年报风险因素总结成三点。”模型只靠预训练中学到的语言和任务模式来回答。</p>
-            <p>在阶段二里，zero-shot 说明 prompt 已经开始承担任务接口；但它仍不是工具能力，也不会自动读文件或执行外部动作。</p>
-          `
-        },
-        "hf-transformers": {
-          title: "Hugging Face Transformers 是什么？",
-          body: `
-            <p>Hugging Face Transformers 是开源模型库，封装了 BERT、GPT-2、T5 等大量预训练模型。</p>
-            <p>它的意义不在于提出新模型，而在于把模型加载、推理、微调这些工程动作标准化，降低开发者使用门槛。</p>
-          `
-        },
-        "task-finetuning": {
-          title: "Task-specific fine-tuning 是什么？",
-          body: `
-            <p>Task-specific fine-tuning 是针对某个具体任务继续训练模型，例如为情感分类、问答、摘要分别准备数据和训练流程。</p>
-            <p>它能提升特定任务效果，但每个新任务都可能带来数据、训练、评估和部署成本。</p>
-          `
-        },
-        "task-interface": {
-          title: "任务接口是什么意思？",
-          body: `
-            <p>任务接口指“用户或开发者怎样把一个任务交给模型”。</p>
-            <p>在微调范式里，任务接口常常是标注数据和训练流程；在 GPT-3 之后，prompt 开始成为更轻量的任务接口。</p>
-          `
-        },
-        "model-weights": {
-          title: "模型权重是什么？",
-          body: `
-            <p>模型权重是神经网络训练后得到的参数值，决定模型如何把输入映射成输出。</p>
-            <p>微调会改变权重；in-context learning 不改变权重，只改变这次推理时给模型看的上下文。</p>
-          `
-        },
-        "labeled-data": {
-          title: "标注数据是什么？",
-          body: `
-            <p>标注数据是带有人类给定答案、类别或目标输出的数据。例如“年报片段 -> 风险类别”或“问题 -> 标准答案”。</p>
-            <p>任务专属微调通常依赖这类数据；数据收集和质量控制也是旧路线成本的重要来源。</p>
-          `
-        },
-        "one-shot": {
-          title: "One-shot 是什么？",
-          body: `
-            <p>One-shot 指 prompt 里给模型一个任务示例，然后让它处理新输入。</p>
-            <p>例如先给一条“年报片段 -> 客户可读风险摘要”的样例，再给 Acme 的新片段。模型不会更新权重，只是在这次上下文里模仿示例格式。</p>
-            <p>它解决的是“我怎样把任务说明给模型听”的接口问题，而不是让模型获得长期记忆或外部工具。</p>
-          `
-        },
-        "few-shot": {
-          title: "Few-shot 是什么？",
-          body: `
-            <p>Few-shot 指 prompt 里给少量示例，让模型根据这些示例理解当前任务。</p>
-            <p>例如给 3 到 5 条“输入片段 -> 输出摘要”的示例，再让模型处理新片段。示例越清楚，模型越容易学到分类、摘要、格式和语气要求。</p>
-            <p>GPT-3 论文的 few-shot 重点是“不更新权重”：模型仍是同一个模型，只是通过上下文临时适配任务。它不是传统意义上用少量数据重新训练一个新模型。</p>
-          `
-        },
-        parameters: {
-          title: "参数是什么？",
-          body: `
-            <p>参数是模型内部可学习的数值。175B 参数表示模型有约 1750 亿个可学习参数。</p>
-            <p>参数量不是能力的唯一来源，但在 scaling 研究里，它是模型规模的重要维度之一。</p>
-          `
-        },
-        "foundation-model": {
-          title: "Foundation model 是什么？",
-          body: `
-            <p>Foundation model 通常译为基础模型或基座模型，指通过大规模数据训练出来、可以适配很多下游任务的模型。</p>
-            <p>这个术语强调“一个底座，多种任务”，而不是每个任务单独训练一个模型。</p>
-          `
-        },
-        scaling: {
-          title: "Scaling 是什么？",
-          body: `
-            <p>Scaling 指通过扩大模型规模、数据规模和计算量来提升模型能力的路线。</p>
-            <p>在阶段二里，scaling 的意义是让同一个预训练模型出现更强的跨任务迁移能力。</p>
-          `
-        },
-        "in-context-learning": {
-          title: "In-context learning 是什么？",
-          body: `
-            <p>In-context learning 是上下文学习：模型在推理时根据 prompt 里的说明和示例表现出任务适配能力。</p>
-            <p>它不更新模型权重，所以更准确地说是“由上下文条件化出的行为”，不是传统训练意义上的学习。</p>
-          `
-        },
-        prompt: {
-          title: "Prompt 是什么？",
-          body: `
-            <p>Prompt 是发给模型的输入。早期它像文本开头；后来它变成任务说明、上下文、示例、格式约束的组合。</p>
-            <p>阶段二的关键变化是：prompt 开始承担任务接口的角色。</p>
-          `
-        },
-        "closed-book-qa": {
-          title: "Closed-book QA 是什么？",
-          body: `
-            <p>Closed-book QA 是闭卷问答：回答问题时不额外检索外部文档，只依赖模型参数中学到的知识。</p>
-            <p>TriviaQA closed-book 结果用来衡量模型在没有外部检索时的问答能力。</p>
-          `
-        },
-        gpt3: {
-          title: "GPT-3 是什么？",
-          body: `
-            <p>GPT-3 是 OpenAI 2020 年发布的 175B 参数生成式预训练 Transformer 语言模型。</p>
-            <p>它的重要性在于系统展示了 zero-shot、one-shot、few-shot 等 prompt 驱动的任务适配能力。</p>
-          `
-        },
-        "codex-2021": {
-          title: "2021 年 OpenAI Codex 是什么？",
-          body: `
-            <p>2021 年的 OpenAI Codex 是代码生成模型，能把自然语言说明转换成代码，并驱动 GitHub Copilot 早期能力。</p>
-            <p>它不是 2025 年之后的 Codex coding agent；前者是模型，后者是带执行环境的软件工程 agent 产品。</p>
-          `
-        },
-        "language-modeling-objective": {
-          title: "Language modeling objective 是什么？",
-          body: `
-            <p>它是语言模型训练时的目标函数：给定前文，预测接下来最可能出现的 token。</p>
-            <p>这个目标能学到语法、知识和文本模式，但它本身没有直接告诉模型“用户真正希望你怎么做”。</p>
-          `
-        },
-        "next-token-prediction": {
-          title: "Next-token prediction 是什么？",
-          body: `
-            <p>Next-token prediction 是“预测下一个 token”。例如看到“Acme increased”，模型要预测后面可能接 “R&amp;D”。</p>
-            <p>它是 GPT 类模型的核心训练方式之一。问题在于，预测下一个 token 不等于遵守复杂指令或核对事实。</p>
-          `
-        },
-        "user-intent": {
-          title: "用户意图是什么？",
-          body: `
-            <p>用户意图指用户真正想让模型完成的任务和约束，而不只是输入文本表面上接下来像什么。</p>
-            <p>例如“不要编造”“必须附引用”“证据不足就说不足”，都是用户意图的一部分。</p>
-          `
-        },
-        "alignment-gap": {
-          title: "Alignment gap 是什么？",
-          body: `
-            <p>Alignment gap 指模型训练目标和人类期望行为之间的差距。</p>
-            <p>在阶段三里，它具体表现为：模型很会生成像答案的文本，但不一定稳定有用、诚实、无害，也不一定遵守用户约束。</p>
-          `
-        },
-        "helpful-honest-harmless": {
-          title: "Helpful / Honest / Harmless 是什么？",
-          body: `
-            <p>Helpful、honest、harmless 常被简称为 HHH，分别表示有帮助、诚实、无害。</p>
-            <p>它不是一个单一分数，而是一组助手行为目标：既要解决问题，也要避免编造、误导和造成不必要伤害。</p>
-          `
-        },
-        truthfulqa: {
-          title: "TruthfulQA 是什么？",
-          body: `
-            <p>TruthfulQA 是一个问答评测集，专门测试模型在容易诱发错误信念的问题上是否会给出真实答案。</p>
-            <p>它常被用来说明“更大模型”不必然更诚实，因为模型可能学会模仿人类文本中的常见误解。</p>
-          `
-        },
-        alignment: {
-          title: "Instruction alignment 是什么？",
-          body: `
-            <p>Instruction alignment 是让模型行为更符合人类指令和偏好的后训练过程。</p>
-            <p>它关注的不是换一个底层网络架构，而是用示范、偏好、奖励或原则把模型从“续写器”推向“助手”。</p>
-          `
-        },
-        sft: {
-          title: "SFT 是什么？",
-          body: `
-            <p>SFT 是 Supervised Fine-Tuning，监督微调。</p>
-            <p>在 instruction alignment 里，SFT 通常先收集一批人工写好的“指令 -> 理想回答”样本，再用这些样本继续训练预训练模型。</p>
-            <p>它的作用像“先示范什么叫好好回答”：比如用户要求“总结风险并附依据”，理想回答应该分段、引用材料、承认证据不足，而不是继续写一段像网页文本的内容。</p>
-            <p>边界是：SFT 只能模仿示范数据里的行为；如果只靠 SFT，模型未必能稳定处理所有偏好权衡，所以后面常接 reward model 和 RLHF。</p>
-          `
-        },
-        "reward-model": {
-          title: "Reward model 是什么？",
-          body: `
-            <p>Reward model 是奖励模型，用来预测人类更偏好哪个回答。</p>
-            <p>训练时，同一个 prompt 会生成多个候选回答，人类标注者比较它们，选出更有帮助、更诚实、更符合要求的版本。reward model 学的是这种相对偏好，而不是简单的“标准答案对/错”。</p>
-            <p>例如两个 Acme 备忘录，一个引用完整但语气生硬，另一个语气好但编了页码；人类排序会告诉系统哪类错误更严重。reward model 把这种排序变成可优化的分数。</p>
-            <p>它本身不是最终助手，而是 RLHF 里的评分器：主模型后续会被训练成更容易产出高分回答。</p>
-          `
-        },
-        rlhf: {
-          title: "RLHF 是什么？",
-          body: `
-            <p>RLHF 是 Reinforcement Learning from Human Feedback，基于人类反馈的强化学习。</p>
-            <p>常见流程是三步：先用 SFT 学会基本回答方式；再用人类偏好训练 reward model；最后用强化学习方法让主模型更倾向产出 reward model 评分更高的回答。</p>
-            <p>它解决的是“用户更喜欢什么样的回答”这个行为目标问题：更听指令、更少胡编、更愿意承认不知道、更符合安全边界。</p>
-            <p>但要小心：RLHF 优化的是人类偏好信号，不等于直接保证事实正确。模型如果没有原始材料、检索工具或验证步骤，仍可能回答错。</p>
-          `
-        },
-        "constitutional-ai": {
-          title: "Constitutional AI 是什么？",
-          body: `
-            <p>Constitutional AI 是 Anthropic 提出的对齐训练方法，用一组原则指导模型自我批判、改写和基于 AI feedback 的训练。</p>
-            <p>这里的“constitution”不是模型自己发明的宪法，而是研究者设定的原则集合。</p>
-          `
-        },
-        "assistant-behavior": {
-          title: "Assistant behavior 是什么？",
-          body: `
-            <p>Assistant behavior 指模型表现得像助手：理解指令、按格式回答、承认证据不足、拒绝不合适请求，并尽量用清楚方式帮助用户。</p>
-            <p>它仍不等于 agent。没有工具、状态和执行循环时，模型只是更会回答，不会自动完成多步外部任务。</p>
-          `
-        },
-        chatgpt: {
-          title: "ChatGPT 是什么？",
-          body: `
-            <p>ChatGPT 是 OpenAI 在 2022-11-30 发布的对话式产品入口。</p>
-            <p>它不是一个架构名，而是模型、对齐训练、服务系统、UI 和安全策略共同封装出的产品体验。</p>
-          `
-        },
-        claude: {
-          title: "Claude 是什么？",
-          body: `
-            <p>Claude 是 Anthropic 的 AI assistant 产品和模型系列。</p>
-            <p>在这条历史线里，它代表 instruction alignment 与 Constitutional AI 路线进入大众助手产品。</p>
-          `
-        },
-        gpt4: {
-          title: "GPT-4 是什么？",
-          body: `
-            <p>GPT-4 是 OpenAI 在 2023 年发布的大模型，具备文本和图像输入能力，并通过 ChatGPT Plus 和 API 提供。</p>
-            <p>这里要注意：GPT-4 是模型，不是 agent 编排框架。</p>
-          `
-        },
-        instructgpt: {
-          title: "InstructGPT 是什么？",
-          body: `
-            <p>InstructGPT 是 OpenAI 2022 年论文中的 instruction-following 模型路线，不是一个聊天产品名。</p>
-            <p>它的关键是用人工示范做 SFT，再用人类偏好训练 reward model，并通过 RLHF 优化输出，让模型更愿意按用户指令回答。</p>
-          `
-        },
-        "multi-step-reasoning": {
-          title: "多步推理是什么？",
-          body: `
-            <p>多步推理指一个问题不能靠一句模式匹配直接回答，而要经过若干中间判断、计算或条件推导。</p>
-            <p>例如先从年报中找三年研发投入，再计算 CAGR，再判断风险含义。任何一步错了，最终结论都会跟着错。</p>
-          `
-        },
-        "external-action": {
-          title: "外部能力是什么？",
-          body: `
-            <p>外部能力指模型参数本身之外的能力，例如搜索、读取文件、调用计算器、访问数据库、调用业务 API 或执行代码。</p>
-            <p>模型可以生成“我想调用工具”的请求，但工具是否真的执行、结果如何返回，取决于外层系统。</p>
-          `
-        },
-        "intermediate-steps": {
-          title: "中间步骤是什么？",
-          body: `
-            <p>中间步骤是从问题到答案之间的可检查过程，例如列公式、抽取数字、拆分子问题、记录引用来源。</p>
-            <p>把中间步骤暴露出来，能让系统或人类检查模型哪里推错了，而不是只看到一个最终答案。</p>
-          `
-        },
-        "structured-action": {
-          title: "结构化动作是什么？",
-          body: `
-            <p>结构化动作是把“调用某个工具”写成机器可解析的格式，例如函数名、参数、JSON schema。</p>
-            <p>它和自然语言里说“我去查一下”不同：结构化动作可以被程序读取、校验和执行。</p>
-          `
-        },
-        cagr: {
-          title: "CAGR 是什么？",
-          body: `
-            <p>CAGR 是 Compound Annual Growth Rate，复合年均增长率。</p>
-            <p>常见公式是：(期末值 / 期初值)^(1 / 年数) - 1。它用于把多年的增长折算成平均每年的增长速度。</p>
-          `
-        },
-        "chain-of-thought": {
-          title: "Chain-of-Thought 是什么？",
-          body: `
-            <p>Chain-of-Thought 常简称 CoT，意思是“思维链”或“推理链”。</p>
-            <p>它通过提示模型写出中间推理步骤，提升数学、常识推理等多步任务表现。它是一种推理提示技术，不等于 agent。</p>
-          `
-        },
-        gsm8k: {
-          title: "GSM8K 是什么？",
-          body: `
-            <p>GSM8K 是 Grade School Math 8K，一个小学数学应用题评测集。</p>
-            <p>它常用来衡量模型能否进行多步数学推理，而不是只复述知识。</p>
-          `
-        },
-        "reasoning-primitive": {
-          title: "推理原语是什么？",
-          body: `
-            <p>推理原语是可以反复复用的推理组织方式，例如先列步骤、分解子问题、生成多条推理路径再投票。</p>
-            <p>“原语”强调它是搭建复杂系统的基础积木，而不是完整应用。</p>
-          `
-        },
-        "self-consistency": {
-          title: "Self-Consistency 是什么？",
-          body: `
-            <p>Self-Consistency 是一种 CoT 改进方法：不只生成一条推理链，而是采样多条推理链，再用多数投票或一致性选择答案。</p>
-            <p>它解决的是单条推理路径容易偶然走错的问题。</p>
-          `
-        },
-        "action-primitive": {
-          title: "行动原语是什么？",
-          body: `
-            <p>行动原语是模型与外部世界交互的基础动作格式，例如函数调用、检索请求、代码执行请求。</p>
-            <p>它让模型不只是“说答案”，还能提出可由系统执行的动作请求。</p>
-          `
-        },
-        "function-calling": {
-          title: "Function Calling 是什么？",
-          body: `
-            <p>Function Calling 是让模型按开发者给出的函数描述，返回函数名和参数的结构化调用请求。</p>
-            <p>模型本身不直接执行函数；外层应用读取请求、执行函数，再把结果返回给模型继续生成。</p>
-          `
-        },
-        "chatgpt-plugins": {
-          title: "ChatGPT Plugins 是什么？",
-          body: `
-            <p>ChatGPT Plugins 是 OpenAI 2023 年推出的产品功能，让 ChatGPT 可以接入浏览器、代码解释器和第三方服务。</p>
-            <p>它代表工具使用进入产品入口，但插件本身仍不等于完整 agent 编排。</p>
-          `
-        },
-        toolformer: {
-          title: "Toolformer 是什么？",
-          body: `
-            <p>Toolformer 是 2023 年论文提出的研究方向：让语言模型学习什么时候调用外部 API，以及如何利用 API 返回结果。</p>
-            <p>它关注的是工具使用能力的学习机制，不是面向用户的产品框架。</p>
-          `
-        },
-        json: {
-          title: "JSON 是什么？",
-          body: `
-            <p>JSON 是 JavaScript Object Notation，一种常见的结构化数据格式。</p>
-            <p>Function Calling 常用 JSON 表达函数参数，因为它容易被程序解析、校验和传递。</p>
-          `
-        },
-        "control-flow": {
-          title: "控制流是什么？",
-          body: `
-            <p>控制流指程序或流程“下一步做什么”的规则，例如顺序执行、条件分支、循环、并行和停止。</p>
-            <p>在 LLM 应用里，控制流决定何时检索、何时调用工具、何时让模型总结、何时重试。</p>
-          `
-        },
-        state: {
-          title: "状态是什么？",
-          body: `
-            <p>状态是任务执行过程中需要保留下来的信息，例如已检索文档、工具结果、错误次数、用户确认、当前步骤。</p>
-            <p>没有状态，系统很难恢复失败步骤，也很难知道哪些证据已经验证过。</p>
-          `
-        },
-        retry: {
-          title: "重试是什么？",
-          body: `
-            <p>重试是在某一步失败后按规则再次尝试，例如换关键词检索、换解析器读取表格、重新调用 API。</p>
-            <p>它是工程控制问题，不应完全靠模型临场发挥。</p>
-          `
-        },
-        stopping: {
-          title: "停止条件是什么？",
-          body: `
-            <p>停止条件定义系统什么时候应该结束任务，例如证据齐全、达到最大重试次数、用户确认完成或风险过高需要人工接管。</p>
-            <p>没有停止条件，agent loop 容易无限循环、过度调用工具或在信息不足时继续编结论。</p>
-          `
-        },
-        grounding: {
-          title: "事实接地是什么？",
-          body: `
-            <p>Grounding 通常译为事实接地：让模型输出绑定到外部证据、文档、数据库或真实环境反馈。</p>
-            <p>例如年报问答必须引用原文段落，而不是只依赖模型记忆生成听起来合理的回答。</p>
-          `
-        },
-        "ai-chains": {
-          title: "AI Chains 是什么？",
-          body: `
-            <p>AI Chains 是把多个 AI 调用串成流程的早期研究方向，强调把复杂任务拆成多个可检查步骤。</p>
-            <p>它不是某个大模型，而是 prompt/workflow 组合方式的研究。</p>
-          `
-        },
-        promptchainer: {
-          title: "PromptChainer 是什么？",
-          body: `
-            <p>PromptChainer 是一个用于构建和调试 prompt chain 的研究原型。</p>
-            <p>它关注的问题是：多个 prompt 连起来以后，开发者如何看见中间结果、调试错误并改流程。</p>
-          `
-        },
-        "decomposed-prompting": {
-          title: "Decomposed Prompting 是什么？",
-          body: `
-            <p>Decomposed Prompting 是把复杂问题拆成多个子问题或子程序，再组合结果的 prompting 方法。</p>
-            <p>它支撑的是“复杂任务需要流程拆解”的方向，而不是动态 agent 自主行动。</p>
-          `
-        },
-        "prompt-chaining": {
-          title: "Prompt chaining 是什么？",
-          body: `
-            <p>Prompt chaining 是把一个复杂任务拆成多个 prompt，按代码写好的顺序依次调用模型：前一步输出成为后一步输入。</p>
-            <p>例如年报任务可以拆成三步：第一个 prompt 抽取研发投入数字，第二个 prompt 把数字整理成趋势，第三个 prompt 写成客户备忘录。每一步可以单独调试、评估和替换。</p>
-            <p>它属于静态 workflow 的典型形态：下一步由代码决定，不由模型动态决定；这和 ReAct 里“模型读 observation 后再决定下一步”的循环不同。</p>
-          `
-        },
-        "static-workflow": {
-          title: "静态 workflow 是什么？",
-          body: `
-            <p>静态 workflow 指主要由代码预先规定步骤的流程，例如检索 -> 抽取 -> 计算 -> 生成 -> 校验。</p>
-            <p>它的优点是可控、可复现、容易测试；缺点是遇到未预设状态时不够灵活。</p>
-          `
-        },
-        "dynamic-agent-loop": {
-          title: "动态 agent loop 是什么？",
-          body: `
-            <p>动态 agent loop 指模型根据当前观察结果决定下一步行动的循环：观察、思考、行动、再观察。</p>
-            <p>它更灵活，但也更容易出现成本失控、错误累积和难以评估的问题。</p>
-          `
-        },
-        observation: {
-          title: "Observation 是什么？",
-          body: `
-            <p>Observation 是工具、环境或外部系统返回给模型的观察结果。</p>
-            <p>例如搜索结果、命令输出、网页内容、错误日志，都可以成为 agent loop 的 observation。</p>
-          `
-        },
-        orchestration: {
-          title: "Orchestration 是什么？",
-          body: `
-            <p>Orchestration 是编排：把模型、prompt、工具、检索、状态、控制流和错误处理组织成可运行系统。</p>
-            <p>它不是单个模型能力，而是应用层工程。</p>
-          `
-        },
-        rag: {
-          title: "RAG 是什么？",
-          body: `
-            <p>RAG 是 Retrieval-Augmented Generation，检索增强生成。</p>
-            <p>它先从外部文档检索相关片段，再把片段交给模型生成答案，常用于知识库问答和带引用回答。</p>
-          `
-        },
-        langchain: {
-          title: "LangChain 是什么？",
-          body: `
-            <p>LangChain 是 2022 年出现的开源 LLM 应用框架。</p>
-            <p>它不是模型，也不是 agent 本体；它是把 prompt、模型、检索、工具、memory 和 workflow 串起来的工程框架。</p>
-          `
-        },
-        llamaindex: {
-          title: "LlamaIndex 是什么？",
-          body: `
-            <p>LlamaIndex 是连接私有/领域数据与 LLM 应用的数据框架。</p>
-            <p>它常用于文档索引、检索、RAG 和知识助手场景，重点是数据接入与索引，而不是模型本身。</p>
-          `
-        },
-        react: {
-          title: "ReAct 是什么？",
-          body: `
-            <p>ReAct 是 Reasoning + Acting，把推理、行动和观察放在同一个循环中的 agent 方法。</p>
-            <p>它的重要性在于让模型不只一次性回答，而是根据工具或环境反馈继续决定下一步。</p>
-          `
-        },
-        embedding: {
-          title: "Embedding 是什么？",
-          body: `
-            <p>Embedding 是把文本、图片或其他对象表示成向量。</p>
-            <p>在 RAG 里，文档片段会被转成向量，方便用相似度搜索找到和问题相关的内容。</p>
-          `
-        },
-        "vector-store": {
-          title: "Vector store 是什么？",
-          body: `
-            <p>Vector store 是向量存储，用来保存 embedding 并支持相似度检索。</p>
-            <p>它常是 RAG 系统的基础设施：先把文档切块向量化，再根据用户问题检索相关片段。</p>
-          `
-        },
-        "stateful-workflow": {
-          title: "有状态流程是什么？",
-          body: `
-            <p>有状态流程指任务执行过程中会持续保存上下文、工具结果、错误、人工确认和中间产物。</p>
-            <p>它和一次性脚本不同：即使中途失败或暂停，也能根据 state 恢复或跳转。</p>
-          `
-        },
-        node: {
-          title: "Node 是什么？",
-          body: `
-            <p>Node 是状态图里的一个步骤或处理单元，例如“检索文档”“抽取数字”“验证引用”。</p>
-            <p>每个 node 通常读取 state，执行一段逻辑，再把结果写回 state。</p>
-          `
-        },
-        edge: {
-          title: "Edge 是什么？",
-          body: `
-            <p>Edge 是状态图里从一个 node 跳到另一个 node 的边。</p>
-            <p>它可以是固定顺序，也可以带条件：例如引用缺失就回到检索节点，验证通过才进入生成节点。</p>
-          `
-        },
-        checkpoint: {
-          title: "Checkpoint 是什么？",
-          body: `
-            <p>Checkpoint 是流程执行中的保存点，记录某一刻的 state 和执行位置。</p>
-            <p>有 checkpoint 后，任务失败时可以从保存点恢复，而不是整条流程重跑。</p>
-          `
-        },
-        "human-in-the-loop": {
-          title: "Human-in-the-loop 是什么？",
-          body: `
-            <p>Human-in-the-loop 指流程中允许人类介入确认、修改或批准。</p>
-            <p>例如客户风险备忘录在发送前需要人确认措辞，agent 就应暂停等待，而不是自动发出。</p>
-          `
-        },
-        "state-graph": {
-          title: "State graph 是什么？",
-          body: `
-            <p>State graph 是用节点、边和共享 state 表达任务流程的图结构。</p>
-            <p>它让 workflow 或 agent loop 可以被暂停、恢复、调试和审计。</p>
-          `
-        },
-        "anthropic-workflow-patterns": {
-          title: "Anthropic 5 类 workflow 模式是什么？",
-          body: `
-            <p>Anthropic 在 Building Effective Agents 中整理了几类常见 workflow 模式：prompt chaining、routing、parallelization、orchestrator-workers、evaluator-optimizer。</p>
-            <p>它们强调由代码或明确流程组织模型和工具，通常比完全动态 agent loop 更可控。</p>
-          `
-        },
-        "durable-execution": {
-          title: "Durable execution 是什么？",
-          body: `
-            <p>Durable execution 是持久化执行：长任务即使中断、失败或等待人工输入，也能保留进度并恢复。</p>
-            <p>这对真实 agent 很重要，因为工具调用、用户确认和外部系统都可能失败或延迟。</p>
-          `
-        },
-        langgraph: {
-          title: "LangGraph 是什么？",
-          body: `
-            <p>LangGraph 是 LangChain 生态里的状态图框架，用来构建 long-running、stateful workflow 和 agent。</p>
-            <p>它强调 state、node、edge、checkpoint、human-in-the-loop、persistence 等生产化能力。</p>
-          `
-        },
-        autogen: {
-          title: "AutoGen 是什么？",
-          body: `
-            <p>AutoGen 是 Microsoft 开源的多 agent AI 系统框架。</p>
-            <p>它的重点是用多个 agent 的对话和事件驱动机制来构建复杂 LLM 应用。</p>
-          `
-        },
-        crewai: {
-          title: "CrewAI 是什么？",
-          body: `
-            <p>CrewAI 是面向工程师的 multi-agent automation / orchestration 框架。</p>
-            <p>它常用角色、任务、工具和流程来组织多个 agent 协作。</p>
-          `
-        },
-        mcp: {
-          title: "MCP 是什么？",
-          body: `
-            <p>MCP 是 Model Context Protocol，Anthropic 提出的开放标准。</p>
-            <p>它主要解决 assistant/agent 如何连接外部工具、数据源和开发环境，不是 agent 间通信协议本身。</p>
-          `
-        },
-        "computer-use": {
-          title: "Computer Use 是什么？",
-          body: `
-            <p>Computer Use 是 Anthropic 在 Claude 3.5 Sonnet 上推出的能力，让模型通过屏幕、鼠标、键盘等接口操作计算机界面。</p>
-            <p>它把 agent 的行动空间从文本工具调用推进到 GUI/桌面环境，但也带来权限、安全和可靠性问题。</p>
-          `
-        },
-        patch: {
-          title: "Patch 是什么？",
-          body: `
-            <p>Patch 是代码变更的补丁，通常表现为哪些文件被改、哪些行被增删。</p>
-            <p>Coding agent 的输出不能只是一段建议，还要能形成可审查、可运行、可回滚的 patch。</p>
-          `
-        },
-        "repo-context": {
-          title: "代码库上下文是什么？",
-          body: `
-            <p>代码库上下文指 agent 理解一个项目所需的信息：文件结构、依赖、测试、历史约定、调用关系和当前变更。</p>
-            <p>真实修 bug 时，模型只看一个文件通常不够，需要跨文件定位问题。</p>
-          `
-        },
-        "execution-environment": {
-          title: "执行环境是什么？",
-          body: `
-            <p>执行环境是 agent 可以运行命令、安装依赖、执行测试和观察日志的环境。</p>
-            <p>没有执行环境，模型只能猜代码是否正确；有执行环境后，它可以用测试反馈修正。</p>
-          `
-        },
-        "coding-harness": {
-          title: "Coding harness 是什么？",
-          body: `
-            <p>Coding harness 是包在模型外面的工程系统，给模型提供仓库读取、文件编辑、shell、测试、日志、权限和恢复循环。</p>
-            <p>它不是模型本身，而是让模型能接触真实代码环境的“手脚和工作台”。</p>
-          `
-        },
-        "swe-bench": {
-          title: "SWE-bench 是什么？",
-          body: `
-            <p>SWE-bench 是用真实 GitHub issue 评估模型修复软件问题的 benchmark。</p>
-            <p>它比普通代码题更接近真实工程，因为任务涉及现有代码库、测试和实际 bug 修复。</p>
-          `
-        },
-        "swe-bench-verified": {
-          title: "SWE-bench Verified 是什么？",
-          body: `
-            <p>SWE-bench Verified 是 OpenAI 与 SWE-bench 团队整理出的更可靠子集。</p>
-            <p>它试图减少原始 SWE-bench 中样本描述不清、测试不可靠或环境难运行造成的评估噪声。</p>
-          `
-        },
-        "reasoning-model": {
-          title: "Reasoning model 是什么？",
-          body: `
-            <p>Reasoning model 指更针对复杂推理任务训练或推理优化的模型。</p>
-            <p>它提升的是模型脑力层；如果没有 harness，它仍不能自己读仓库、跑测试或提交 patch。</p>
-          `
-        },
-        "test-time-compute": {
-          title: "Test-time compute 是什么？",
-          body: `
-            <p>Test-time compute 指模型在推理阶段投入更多计算，例如更长时间思考、生成和检查更多中间步骤。</p>
-            <p>它是 reasoning model 能力的一部分，但不是外部工具或 coding harness。</p>
-          `
-        },
-        "coding-agent": {
-          title: "Coding agent 是什么？",
-          body: `
-            <p>Coding agent 是面向软件工程任务的 agent，通常由模型能力、代码库上下文、工具权限、执行环境和反馈循环组成。</p>
-            <p>它和代码补全不同：目标不是补下一行，而是完成一个可验证的工程任务。</p>
-          `
-        },
-        "pass-at-1": {
-          title: "pass@1 是什么？",
-          body: `
-            <p>pass@1 表示模型只尝试一次时通过评测的比例。</p>
-            <p>在 coding benchmark 里，它通常衡量一次生成或一次 agent 运行能否让测试通过。</p>
-          `
-        },
-        "claude-code": {
-          title: "Claude Code 是什么？",
-          body: `
-            <p>Claude Code 是 Anthropic 的 agentic coding 工具，让 Claude 在开发环境里读代码、编辑文件并运行命令。</p>
-            <p>它是 coding harness 产品，不只是一个聊天窗口。</p>
-          `
-        },
-        "codex-agent": {
-          title: "OpenAI Codex agent 是什么？",
-          body: `
-            <p>这里的 Codex 指 OpenAI 2025 年之后的软件工程 agent 产品线/能力，不是 2021 年的 Codex 代码生成模型。</p>
-            <p>它有两类形态：一种是在本地终端、IDE 或 Codex app 中和开发者配对工作；另一种是把任务委派到云端隔离环境中后台运行。二者都是 coding agent 形态，只是运行位置和交付方式不同。</p>
-          `
-        },
-        cursor: {
-          title: "Cursor 是什么？",
-          body: `
-            <p>Cursor 是 AI code editor，把代码编辑器和 coding agent 能力结合起来。</p>
-            <p>它的 Agent 能跨文件理解和修改代码，是开发环境产品形态。</p>
-          `
-        },
-        devin: {
-          title: "Devin 是什么？",
-          body: `
-            <p>Devin 是 Cognition 的 autonomous AI software engineer 产品。</p>
-            <p>它强调在带 shell、代码编辑器和浏览器的环境中写、运行、测试代码，代表早期完整软件工程 agent 演示和产品线。</p>
-          `
-        },
-        interoperability: {
-          title: "互操作是什么？",
-          body: `
-            <p>互操作指不同系统、框架或供应商构建的 agent 能够发现彼此、交换任务、传递产物并协作。</p>
-            <p>它解决的是生态碎片化问题，不是单个 agent 的推理能力问题。</p>
-          `
-        },
-        "tool-protocol": {
-          title: "工具连接协议是什么？",
-          body: `
-            <p>工具连接协议定义 agent 如何发现、调用和接收外部工具或数据源的结果。</p>
-            <p>MCP 就属于这一类：重点是工具/数据源连接，而不是 agent 与 agent 的任务交接。</p>
-          `
-        },
-        "agent-sdk": {
-          title: "Agent SDK 是什么？",
-          body: `
-            <p>Agent SDK 是开发者构建 agent 的工具包，通常封装模型调用、工具、handoff、guardrail、trace、session 等能力。</p>
-            <p>它比协议更偏代码开发接口，比产品平台更接近开发者手里的构建原语。</p>
-          `
-        },
-        a2a: {
-          title: "A2A 是什么？",
-          body: `
-            <p>A2A 是 Agent2Agent Protocol，用于 agent 之间的通信和互操作。</p>
-            <p>它关注 agent 发现、任务、消息、artifact 等对象，和 MCP 的工具连接侧重点不同。</p>
-          `
-        },
-        "agent-card": {
-          title: "Agent Card 是什么？",
-          body: `
-            <p>Agent Card 是 A2A 中描述 agent 能力、端点和交互方式的对象。</p>
-            <p>可以把它理解成 agent 的“能力名片”，方便其他 agent 发现和调用。</p>
-          `
-        },
-        artifact: {
-          title: "Artifact 是什么？",
-          body: `
-            <p>Artifact 是 agent 执行任务后产出的结构化成果，例如文件、表格、报告、代码 patch 或验证后的数据。</p>
-            <p>在多 agent 协作中，artifact 是一个 agent 交给另一个 agent 的重要交接物。</p>
-          `
-        },
-        tool: {
-          title: "Tool 是什么？",
-          body: `
-            <p>Tool 是 agent 可以调用的外部能力，例如搜索、数据库查询、文件读写、代码执行或业务 API。</p>
-            <p>工具把模型从“只生成文本”扩展到“能请求外部系统做事”。</p>
-          `
-        },
-        handoff: {
-          title: "Handoff 是什么？",
-          body: `
-            <p>Handoff 是任务交接：一个 agent 把上下文、状态或产物交给另一个 agent 或流程继续处理。</p>
-            <p>例如财务 agent 把验证后的表格交给邮件 agent 写客户备忘录。</p>
-          `
-        },
-        guardrail: {
-          title: "Guardrail 是什么？",
-          body: `
-            <p>Guardrail 是护栏，用来限制或检查 agent 行为，例如输入过滤、输出校验、权限控制、敏感操作确认。</p>
-            <p>它不是让模型更聪明，而是让系统更可控、更安全。</p>
-          `
-        },
-        tracing: {
-          title: "Tracing 是什么？",
-          body: `
-            <p>Tracing 是追踪 agent 执行过程：记录模型调用、工具调用、状态变化、错误和耗时。</p>
-            <p>它让开发者能调试和审计 agent 为什么做出某个动作。</p>
-          `
-        },
-        session: {
-          title: "Session 是什么？",
-          body: `
-            <p>Session 是一次连续交互或任务运行的上下文容器。</p>
-            <p>它通常保存对话、状态、工具结果和用户偏好，让 agent 不至于每一步都从零开始。</p>
-          `
-        },
-        "remote-mcp-server": {
-          title: "Remote MCP server 是什么？",
-          body: `
-            <p>Remote MCP server 是远程运行的 MCP 工具/数据源服务。</p>
-            <p>模型或 agent 不必只连接本地工具，也可以通过远程 MCP server 调用外部能力。</p>
-          `
-        }
-      },
-      cites: {
-        "rnn-bottleneck": {
-          title: "[1] 起点瓶颈的来源",
-          body: `
-            <p><strong>Bengio, Simard, Frasconi, 1994</strong>：<a href="https://www.comp.hkbu.edu.hk/~markus/teaching/comp7650/tnn-94-gradient.pdf" target="_blank" rel="noreferrer">Learning Long-Term Dependencies with Gradient Descent is Difficult</a>。这篇论文从梯度传播角度说明，随着依赖间隔拉长，基于梯度的学习会变得越来越困难。</p>
-            <p><strong>Hochreiter &amp; Schmidhuber, 1997</strong>：<a href="https://direct.mit.edu/neco/article/9/8/1735/6109/Long-Short-Term-Memory" target="_blank" rel="noreferrer">Long Short-Term Memory</a>。论文指出传统 BPTT/RTRL 在 10-step minimal time lag 上已经会失败，而 LSTM 可以桥接超过 1000 个离散时间步的最小时滞，并解决此前 recurrent network 算法没有解决的人工长时滞任务。</p>
-            <p>这说明早期 RNN 的长时滞训练瓶颈是真问题；LSTM 是缓解方案，但仍然保留循环结构。</p>
-          `
-        },
-        "transformer-complexity": {
-          title: "[2] 起点瓶颈的同任务对照来源",
-          body: `
-            <p><strong>Vaswani et al., 2017</strong>：<a href="https://arxiv.org/abs/1706.03762" target="_blank" rel="noreferrer">Attention Is All You Need</a>。</p>
-            <p>Table 2 给出 WMT 2014 英德翻译同任务对照：GNMT + RL Ensemble 为 26.30 BLEU、训练成本 1.8 × 10²⁰ FLOPs；Transformer (big) 为 28.4 BLEU、训练成本 2.3 × 10¹⁹ FLOPs。</p>
-            <p>Table 1 给出结构解释：recurrent layer 的 sequential operations 和 maximum path length 都是 O(n)，self-attention 都是 O(1)。</p>
-          `
-        },
-        "bert-gpt2": {
-          title: "[3] 解锁能力的来源",
-          body: `
-            <p><strong>Devlin et al., 2018</strong>：<a href="https://arxiv.org/abs/1810.04805" target="_blank" rel="noreferrer">BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding</a>。论文摘要报告 BERT 将 GLUE 推到 80.5，并带来 7.7 个百分点绝对提升。</p>
-            <p><strong>Google Research, 2018</strong>：<a href="https://research.google/blog/open-sourcing-bert-state-of-the-art-pre-training-for-natural-language-processing/" target="_blank" rel="noreferrer">Open Sourcing BERT</a>。官方博客报告 BERT 在 GLUE 上带来 7.6 个百分点绝对提升，并说明 BERT 可微调用于问答、情感分析等任务。</p>
-            <p><strong>OpenAI, 2019</strong>：<a href="https://openai.com/index/better-language-models/" target="_blank" rel="noreferrer">Better language models and their implications</a> 与 <a href="https://cdn.openai.com/better-language-models/language_models_are_unsupervised_multitask_learners.pdf" target="_blank" rel="noreferrer">GPT-2 technical report</a>。报告展示 GPT-2 的开放文本生成和无任务专门训练的迁移能力。</p>
-          `
-        },
-        "google-search-bert": {
-          title: "[4] Google Search 使用 BERT 的来源",
-          body: `
-            <p><strong>Google Search, 2019-10-25</strong>：<a href="https://blog.google/products-and-platforms/products/search/search-language-understanding-bert/" target="_blank" rel="noreferrer">Understanding searches better than ever before</a>。</p>
-            <p>Google 官方说明：BERT 被用于 Search 的 ranking 和 featured snippets；在 ranking 上，它会帮助 Search 更好理解美国英语里约 10% 的搜索，尤其是长查询和介词关系。</p>
-          `
-        },
-        "hf-transformers": {
-          title: "[5] Hugging Face Transformers 的来源",
-          body: `
-            <p><strong>Hugging Face 文档</strong>：<a href="https://huggingface.co/docs/transformers/quicktour" target="_blank" rel="noreferrer">Transformers Quick tour</a>。</p>
-            <p>官方文档说明 Transformers 提供加载预训练模型、pipeline 推理和 Trainer 微调等能力，是把 BERT、GPT-2 等模型工程化调用的重要开源库。</p>
-          `
-        },
-        "gpt3-foundation": {
-          title: "[6] GPT-3 / Foundation Model 来源",
-          body: `
-            <p><strong>Brown et al., 2020</strong>：<a href="https://arxiv.org/abs/2005.14165" target="_blank" rel="noreferrer">Language Models are Few-Shot Learners</a>。论文训练 175B 参数 GPT-3，并系统评估 zero-shot、one-shot、few-shot；TriviaQA closed-book QA 上报告 64.3 / 68.0 / 71.2。</p>
-            <p><strong>Stanford CRFM, 2021</strong>：<a href="https://arxiv.org/abs/2108.07258" target="_blank" rel="noreferrer">On the Opportunities and Risks of Foundation Models</a>。报告提出 foundation model 概念，用来描述大规模训练后可适配大量下游任务的模型。</p>
-          `
-        },
-        "codex-copilot-2021": {
-          title: "[7] 2021 Codex / GitHub Copilot 来源",
-          body: `
-            <p><strong>OpenAI, 2021</strong>：<a href="https://openai.com/index/openai-codex/" target="_blank" rel="noreferrer">OpenAI Codex</a>。OpenAI 将 Codex 描述为把自然语言转成代码的模型。</p>
-            <p><strong>GitHub, 2021</strong>：<a href="https://github.blog/news-insights/product-news/introducing-github-copilot-ai-pair-programmer/" target="_blank" rel="noreferrer">Introducing GitHub Copilot</a>。GitHub 官方说明 Copilot 由 OpenAI Codex 驱动。</p>
-          `
-        },
-        "instructgpt-chatgpt": {
-          title: "[8] InstructGPT / ChatGPT 来源",
-          body: `
-            <p><strong>Ouyang et al., 2022</strong>：<a href="https://arxiv.org/abs/2203.02155" target="_blank" rel="noreferrer">Training language models to follow instructions with human feedback</a>。论文将语言模型目标与用户意图不匹配作为核心问题，并报告 1.3B InstructGPT 输出被偏好于 175B GPT-3。</p>
-            <p><strong>OpenAI, 2022</strong>：<a href="https://openai.com/index/chatgpt/" target="_blank" rel="noreferrer">Introducing ChatGPT</a>。OpenAI 于 2022-11-30 发布 ChatGPT。</p>
-            <p><strong>OpenAI, 2022</strong>：<a href="https://openai.com/index/instruction-following/" target="_blank" rel="noreferrer">Aligning language models to follow instructions</a>。官方文章解释 RLHF，并强调标注者更偏好 1.3B InstructGPT。</p>
-          `
-        },
-        "constitutional-ai": {
-          title: "[9] Constitutional AI 来源",
-          body: `
-            <p><strong>Bai et al., 2022</strong>：<a href="https://arxiv.org/abs/2212.08073" target="_blank" rel="noreferrer">Constitutional AI: Harmlessness from AI Feedback</a>。论文研究用原则驱动模型自我批判与修正，减少对逐条人工反馈的依赖。</p>
-          `
-        },
-        truthfulqa: {
-          title: "[21] TruthfulQA 来源",
-          body: `
-            <p><strong>Lin, Hilton, Evans, 2021</strong>：<a href="https://arxiv.org/abs/2109.07958" target="_blank" rel="noreferrer">TruthfulQA: Measuring How Models Mimic Human Falsehoods</a>。论文构建 817 个问题来测试模型是否会模仿人类常见错误信念，并报告较大的 GPT-3 模型在真实性上表现更差。</p>
-            <p>论文还报告，表现最好的 GPT-3-175B helpful prompt 在生成任务上为 58% truthful、21% truthful and informative；人类基线为 94% truthful、87% truthful and informative。</p>
-            <p>这条证据用于支撑阶段三的起点瓶颈：更强的语言建模能力不自动等于更诚实地服务用户意图。</p>
-          `
-        },
-        "assistant-products": {
-          title: "[22] 助手产品来源",
-          body: `
-            <p><strong>OpenAI, 2022</strong>：<a href="https://openai.com/index/chatgpt/" target="_blank" rel="noreferrer">Introducing ChatGPT</a>。OpenAI 于 2022-11-30 发布 ChatGPT。</p>
-            <p><strong>Anthropic, 2023</strong>：<a href="https://www.anthropic.com/news/introducing-claude" target="_blank" rel="noreferrer">Introducing Claude</a>。Anthropic 于 2023-03-14 发布 Claude。</p>
-            <p><strong>OpenAI, 2023</strong>：<a href="https://openai.com/research/gpt-4" target="_blank" rel="noreferrer">GPT-4</a>。OpenAI 于 2023-03-14 发布 GPT-4，并说明它可通过 ChatGPT Plus 和 API 使用。</p>
-          `
-        },
-        "cot-tools": {
-          title: "[10] CoT / Self-Consistency 来源",
-          body: `
-            <p><strong>Wei et al., 2022</strong>：<a href="https://arxiv.org/abs/2201.11903" target="_blank" rel="noreferrer">Chain-of-Thought Prompting Elicits Reasoning in Large Language Models</a>。PaLM 540B 在 GSM8K 上由标准 prompting 的 17.9% 提升到 CoT 的 56.9%。</p>
-            <p><strong>Wang et al., 2022</strong>：<a href="https://arxiv.org/abs/2203.11171" target="_blank" rel="noreferrer">Self-Consistency Improves Chain of Thought Reasoning</a>。在 GSM8K 上进一步报告 74.4%。</p>
-          `
-        },
-        "function-toolformer": {
-          title: "[11] Function Calling / Toolformer 来源",
-          body: `
-            <p><strong>OpenAI, 2023-03-23</strong>：<a href="https://openai.com/index/chatgpt-plugins/" target="_blank" rel="noreferrer">ChatGPT plugins</a>。官方介绍 ChatGPT Plugins，将 ChatGPT 连接到浏览器、代码解释器和第三方插件服务。</p>
-            <p><strong>OpenAI, 2023</strong>：<a href="https://openai.com/index/function-calling-and-other-api-updates/" target="_blank" rel="noreferrer">Function calling and other API updates</a>。官方介绍让模型输出结构化函数调用请求的 API 能力。</p>
-            <p><strong>Schick et al., 2023</strong>：<a href="https://arxiv.org/abs/2302.04761" target="_blank" rel="noreferrer">Toolformer</a>。论文研究语言模型如何学习调用 API。</p>
-          `
-        },
-        "rag-chains-react": {
-          title: "[12] RAG / Chains / ReAct 来源",
-          body: `
-            <p><strong>Lewis et al., 2020</strong>：<a href="https://arxiv.org/abs/2005.11401" target="_blank" rel="noreferrer">Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks</a>。论文表 1 列出 T5-11B closed-book Natural Questions 为 34.5 EM，并报告 RAG-Sequence 在 Natural Questions 上达到 44.5 EM。</p>
-            <p><strong>Wu et al., 2021</strong>：<a href="https://arxiv.org/abs/2110.01691" target="_blank" rel="noreferrer">AI Chains</a>。研究把多个 LLM prompt 连接成可检查流程。</p>
-            <p><strong>Wu et al., 2022</strong>：<a href="https://arxiv.org/abs/2203.06566" target="_blank" rel="noreferrer">PromptChainer</a>；<strong>Khot et al., 2022</strong>：<a href="https://arxiv.org/abs/2210.02406" target="_blank" rel="noreferrer">Decomposed Prompting</a>。二者都支撑“把复杂任务拆成多个 prompt/子任务”。</p>
-            <p><strong>Yao et al., 2022</strong>：<a href="https://arxiv.org/abs/2210.03629" target="_blank" rel="noreferrer">ReAct</a>。论文将 reasoning、action、observation 放入循环，并报告 ALFWorld / WebShop 上的提升。</p>
-          `
-        },
-        "langchain-products": {
-          title: "[13] LangChain 与应用框架来源",
-          body: `
-            <p><strong>LangChain 文档</strong>：<a href="https://python.langchain.com/docs/introduction/" target="_blank" rel="noreferrer">Introduction</a>。官方文档将 LangChain 定位为构建 LLM 应用和 agents 的框架，提供模型、检索、工具、memory 等组合能力。</p>
-            <p><strong>LlamaIndex 文档</strong>：<a href="https://docs.llamaindex.ai/" target="_blank" rel="noreferrer">LlamaIndex</a>。官方文档将其定位为连接私有/领域数据与 LLM 应用的框架。</p>
-          `
-        },
-        "enterprise-rag-products": {
-          title: "[14] 企业 RAG / 知识助手产品来源",
-          body: `
-            <p><strong>Glean</strong>：<a href="https://www.glean.com/product/ai-search" target="_blank" rel="noreferrer">AI Search</a>。企业 AI 搜索和知识助手产品。</p>
-            <p><strong>Perplexity Help Center</strong>：<a href="https://www.perplexity.ai/help-center/en/articles/10354917-what-is-an-answer-engine-and-how-does-perplexity-work-as-one" target="_blank" rel="noreferrer">What is an answer engine?</a>。官方帮助文档把 Perplexity 描述为搜索网页、识别可信来源并综合回答的 answer engine。</p>
-            <p><strong>Microsoft Learn</strong>：<a href="https://learn.microsoft.com/en-us/microsoft-365/copilot/microsoft-365-copilot-architecture" target="_blank" rel="noreferrer">Microsoft 365 Copilot architecture</a>。说明 Microsoft 365 Copilot 结合 LLM、Microsoft Graph 和企业数据。</p>
-            <p><strong>AWS Docs</strong>：<a href="https://docs.aws.amazon.com/amazonq/latest/qbusiness-ug/what-is.html" target="_blank" rel="noreferrer">Amazon Q Business</a>。AWS 面向企业数据和业务系统的生成式 AI 助手。</p>
-          `
-        },
-        "early-agent-demos": {
-          title: "[23] 早期动态 agent 演示来源",
-          body: `
-            <p><strong>AutoGPT GitHub</strong>：<a href="https://github.com/Significant-Gravitas/AutoGPT" target="_blank" rel="noreferrer">Significant-Gravitas/AutoGPT</a>。项目把自己定位为可创建、部署和管理 continuous AI agents 的平台，早期社区版本让 LLM 在循环中规划和执行任务。</p>
-            <p><strong>BabyAGI GitHub</strong>：<a href="https://github.com/yoheinakajima/babyagi" target="_blank" rel="noreferrer">yoheinakajima/babyagi</a>。仓库展示任务生成、函数执行和实验性 self-building agent，属于早期动态 agent loop 的社区演示线。</p>
-          `
-        },
-        "anthropic-effective-agents": {
-          title: "[15] Anthropic Building Effective Agents 来源",
-          body: `
-            <p><strong>Anthropic, 2024-12-19</strong>：<a href="https://www.anthropic.com/engineering/building-effective-agents" target="_blank" rel="noreferrer">Building effective agents</a>。文章明确区分 workflows 和 agents，并给出 prompt chaining、routing、parallelization、orchestrator-workers、evaluator-optimizer 等 workflow 模式。</p>
-          `
-        },
-        "langgraph-mcp": {
-          title: "[16] LangGraph / MCP 来源",
-          body: `
-            <p><strong>LangGraph 文档</strong>：<a href="https://docs.langchain.com/oss/python/langgraph" target="_blank" rel="noreferrer">LangGraph</a>。文档强调 long-running、stateful workflow 和 agent，包含 durable execution、streaming、human-in-the-loop、persistence 等能力。</p>
-            <p><strong>LangGraph Persistence</strong>：<a href="https://docs.langchain.com/oss/python/langgraph/persistence" target="_blank" rel="noreferrer">Persistence</a>。说明 checkpoint 支持 human-in-the-loop、memory、time travel debugging 和 fault-tolerant execution。</p>
-            <p><strong>Anthropic, 2024-11-25</strong>：<a href="https://www.anthropic.com/news/model-context-protocol" target="_blank" rel="noreferrer">Model Context Protocol</a>。MCP 被定义为连接 AI assistants 与数据源、业务工具和开发环境的开放标准。</p>
-          `
-        },
-        "state-agent-frameworks": {
-          title: "[24] 状态/多 Agent 框架来源",
-          body: `
-            <p><strong>AutoGen 文档</strong>：<a href="https://microsoft.github.io/autogen/stable/index.html" target="_blank" rel="noreferrer">AutoGen</a>。官方文档将 AutoGen 描述为 event-driven programming framework for building scalable multi-agent AI systems。</p>
-            <p><strong>AutoGen 论文</strong>：<a href="https://arxiv.org/abs/2308.08155" target="_blank" rel="noreferrer">AutoGen: Enabling Next-Gen LLM Applications via Multi-Agent Conversation</a>。论文介绍通过多个可对话 agent 构建 LLM 应用。</p>
-            <p><strong>CrewAI</strong>：<a href="https://www.crewai.dev/" target="_blank" rel="noreferrer">CrewAI</a> 与 <a href="https://crewai.com/open-source" target="_blank" rel="noreferrer">CrewAI Open Source</a>。官方材料将其定位为面向工程师的 multi-agent automation / orchestration framework。</p>
-          `
-        },
-        "computer-use-source": {
-          title: "[27] Anthropic Computer Use 来源",
-          body: `
-            <p><strong>Anthropic, 2024-10-22</strong>：<a href="https://www.anthropic.com/news/3-5-models-and-computer-use" target="_blank" rel="noreferrer">Introducing computer use, a new Claude 3.5 Sonnet, and Claude 3.5 Haiku</a>。Anthropic 将 Claude 3.5 Sonnet 的 computer use 称为 public beta，并说明开发者可通过 API、Amazon Bedrock 和 Google Cloud Vertex AI 使用。</p>
-            <p><strong>Anthropic Docs</strong>：<a href="https://docs.anthropic.com/en/docs/build-with-claude/computer-use" target="_blank" rel="noreferrer">Computer use tool</a>。文档说明 computer use tool 如何让 Claude 请求 Anthropic-defined tools 来操作计算机界面。</p>
-          `
-        },
-        "swe-o1": {
-          title: "[17] SWE-bench Verified / o1 来源",
-          body: `
-            <p><strong>SWE-bench</strong>：<a href="https://www.swebench.com/" target="_blank" rel="noreferrer">SWE-bench</a>。用真实 GitHub issue 评估模型修复软件问题。</p>
-            <p><strong>OpenAI, 2024</strong>：<a href="https://openai.com/index/introducing-swe-bench-verified/" target="_blank" rel="noreferrer">Introducing SWE-bench Verified</a>。介绍更可靠的 SWE-bench 子集，并给出当时 top agents 表现背景。</p>
-            <p><strong>OpenAI, 2024</strong>：<a href="https://openai.com/index/learning-to-reason-with-llms/" target="_blank" rel="noreferrer">Learning to reason with LLMs</a>。报告 o1 在 2024 AIME 上从 GPT-4o 的 12% 提升到单样本 74%。</p>
-          `
-        },
-        "claude-code-codex": {
-          title: "[18] Claude Code / OpenAI Codex 来源",
-          body: `
-            <p><strong>Anthropic, 2025</strong>：<a href="https://www.anthropic.com/news/claude-3-7-sonnet" target="_blank" rel="noreferrer">Claude 3.7 Sonnet and Claude Code</a>。公告同时发布 Claude Code，并报告 SWE-bench Verified 489 个可运行子集上 63.7% / 70.3% 结果。</p>
-            <p><strong>Claude Code Docs</strong>：<a href="https://code.claude.com/docs/en/how-claude-code-works" target="_blank" rel="noreferrer">How Claude Code works</a>。说明 Claude Code 可读代码、编辑文件、运行命令并使用工具。</p>
-            <p><strong>OpenAI, 2025</strong>：<a href="https://openai.com/index/introducing-codex/" target="_blank" rel="noreferrer">Introducing Codex</a>。介绍软件工程 agent Codex，与 2021 年代码模型 Codex 不是同一层产品。</p>
-            <p><strong>OpenAI Codex 文档</strong>：<a href="https://platform.openai.com/docs/codex" target="_blank" rel="noreferrer">Codex</a>。文档说明 Codex 是可读取、修改并运行代码的 coding agent；云端任务会 provision sandboxed cloud container。</p>
-            <p><strong>OpenAI Codex GitHub</strong>：<a href="https://github.com/openai/codex" target="_blank" rel="noreferrer">openai/codex</a>。官方仓库说明 Codex CLI 是运行在本地电脑上的 OpenAI coding agent，并区分 Codex Web 云端形态。</p>
-          `
-        },
-        "coding-products": {
-          title: "[25] Coding agent 产品与开源工具来源",
-          body: `
-            <p><strong>Cursor 文档</strong>：<a href="https://docs.cursor.com/get-started/concepts" target="_blank" rel="noreferrer">Concepts</a>。文档说明 Cursor Agent 可以跨多个文件读取和修改代码。</p>
-            <p><strong>Devin Docs</strong>：<a href="https://docs.devin.ai/" target="_blank" rel="noreferrer">Introducing Devin</a>。官方文档将 Devin 描述为 autonomous AI software engineer，可写、运行和测试代码，并带 shell 与代码编辑器。</p>
-            <p><strong>Aider</strong>：<a href="https://aider.chat/" target="_blank" rel="noreferrer">AI Pair Programming in Your Terminal</a>。Aider 将自身定位为终端里的 AI pair programming 工具。</p>
-            <p><strong>Cline Docs</strong>：<a href="https://docs.cline.bot/introduction/welcome" target="_blank" rel="noreferrer">What is Cline?</a>。Cline 文档将其描述为运行在编辑器中的开源 AI coding agent。</p>
-          `
-        },
-        "a2a-openai-sdk": {
-          title: "[19] A2A / OpenAI Agents SDK 来源",
-          body: `
-            <p><strong>Google A2A Specification</strong>：<a href="https://google-a2a.github.io/A2A/specification/" target="_blank" rel="noreferrer">Agent2Agent Protocol Specification</a>。定义 Agent Card、Message、Task、Artifact 等互操作对象。</p>
-            <p><strong>OpenAI, 2025-03-11</strong>：<a href="https://openai.com/index/new-tools-for-building-agents/" target="_blank" rel="noreferrer">New tools for building agents</a>。发布 Responses API、内置工具和 Agents SDK，并说明 Agents SDK 简化 single-agent 和 multi-agent workflows 的 orchestration。</p>
-            <p><strong>OpenAI Agents SDK 文档</strong>：<a href="https://openai.github.io/openai-agents-python/" target="_blank" rel="noreferrer">OpenAI Agents SDK</a>。</p>
-          `
-        },
-        "responses-adk-vertex": {
-          title: "[20] Responses API / Google ADK / Vertex 来源",
-          body: `
-            <p><strong>OpenAI, 2025-05-21</strong>：<a href="https://openai.com/index/new-tools-and-features-in-the-responses-api/" target="_blank" rel="noreferrer">New tools and features in the Responses API</a>。加入远程 MCP server 支持，并称自 2025-03 发布以来已有数十万开发者使用 Responses API 处理数万亿 token。</p>
-            <p><strong>Google ADK 文档</strong>：<a href="https://google.github.io/adk-docs/" target="_blank" rel="noreferrer">Agent Development Kit</a>。ADK 是用于开发和部署 AI agents 的灵活模块化框架。</p>
-            <p><strong>Google Cloud Docs</strong>：<a href="https://docs.cloud.google.com/vertex-ai/generative-ai/docs/agent-builder/overview" target="_blank" rel="noreferrer">Vertex AI Agent Builder overview</a>。介绍用于构建、部署和治理 agent 的 Google Cloud 产品套件。</p>
-          `
-        },
-        "claude-agent-sdk": {
-          title: "[26] Claude Agent SDK 来源",
-          body: `
-            <p><strong>Claude Docs</strong>：<a href="https://docs.claude.com/en/docs/claude-code/sdk/sdk-overview" target="_blank" rel="noreferrer">Agent SDK overview</a>。文档介绍 Claude Agent SDK，并给出 npm 包与使用方式。</p>
-            <p><strong>Anthropic Engineering</strong>：<a href="https://www.anthropic.com/engineering/building-agents-with-the-claude-agent-sdk" target="_blank" rel="noreferrer">Building agents with the Claude Agent SDK</a>。文章将 Claude Agent SDK 描述为帮助开发者在 Claude Code 之上构建 agents 的工具集合。</p>
-          `
-        }
-      }
-    };
-
-    let activePopover = null;
-    let activeAnchor = null;
-
-    function closePopover() {
-      if (activePopover) {
-        activePopover.remove();
-        activePopover = null;
-        activeAnchor = null;
-      }
-    }
-
-    function openInfo(anchor, entry) {
-      if (activeAnchor === anchor) {
-        closePopover();
-        return;
-      }
-      closePopover();
-      const popover = document.createElement("div");
-      popover.className = "inline-popover";
-      popover.innerHTML = `<h3>${entry.title}</h3>${entry.body}`;
-
-      const row = anchor.closest("tr");
-      const exampleStep = anchor.closest(".example-step");
-      const paragraph = anchor.closest("p");
-      const host = row || exampleStep || paragraph || anchor.parentElement;
-      if (row) {
-        const noteRow = document.createElement("tr");
-        const noteCell = document.createElement("td");
-        noteCell.colSpan = row.children.length;
-        noteCell.appendChild(popover);
-        noteRow.appendChild(noteCell);
-        row.insertAdjacentElement("afterend", noteRow);
-        activePopover = noteRow;
-      } else {
-        host.insertAdjacentElement("afterend", popover);
-        activePopover = popover;
-      }
-      activeAnchor = anchor;
-    }
-
-    document.querySelectorAll("[data-term]").forEach((button) => {
-      button.addEventListener("click", (event) => {
-        event.stopPropagation();
-        openInfo(button, info.terms[button.dataset.term]);
-      });
-    });
-
-    document.querySelectorAll("[data-cite]").forEach((button) => {
-      button.addEventListener("click", (event) => {
-        event.stopPropagation();
-        openInfo(button, info.cites[button.dataset.cite]);
-      });
-    });
-
-    const navLinks = Array.from(document.querySelectorAll("nav a[href^='#']"));
-    const sectionById = new Map(
-      navLinks
-        .map((link) => {
-          const id = link.getAttribute("href").slice(1);
-          return [id, document.getElementById(id)];
-        })
-        .filter(([, section]) => section)
-    );
-
-    function setCurrentNav(id) {
-      navLinks.forEach((link) => {
-        const isCurrent = link.getAttribute("href") === `#${id}`;
-        link.classList.toggle("current", isCurrent);
-        if (isCurrent) {
-          link.setAttribute("aria-current", "true");
-        } else {
-          link.removeAttribute("aria-current");
-        }
-      });
-    }
-
-    navLinks.forEach((link) => {
-      link.addEventListener("click", () => {
-        const id = link.getAttribute("href").slice(1);
-        setCurrentNav(id);
-      });
-    });
-
-    if ("IntersectionObserver" in window) {
-      const observer = new IntersectionObserver(
-        (entries) => {
-          const visible = entries
-            .filter((entry) => entry.isIntersecting)
-            .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
-          if (visible) setCurrentNav(visible.target.id);
-        },
-        {
-          rootMargin: "-18% 0px -58% 0px",
-          threshold: [0.08, 0.18, 0.32, 0.48]
-        }
-      );
-
-      sectionById.forEach((section) => observer.observe(section));
-    } else {
-      window.addEventListener("scroll", () => {
-        let currentId = navLinks[0]?.getAttribute("href").slice(1);
-        sectionById.forEach((section, id) => {
-          if (section.getBoundingClientRect().top <= 160) currentId = id;
-        });
-        if (currentId) setCurrentNav(currentId);
-      }, { passive: true });
-    }
-
-    document.addEventListener("click", (event) => {
-      if (!event.target.closest(".inline-popover")) closePopover();
-    });
-  </script>
 </body>
 </html>
