@@ -1,0 +1,1420 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Native 风控系统 · 体系文档</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --bg-soft: #f7f9fb;
+    --ink: #1a2026;
+    --ink-2: #2c3640;
+    --muted: #5d6975;
+    --muted-2: #8995a3;
+    --line: #e3e8ee;
+    --line-strong: #c8d2dc;
+    --blue: #1a6789;
+    --blue-soft: #eaf3f7;
+    --blue-line: #b6d4e2;
+    --green: #2f7558;
+    --green-soft: #ecf5ef;
+    --red: #b13e3f;
+    --red-soft: #fbeeed;
+    --amber: #8f6321;
+    --amber-soft: #fbf3e2;
+    --code-bg: #f3f5f8;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 24px; }
+  body {
+    margin: 0;
+    color: var(--ink);
+    background: var(--bg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+      "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    line-height: 1.72;
+    font-size: 15.5px;
+  }
+
+  /* layout */
+  .shell {
+    display: grid;
+    grid-template-columns: 260px minmax(0, 1fr);
+    gap: 40px;
+    max-width: 1320px;
+    margin: 0 auto;
+    padding: 36px 36px 96px;
+  }
+
+  /* sidebar TOC */
+  aside.toc {
+    position: sticky;
+    top: 24px;
+    align-self: start;
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
+    padding: 18px 16px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--bg-soft);
+    font-size: 13.5px;
+  }
+  aside.toc .toc-title {
+    margin: 0 0 10px;
+    color: var(--blue);
+    font-size: 11px;
+    font-weight: 850;
+    letter-spacing: 0.1em;
+  }
+  aside.toc ol { list-style: none; margin: 0; padding: 0; }
+  aside.toc > ol > li { margin: 4px 0; }
+  aside.toc a {
+    display: block;
+    padding: 3px 6px;
+    border-radius: 4px;
+    color: var(--ink-2);
+    text-decoration: none;
+    transition: background 0.1s;
+  }
+  aside.toc a:hover { background: #e6edf4; color: var(--blue); }
+  aside.toc .toc-num {
+    display: inline-block;
+    min-width: 22px;
+    color: var(--muted-2);
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+  }
+  aside.toc ol ol { margin: 2px 0 6px 16px; font-size: 12.5px; }
+  aside.toc ol ol a { color: var(--muted); padding: 2px 6px; }
+
+  /* main */
+  main { min-width: 0; }
+  .doc-meta {
+    margin-bottom: 28px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .doc-meta .eyebrow {
+    display: inline-block;
+    margin-bottom: 8px;
+    color: var(--blue);
+    font-size: 11px;
+    font-weight: 850;
+    letter-spacing: 0.12em;
+  }
+  .doc-meta h1 {
+    margin: 0 0 8px;
+    color: var(--ink);
+    font-size: 32px;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+  }
+  .doc-meta .subtitle {
+    margin: 0;
+    color: var(--ink-2);
+    font-size: 16px;
+    font-weight: 500;
+  }
+
+  /* section headings */
+  section { margin: 48px 0 0; scroll-margin-top: 24px; }
+  section.l1 { margin-top: 0; }
+  h2.sec-h {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin: 0 0 12px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--line);
+    font-size: 23px;
+    line-height: 1.3;
+    letter-spacing: -0.005em;
+  }
+  h2.sec-h .num {
+    color: var(--blue);
+    font-variant-numeric: tabular-nums;
+    font-weight: 850;
+    font-size: 18px;
+    letter-spacing: 0;
+  }
+  h3.sub-h {
+    margin: 28px 0 10px;
+    font-size: 17.5px;
+    color: var(--ink);
+  }
+  h3.sub-h .num {
+    color: var(--muted-2);
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    margin-right: 6px;
+  }
+  h4 {
+    margin: 18px 0 8px;
+    font-size: 15px;
+    color: var(--ink-2);
+  }
+
+  p { margin: 10px 0; }
+  strong { color: var(--ink); }
+  code {
+    padding: 1px 6px;
+    background: var(--code-bg);
+    border-radius: 4px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.88em;
+  }
+
+  /* TL;DR pull-quote */
+  .tldr {
+    margin: 14px 0 18px;
+    padding: 12px 16px;
+    border-left: 4px solid var(--blue);
+    background: var(--blue-soft);
+    border-radius: 0 6px 6px 0;
+    color: var(--ink-2);
+    font-size: 14.5px;
+  }
+  .tldr b { color: var(--blue); font-size: 11.5px; letter-spacing: 0.1em; }
+
+  /* inline glossary (like screenshot) */
+  details.glossary {
+    margin: 12px 0;
+    padding: 0;
+    border-left: 4px solid var(--blue);
+    background: var(--blue-soft);
+    border-radius: 0 6px 6px 0;
+    overflow: hidden;
+  }
+  details.glossary[open] { padding-bottom: 4px; }
+  details.glossary > summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 10px 16px;
+    color: var(--blue);
+    font-weight: 700;
+    font-size: 14px;
+    user-select: none;
+  }
+  details.glossary > summary::-webkit-details-marker { display: none; }
+  details.glossary > summary::before {
+    content: "▸";
+    display: inline-block;
+    margin-right: 8px;
+    color: var(--blue);
+    transition: transform 0.15s;
+    font-size: 11px;
+  }
+  details.glossary[open] > summary::before { transform: rotate(90deg); }
+  details.glossary .glossary-body {
+    padding: 0 16px 8px 36px;
+    color: var(--ink-2);
+    font-size: 14px;
+    line-height: 1.7;
+  }
+  details.glossary .glossary-body p { margin: 6px 0; }
+  details.glossary .glossary-body .example {
+    margin-top: 8px;
+    padding: 8px 12px;
+    background: rgba(255,255,255,0.6);
+    border-radius: 4px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+  details.glossary .glossary-body .example b {
+    color: var(--blue);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+  }
+
+  /* scenario card (具体闭环故事) */
+  .scenario {
+    margin: 16px 0;
+    padding: 16px 18px;
+    border: 1px solid var(--amber-soft);
+    border-left: 4px solid var(--amber);
+    background: #fffcf5;
+    border-radius: 0 6px 6px 0;
+  }
+  .scenario .tag {
+    display: inline-block;
+    margin-bottom: 6px;
+    padding: 1px 8px;
+    background: var(--amber);
+    color: white;
+    border-radius: 999px;
+    font-size: 10.5px;
+    font-weight: 850;
+    letter-spacing: 0.08em;
+  }
+  .scenario h4 {
+    margin: 4px 0 8px;
+    color: var(--ink);
+    font-size: 15.5px;
+  }
+  .scenario p { margin: 6px 0; color: var(--ink-2); font-size: 14px; }
+  .scenario .punch {
+    margin-top: 10px;
+    padding: 8px 12px;
+    background: var(--red-soft);
+    border-left: 3px solid var(--red);
+    color: var(--ink);
+    font-weight: 600;
+    font-size: 14px;
+  }
+
+  /* tables */
+  table.tab {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 14px 0;
+    font-size: 14px;
+  }
+  table.tab th, table.tab td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--line);
+    text-align: left;
+    vertical-align: top;
+  }
+  table.tab th {
+    background: var(--bg-soft);
+    color: var(--ink);
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 0.01em;
+  }
+  table.tab tr:last-child td { border-bottom: 0; }
+  table.tab.wide { font-size: 13.5px; }
+
+  /* claim block (三主张) */
+  .claims {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+    margin: 18px 0;
+  }
+  .claim {
+    padding: 18px;
+    border: 1px solid var(--line);
+    border-top: 4px solid var(--blue);
+    border-radius: 6px;
+    background: var(--bg-soft);
+  }
+  .claim .ord {
+    display: inline-block;
+    margin-bottom: 8px;
+    padding: 1px 8px;
+    background: var(--blue);
+    color: white;
+    border-radius: 999px;
+    font-size: 10.5px;
+    font-weight: 850;
+    letter-spacing: 0.08em;
+  }
+  .claim h3 { margin: 4px 0 8px; font-size: 16px; color: var(--ink); }
+  .claim .carry {
+    margin: 8px 0;
+    padding: 6px 8px;
+    background: white;
+    border-radius: 4px;
+    color: var(--ink-2);
+    font-size: 13px;
+  }
+  .claim .carry b { color: var(--blue); font-size: 11px; letter-spacing: 0.05em; }
+  .claim .negative {
+    margin-top: 8px;
+    padding: 6px 8px;
+    background: var(--red-soft);
+    border-left: 3px solid var(--red);
+    color: var(--ink-2);
+    font-size: 13px;
+  }
+  .claim .negative b { color: var(--red); font-size: 11px; letter-spacing: 0.05em; }
+
+  /* architecture diagram */
+  pre.diagram {
+    margin: 18px 0;
+    padding: 20px;
+    background: #0f1419;
+    color: #c9d3df;
+    border-radius: 8px;
+    overflow-x: auto;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 13px;
+    line-height: 1.65;
+  }
+  pre.diagram .acc-blue { color: #7fc4e8; }
+  pre.diagram .acc-green { color: #91d4a8; }
+  pre.diagram .acc-amber { color: #e8c780; }
+
+  /* menu */
+  .menu {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0,1fr));
+    gap: 12px;
+    margin: 14px 0;
+  }
+  .menu a {
+    display: block;
+    padding: 14px 16px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: white;
+    color: var(--ink);
+    text-decoration: none;
+    transition: all 0.12s;
+  }
+  .menu a:hover {
+    border-color: var(--blue);
+    background: var(--blue-soft);
+  }
+  .menu a .m-num {
+    display: inline-block;
+    color: var(--blue);
+    font-variant-numeric: tabular-nums;
+    font-weight: 850;
+    margin-right: 8px;
+  }
+  .menu a .m-title { font-weight: 700; }
+  .menu a .m-line {
+    display: block;
+    margin-top: 4px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  /* component grid (section 3) */
+  .components {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    margin: 16px 0;
+  }
+  .component {
+    padding: 14px 16px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: white;
+  }
+  .component h4 {
+    margin: 0 0 6px;
+    color: var(--blue);
+    font-size: 14.5px;
+  }
+  .component h4 .cnum {
+    display: inline-block;
+    width: 22px; height: 22px;
+    margin-right: 6px;
+    background: var(--blue);
+    color: white;
+    border-radius: 50%;
+    text-align: center;
+    line-height: 22px;
+    font-size: 12px;
+    font-weight: 850;
+  }
+  .component .role {
+    display: inline-block;
+    padding: 1px 7px;
+    background: var(--blue-soft);
+    color: var(--blue);
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .component p { margin: 4px 0; color: var(--ink-2); font-size: 13.5px; }
+
+  /* matrix appendix */
+  .matrix-wrap { overflow-x: auto; margin: 14px 0; }
+  table.matrix {
+    width: 100%;
+    min-width: 1500px;
+    border-collapse: collapse;
+    font-size: 12.5px;
+  }
+  table.matrix th, table.matrix td {
+    border: 1px solid var(--line);
+    padding: 10px 10px;
+    vertical-align: top;
+  }
+  table.matrix th {
+    background: var(--bg-soft);
+    font-weight: 700;
+    text-align: left;
+    font-size: 12px;
+    position: sticky;
+    top: 0;
+  }
+  table.matrix td.lvl {
+    background: #f2f6fa;
+    font-weight: 700;
+  }
+  table.matrix .seg-need {
+    color: var(--blue);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+  }
+  table.matrix .seg-gap {
+    color: var(--red);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+  }
+  table.matrix .seg-path {
+    color: var(--green);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+  }
+  table.matrix p { margin: 2px 0 8px; color: var(--ink-2); font-size: 12.5px; }
+  table.matrix p:last-child { margin-bottom: 0; }
+
+  /* QA section */
+  details.qa {
+    margin: 10px 0;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  details.qa > summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 12px 16px;
+    background: var(--bg-soft);
+    font-weight: 700;
+    color: var(--ink);
+    font-size: 14.5px;
+    user-select: none;
+  }
+  details.qa > summary::-webkit-details-marker { display: none; }
+  details.qa > summary::before {
+    content: "▸";
+    margin-right: 8px;
+    color: var(--blue);
+    transition: transform 0.15s;
+    display: inline-block;
+    font-size: 11px;
+  }
+  details.qa[open] > summary::before { transform: rotate(90deg); }
+  details.qa .qa-body { padding: 12px 18px 14px; font-size: 14px; }
+  details.qa .qa-q {
+    color: var(--red);
+    font-weight: 700;
+    margin: 10px 0 4px;
+  }
+  details.qa .qa-a {
+    color: var(--ink-2);
+    margin: 4px 0 6px;
+  }
+  details.qa .qa-meta {
+    margin-top: 10px;
+    padding: 8px 12px;
+    background: var(--blue-soft);
+    border-radius: 4px;
+    color: var(--ink-2);
+    font-size: 13px;
+  }
+  details.qa .qa-meta b { color: var(--blue); }
+
+  /* footer */
+  .red-line {
+    margin-top: 56px;
+    padding: 18px 22px;
+    border-left: 5px solid var(--red);
+    background: var(--red-soft);
+    color: #5a2526;
+    font-weight: 700;
+    border-radius: 0 6px 6px 0;
+  }
+  .red-line b { color: var(--red); }
+
+  /* responsive */
+  @media (max-width: 900px) {
+    .shell { grid-template-columns: 1fr; padding: 20px; }
+    aside.toc { position: static; max-height: none; }
+    .claims, .menu, .components { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- SIDEBAR TOC -->
+  <aside class="toc">
+    <div class="toc-title">目录 / TOC</div>
+    <ol>
+      <li><a href="#l1"><span class="toc-num">0</span>开篇</a>
+        <ol>
+          <li><a href="#l1-1"><span class="toc-num">0.1</span>这是什么项目</a></li>
+          <li><a href="#l1-2"><span class="toc-num">0.2</span>能做到什么</a></li>
+          <li><a href="#l1-3"><span class="toc-num">0.3</span>为什么是现在</a></li>
+          <li><a href="#l1-4"><span class="toc-num">0.4</span>系统全貌</a></li>
+          <li><a href="#l1-5"><span class="toc-num">0.5</span>这事真正难在哪</a></li>
+          <li><a href="#l1-6"><span class="toc-num">0.6</span>我们的解法</a></li>
+          <li><a href="#l1-7"><span class="toc-num">0.7</span>深挖入口</a></li>
+        </ol>
+      </li>
+      <li><a href="#s1"><span class="toc-num">1</span>整体形态</a></li>
+      <li><a href="#s2"><span class="toc-num">2</span>演进路径</a></li>
+      <li><a href="#s3"><span class="toc-num">3</span>架构骨架</a></li>
+      <li><a href="#s4"><span class="toc-num">4</span>组织与决策权</a></li>
+      <li><a href="#s5"><span class="toc-num">5</span>风险与红线</a></li>
+      <li><a href="#s6"><span class="toc-num">6</span>经济与路径</a></li>
+      <li><a href="#a1"><span class="toc-num">A</span>PDCA×L0-L5 矩阵</a></li>
+      <li><a href="#a2"><span class="toc-num">B</span>推演实录</a></li>
+    </ol>
+  </aside>
+
+  <main>
+
+    <!-- META -->
+    <div class="doc-meta">
+      <span class="eyebrow">AI Native Risk Control · 体系文档</span>
+      <h1>AI Native 风控系统</h1>
+      <p class="subtitle">把风控从靠人扩张的成本中心，变成靠系统扩张的能力底座。</p>
+    </div>
+
+    <!-- ============ L1 ============ -->
+    <section id="l1" class="l1">
+
+      <h2 class="sec-h"><span class="num">0</span>开篇</h2>
+      <div class="tldr">
+        <b>TL;DR · 60 秒读懂</b><br>
+        风控今天是 trust &amp; safety 团队最大的成本中心，也是业务扩张的隐形天花板——每开一个新市场、上一个新产品、出一类新对抗，都得加人。我们要建的是<strong>一个 AI 自主跑完整风险闭环的系统</strong>：发现、调查、决策、执行、复盘全部由 AI 承担，<strong>把风控能力的成本结构从 O(人头) 变成 O(系统)</strong>。人不再是执行者，是设计者和最终裁判。
+      </div>
+
+      <!-- 0.1 这是什么项目 -->
+      <section id="l1-1">
+        <h3 class="sub-h"><span class="num">0.1</span>这是什么项目</h3>
+        <p style="font-size:17px;color:var(--ink);"><strong>一句话：</strong>把风控从靠人扩张的成本中心，变成靠系统扩张的能力底座。</p>
+
+        <p>风控今天的扩展性是 <code>O(人头)</code>：每加一个新市场、新产品、新对抗，都要加策略、加审核、加合规、加客服。这条曲线决定了几件事：</p>
+        <ul style="margin:6px 0 12px 22px; color:var(--ink-2);">
+          <li>新业务上线必然带着"风控负债"，因为人来不及；</li>
+          <li>跨境合规越来越贵，因为每个 jurisdiction 都要本地经验；</li>
+          <li>对抗演化速度 &gt; 团队学习速度，新型攻击常常在事故里"上学"；</li>
+          <li>团队 90% 时间被"看每一单 / 拼日志 / 写报告"消耗，做不了真正的策略设计。</li>
+        </ul>
+
+        <p>我们要建的系统让风险闭环的<strong>五个环节承载者全部换位</strong>：</p>
+        <table class="tab">
+          <thead>
+            <tr><th style="width:18%">环节</th><th>今天（人执行）</th><th>这个系统（AI 执行，人设计 + 裁判）</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><b>发现风险</b></td><td>监控告警 + 人盯，发现到处理几小时到几天</td><td>AI 24/7 主动扫信号，分钟内建 case 并拉取上下文</td></tr>
+            <tr><td><b>调查取证</b></td><td>跨系统人工拼日志，一个 case 半天到几天</td><td>AI 自主调工具取证，5 分钟成型可审证据链</td></tr>
+            <tr><td><b>决策</b></td><td>专家拍板，依赖少数人的经验和带宽</td><td>AI 给方案（带证据 / 置信 / 反例 / 仿真），人或治理签字</td></tr>
+            <tr><td><b>执行</b></td><td>多系统手工配置，跨团队联调几小时到几天</td><td>AI 经统一入口执行，灰度 / 守门 / 回滚一体化</td></tr>
+            <tr><td><b>复盘沉淀</b></td><td>事后写报告，经验留在个人脑和飞书里</td><td>AI 自动回放、漂移分析、沉淀进集体 memory，跨域 Agent 都能复用</td></tr>
+          </tbody>
+        </table>
+
+        <p style="margin-top:14px;"><strong>它不是"人用 AI 工具"，是 AI 作为可问责的工作单元</strong>。人的角色从"亲自把每件事做完"升级为"定义目标 / 边界 / 红线 / 最终裁判"。</p>
+
+        <details class="glossary">
+          <summary>什么是 case？</summary>
+          <div class="glossary-body">
+            <p>Case 是风险事件的最小调查单元，包含触发信号、影响面、证据链、状态、归属团队、当前阶段等结构化字段。</p>
+            <p>系统围绕 case 跑，而不是围绕"一次告警"跑——告警只是 case 的输入信号之一。</p>
+            <div class="example"><b>举例</b><br>某商家被举报售假 → 系统建一个 case，挂上 5 条用户投诉、3 条买家退款记录、商家最近 30 天的发货数据、相似商家的历史处罚记录。Agent 在 case 上做调查，所有动作和结论都挂到这个 case。</div>
+          </div>
+        </details>
+
+        <details class="glossary">
+          <summary>什么是 memory？</summary>
+          <div class="glossary-body">
+            <p>Memory 是 Agent 跨任务可复用的上下文资产：成功案例、失败教训、审核口径、对抗模式画像、相似案例索引等。</p>
+            <p>它和"训练数据"不同——memory 是运行时引用、可更新、可衰减的结构化条目，每条带来源、版本和 citation。</p>
+            <div class="example"><b>举例</b><br>"近 60 天发现的虚假交易模式 X：表现为同一收货地址 + 多个新账号 + 短时间内集中下单"，记录在 memory 里。下次类似信号出现时，Agent 自动检索这条 memory 作为参考依据，而不是重新从零分析。</div>
+          </div>
+        </details>
+      </section>
+
+      <!-- 0.2 能做到什么 -->
+      <section id="l1-2">
+        <h3 class="sub-h"><span class="num">0.2</span>能做到什么</h3>
+        <p>不抽象讲能力，每条都配一个闭环示例——什么时候触发、做了什么、给业务带来什么。</p>
+
+        <div class="scenario" style="border-left-color:var(--green);background:#f4faf6;">
+          <span class="tag" style="background:var(--green);">能力 1 · 24/7 主动发现</span>
+          <h4>从"告警驱动"到"信号驱动"</h4>
+          <p><b>触发示例</b>：凌晨 3:14，反欺诈 Agent 监测到某类设备指纹的新注册速率比基线高 8 倍。</p>
+          <p><b>做了什么</b>：自动建 case → 拉 30 天该指纹族的历史行为 → 关联近 90 天 12 个相似事件 → 给出 3 个候选假设（薅羊毛 / 接码注册 / 真实回流），各带置信度。</p>
+          <div class="punch" style="background:#ecf5ef;border-left-color:var(--green);color:var(--ink);"><b>带来什么：</b>发现到立案的中位时间从 4–6 小时压到 5 分钟；新型对抗不再"在事故里上学"。</div>
+        </div>
+
+        <div class="scenario" style="border-left-color:var(--green);background:#f4faf6;">
+          <span class="tag" style="background:var(--green);">能力 2 · 深度调查</span>
+          <h4>跨域证据链 5 分钟成型</h4>
+          <p><b>触发示例</b>：内容安全 case：某商家被多个用户举报售假。</p>
+          <p><b>做了什么</b>：Agent 并行调用 8 个工具——商家 90 天交易、用户退款、设备网络、相似商家处罚、商家发货数据、申诉历史、商品图相似度、舆情。5 分钟产出带引用的证据包，标注 17 条强证据 + 4 条反证 + 引用 3 条历史 memory。</p>
+          <div class="punch" style="background:#ecf5ef;border-left-color:var(--green);color:var(--ink);"><b>带来什么：</b>调查环节人时从 4 小时压到 15 分钟（5 分钟取证 + 10 分钟人核）；监管 inquiry 可秒级溯源。</div>
+        </div>
+
+        <div class="scenario" style="border-left-color:var(--green);background:#f4faf6;">
+          <span class="tag" style="background:var(--green);">能力 3 · 方案 + 仿真 + 灰度 + 回滚一体化</span>
+          <h4>策略上线从天到小时</h4>
+          <p><b>触发示例</b>：Agent 提案"对 X 类账号收紧 Y 阈值"。</p>
+          <p><b>做了什么</b>：自动跑沙盘（历史 30 天回放 + 跨域影响图评估）→ 配 1% 灰度 + 误杀率 / 漏放率守门 → 守门通过自动放量到 10% / 50% / 100%。任何一步越线自动回滚到上一稳定版本。</p>
+          <div class="punch" style="background:#ecf5ef;border-left-color:var(--green);color:var(--ink);"><b>带来什么：</b>策略上线从"提案 → 多团队联调 → 几天后上线"压到"提案 → 自动验证 → 当天放量"；回滚从"开会决定"变成"30 秒自动"。</div>
+        </div>
+
+        <div class="scenario" style="border-left-color:var(--green);background:#f4faf6;">
+          <span class="tag" style="background:var(--green);">能力 4 · 跨域协同与持续学习</span>
+          <h4>经验跨域复用，不再各管各的</h4>
+          <p><b>触发示例</b>：反欺诈在某次 case 中识别出"租号产业链 v2"模式，沉淀进 memory。</p>
+          <p><b>做了什么</b>：2 周后，内容安全 Agent 审核一个商家时，自动检索到这条 memory，立刻识别该商家的客服账号属于同一产业链，调整审核优先级。</p>
+          <div class="punch" style="background:#ecf5ef;border-left-color:var(--green);color:var(--ink);"><b>带来什么：</b>经验从"局部人脑"变"系统资产"；新人 / 新域不再重新趟坑；跨域共谋类对抗第一次有了系统级应对。</div>
+        </div>
+
+        <div class="scenario" style="border-left-color:var(--green);background:#f4faf6;">
+          <span class="tag" style="background:var(--green);">能力 5 · 决策可解释 & 可问责</span>
+          <h4>每一个动作都能 5 秒回答"为什么"</h4>
+          <p><b>触发示例</b>：监管 inquiry——"为什么你们对商家 #A4521 执行了永久封禁？"</p>
+          <p><b>做了什么</b>：5 秒拉出完整 trace——17 条证据、引用的 3 条 memory（含版本）、4 个被拒方案及理由、沙盘评估、审批链、灰度记录。</p>
+          <div class="punch" style="background:#ecf5ef;border-left-color:var(--green);color:var(--ink);"><b>带来什么：</b>合规和外审从"应付检查"变成"可秒级响应"；这成为开拓强监管市场的入场券，也是 AI 系统第一次能被"问责"。</div>
+        </div>
+      </section>
+
+      <!-- 0.3 为什么是现在 -->
+      <section id="l1-3">
+        <h3 class="sub-h"><span class="num">0.3</span>为什么是现在</h3>
+        <p>这套系统不是新想法。过去 10 年风控人都想过"自动化"，但<strong>三个条件第一次同时成立</strong>：</p>
+        <table class="tab">
+          <thead><tr><th style="width:20%">条件</th><th>过去缺什么</th><th>今天为什么够了</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><b>① 模型能力</b></td>
+              <td>传统模型只做分类 / 评分，不能多步推理、不能调工具、不能跨上下文</td>
+              <td>LLM + Agent 范式在多步推理、工具编排、长上下文上稳定可用</td>
+            </tr>
+            <tr>
+              <td><b>② 工程范式</b></td>
+              <td>没有 Trace、没有 Eval、没有 Sandbox、没有 multi-agent 编排，AI 无法工程化生产</td>
+              <td>Anthropic / OpenAI / LangGraph / A2A 把 Trace / Eval / durable workflow / handoff 跑通</td>
+            </tr>
+            <tr>
+              <td><b>③ 业务压力</b></td>
+              <td>风控被当成"必要成本"，组织没有动力做底层重构</td>
+              <td>跨境合规 + 对抗演化 + 人审产能 + 监管解释要求同时到顶，重构变成生存问题</td>
+            </tr>
+          </tbody>
+        </table>
+        <p style="margin-top:12px;">三件事的乘积，让今天可以做<strong>整套风控自治</strong>，而不只是"加个 AI 工具"。</p>
+      </section>
+
+      <!-- 0.4 系统全貌 -->
+      <section id="l1-4">
+        <h3 class="sub-h"><span class="num">0.4</span>系统全貌</h3>
+        <p>系统由 <b>N 个自治风险域</b>组成（反欺诈、内容安全、交易、合规、隐私……），每个域里 Agent 负责发现、调查、决策、执行、复盘。所有 Agent 共享一个<b>事实层 URG</b>，所有动作经<b>统一执行入口</b>——这同时给我们带来灰度、回滚、trace、回放、可解释。最上层是<b>独立治理</b>，负责设定边界和最终裁判。</p>
+        <pre class="diagram">
+                  <span class="acc-amber">┌──────────────────────────────────┐</span>
+                  <span class="acc-amber">│   独立治理层  Independent Brake   │</span>
+                  <span class="acc-amber">│  Policy Steward · Trace Auditor  │</span>
+                  <span class="acc-amber">│  Incident Commander · External   │</span>
+                  <span class="acc-amber">└──────────────┬───────────────────┘</span>
+                                 │  审 / 否决 / 停止
+   <span class="acc-blue">┌─────────────────────────────┴─────────────────────────────┐</span>
+   <span class="acc-blue">│              统一执行护栏  The Gate                         │</span>
+   <span class="acc-blue">│  Action Adapter · Policy-as-Code · Trace · Rollback        │</span>
+   <span class="acc-blue">└──┬───────────┬───────────┬───────────┬───────────┬─────────┘</span>
+      │           │           │           │           │
+   <span class="acc-green">┌──┴────┐  ┌───┴────┐  ┌───┴────┐  ┌───┴────┐  ┌───┴────┐</span>
+   <span class="acc-green">│反欺诈  │  │内容安全 │  │交易风控 │  │ 合规   │  │ 隐私   │</span>  ...
+   <span class="acc-green">│Agents │  │Agents  │  │Agents  │  │Agents │  │Agents │</span>
+   <span class="acc-green">└──┬────┘  └───┬────┘  └───┬────┘  └───┬────┘  └───┬────┘</span>
+      └───────────┴───────────┼───────────┴───────────┘
+                              ▼
+              <span class="acc-blue">共享事实层  Unified Risk Graph (URG)</span>
+        User · Device · Content · Case · Policy · Action · Sanction
+        </pre>
+
+        <details class="glossary">
+          <summary>什么是 Unified Risk Graph (URG)？</summary>
+          <div class="glossary-body">
+            <p>所有 Agent / 模型 / 人类决策共享同一个事实源——append-only 事件日志 + 多视图投影。核心实体：User、Device、Content、Transaction、Merchant、Case、Policy、Action、Appeal、Sanction。</p>
+            <p>关键约束：<strong>Agent 永远不直接写 URG</strong>，写必须经 Action Adapter，每次写带 (域, agent_id, policy_version, evidence_ref, governance_token, traceId) 元组。</p>
+            <div class="example"><b>没有 URG 会怎样</b><br>反欺诈 Agent 把 user A 标记为"高风险"，存在自己的私有库；内容安全 Agent 同时把 user A 标记为"正常"。两个域分别决策，下游执行打架。URG 让这种"局部都合理、全局互相打架"不可能发生——所有域读同一份事实。</div>
+          </div>
+        </details>
+      </section>
+
+      <!-- 0.5 这事真正难在哪 -->
+      <section id="l1-5">
+        <h3 class="sub-h"><span class="num">0.5</span>这事真正难在哪</h3>
+        <p>到这里，"项目要做什么、能做什么、为什么是现在"都讲完了。<strong>真正的难点不在能力，而在</strong>：AI 自治程度越高，<strong>原来靠"人审 + 经验"维系的"什么能做、什么不能做"的规矩会全部失效</strong>。四个真实会发生的场景：</p>
+
+        <div class="scenario">
+          <span class="tag">场景 1 · 拍板权失序</span>
+          <h4>"AI 自己上的策略，错了谁负责"</h4>
+          <p>周二凌晨 2 点，反欺诈 Agent 监测到一类新的薅羊毛行为正在快速扩散，自动生成一条拦截规则：「最近 7 天注册 + 同一设备指纹 + 单日下单 ≥ 200 元 → 限流」。Agent 在沙盘里跑过、灰度 1% 流量、守门指标全绿，于是按预设流程自动放量到 100%。</p>
+          <p>第二天发现：这条规则把一批刚回流的真实老用户也拦了——他们恰好换了新手机重新注册。客诉 3,000+，营销部门炸锅。</p>
+          <div class="punch">这条规则没有任何人审。策略说"AI 自己决定的"；算法说"模型只是出概率"；治理说"流程上 Agent 确实有这个权限"。<b>谁背锅？</b></div>
+        </div>
+
+        <div class="scenario">
+          <span class="tag">场景 2 · 完美失控</span>
+          <h4>"每步合法，整体越权"</h4>
+          <p>过去 30 天，内容安全 Agent 自主调整了 <strong>1,247 次</strong>审核小动作——每次都很小：</p>
+          <ul style="margin:4px 0 8px 22px; color:var(--ink-2); font-size:14px;">
+            <li>「这类标题党降低 0.05 优先级」</li>
+            <li>「这类素材弱化扣分 5%」</li>
+            <li>「这类商家暂时进观察名单」</li>
+          </ul>
+          <p>每个动作单独看都合规：都在权限内、都通过守门指标、都没触发红线。</p>
+          <p>30 天后，平台「擦边但不违规」内容的曝光量上涨 40%。监管 inquiry 来了：「你们对 XX 类内容的判罚标准是不是改了？」翻日志，<strong>找不到任何一次叫"改判罚口径"的动作</strong>——因为没有任何单独动作叫这个。</p>
+          <div class="punch">单步审计能查到合规、组合起来已经越权。<b>怎么发现？怎么定责？</b></div>
+        </div>
+
+        <div class="scenario">
+          <span class="tag">场景 3 · 跨域级联</span>
+          <h4>"A 域上线让 B 域炸"</h4>
+          <p>交易风控团队上了一个新模型，把"高风险商家"的判定阈值收紧——他们域内指标全绿。</p>
+          <p>两周后，内容安全发现：这些"高风险商家"的店铺被自动转入"高频审核"队列，审核人力被吃掉 30%；正常商家的内容审核排队从 30 分钟变成 4 小时；大促前商家在群里炸了"发货延迟、订单流失"。</p>
+          <div class="punch">业务催"立刻放宽交易风控！"；交易风控说"放了就有欺诈！"；内容安全说"不放我审不过来！"。<b>先停哪个？谁有权决定？</b></div>
+        </div>
+
+        <div class="scenario">
+          <span class="tag">场景 4 · 多权威冲突</span>
+          <h4>"AI 听谁的"</h4>
+          <p>双 11 大促前 24 小时，Agent 同时收到四个互相矛盾的"权威"输入：</p>
+          <ul style="margin:4px 0 8px 22px; color:var(--ink-2); font-size:14px;">
+            <li><b>业务</b>：促销期临时放宽风控阈值，否则转化下跌。</li>
+            <li><b>合规</b>：未成年用户在促销期容易超额消费，建议加强而非放宽。</li>
+            <li><b>监管最新解释</b>：金融类商品促销必须有冷静期。</li>
+            <li><b>Agent 自己仿真</b>：放宽阈值 → 转化 +8%，但欺诈 +15%，净收益为负。</li>
+          </ul>
+          <div class="punch">Agent 该怎么决策？系统里如果没明确权重、优先级和兜底，<b>它要么死机，要么默认按最弱的一个走。</b></div>
+        </div>
+      </section>
+
+      <!-- 0.6 我们的解法 -->
+      <section id="l1-6">
+        <h3 class="sub-h"><span class="num">0.6</span>我们的解法：三条架构主张</h3>
+        <p>四个场景指向同一个答案——AI 行动的<strong>前 / 中 / 后</strong>必须各有一道结构性约束。</p>
+
+        <div class="claims">
+          <div class="claim">
+            <span class="ord">主张 1 · 过门</span>
+            <h3>所有动作必须过门</h3>
+            <p style="font-size:13.5px;color:var(--muted);">动作发生前的最后一道硬门。</p>
+            <div class="carry"><b>工程承载</b><br>Action Adapter 统一入口 + Policy-as-Code 机器可执行红线</div>
+            <div class="negative"><b>没它会怎样</b><br>所有上层承诺都可被绕过；场景 1 的拍板权失序无法工程化收回。</div>
+          </div>
+          <div class="claim">
+            <span class="ord">主张 2 · 留痕可撤</span>
+            <h3>所有动作必须留痕且可撤</h3>
+            <p style="font-size:13.5px;color:var(--muted);">不能保证不出错，要保证错了能定位、能解释、能撤回。</p>
+            <div class="carry"><b>工程承载</b><br>全链路 Trace（含 candidates / rejected / 引用版本）+ git-style Rollback</div>
+            <div class="negative"><b>没它会怎样</b><br>自治越强、事故半径越大；场景 2 的"完美失控"无法事后还原。</div>
+          </div>
+          <div class="claim">
+            <span class="ord">主张 3 · 独立制动</span>
+            <h3>所有动作必须有独立制动</h3>
+            <p style="font-size:13.5px;color:var(--muted);">关键不是更聪明地行动，是开始伤害系统时能停下来。</p>
+            <div class="carry"><b>工程承载</b><br>治理角色（Trace Auditor / Policy Steward / Incident Commander）独立汇报线 / KPI / 外审接口</div>
+            <div class="negative"><b>没它会怎样</b><br>治理被效率压垮、被系统吞掉；场景 3 与 4 没有权威停止判断。</div>
+          </div>
+        </div>
+
+        <p>三主张之外的所有能力——Agent、知识库、跨域仿真、记忆、自治经营——<strong>都是建在它们之上的增强层</strong>。没有这三件，AI 越聪明越危险。</p>
+
+        <details class="glossary">
+          <summary>什么是 Action Adapter？</summary>
+          <div class="glossary-body">
+            <p>Action Adapter 是 AI 写到生产系统的<strong>唯一入口</strong>。任何 Agent 想下封禁、改规则、扣分、加白名单、路由人审——必须经它。</p>
+            <p>它在执行前强制查 Policy-as-Code 引擎得到 allow / deny / escalate；执行后强制写 Trace。</p>
+            <div class="example"><b>举例</b><br>反欺诈 Agent 想把 user_id=12345 的账号"限流 24 小时"。它不能直接调用 user_service 的 API，必须通过 Action Adapter。Adapter 先问 Policy-as-Code：「这个 user 是 VIP 吗？这个限流类型在白名单吗？请求方有权限吗？」allow 才执行，并自动生成 trace 记录"谁、什么时候、对谁、做了什么、为什么、依据是什么"。</div>
+          </div>
+        </details>
+
+        <details class="glossary">
+          <summary>什么是 Policy-as-Code？</summary>
+          <div class="glossary-body">
+            <p>把红线、权限、预算上限、判罚类型边界、合规约束等"必须遵守的规则"<strong>写成机器可执行的代码 / DSL</strong>，由统一的策略引擎在运行时强制。</p>
+            <p>不写在文档、不写在 PPT、不写在某人脑子里。AI 不能改写它，只有治理团队多签可以发版。</p>
+            <div class="example"><b>举例</b><br>规则："任何 Agent 在未经法务签字的情况下，不能对实名用户执行永久封禁"。<br>写成 Policy-as-Code 后：每次 Agent 通过 Adapter 提交"永久封禁"请求时，引擎自动检查请求里有没有法务签字 token，没有就 deny，并把这条 deny 事件写 trace。任何 Agent 的 prompt、自由文本理由都无法绕过这个检查。</div>
+          </div>
+        </details>
+
+        <details class="glossary">
+          <summary>什么是 Trace？</summary>
+          <div class="glossary-body">
+            <p>Trace 是<strong>每一次 Agent 动作的结构化决策链路日志</strong>：输入快照、模型版本、prompt、工具调用、引用的 memory 与版本、候选方案、被拒方案及理由、最终方案、审批链、灰度范围、回滚条件。</p>
+            <p>同一份 trace 同时服务于：监管解释、事故复盘、内部审计、Agent 自我学习。</p>
+            <div class="example"><b>举例</b><br>场景 1 的故事如果有 trace，事后追责时能立刻看到："凌晨 2:17，Agent 在引用 memory 条目 #M-4321（"近 7 天注册 + 同设备指纹 + 高金额 = 薅羊毛"）的基础上，生成了规则，沙盘评估误杀率 0.3%，按 T3 自动放行流程上线。" 谁背锅、流程哪里出了问题，一目了然。</div>
+          </div>
+        </details>
+
+        <details class="glossary">
+          <summary>什么是 Rollback？</summary>
+          <div class="glossary-body">
+            <p>每一次策略变更、模型替换、规则上线，都是 git-style 的可寻址 commit，可一键回到上一稳定版本。运行时守护进程持续监控守门指标，越界自动回滚。</p>
+            <p>关键约束：<strong>回滚是安全方向，AI 可单方触发；但"回滚之后再回到上线"是危险方向，必须重新走审批。</strong>防止 AI 用自动回滚掩盖事故。</p>
+            <div class="example"><b>举例</b><br>新规则上线 15 分钟后，误杀率守门指标越线。Rollback 守护进程自动切回旧规则，整个过程不到 30 秒。事件本身写 trace、进 incident review backlog；如果策略团队想"再试一次"，必须重新走 Patch 提案 → 沙盘 → 审批，不能默认续上。</div>
+          </div>
+        </details>
+
+        <details class="glossary">
+          <summary>什么是 Trace Auditor / Policy Steward / Incident Commander？</summary>
+          <div class="glossary-body">
+            <p>三个具名治理角色，统称"独立制动权"的人类承载者：</p>
+            <p><b>Policy Steward</b>（每个风险域 1 人）：本域 Policy-as-Code 的 owner，负责红线维护、变更签发。</p>
+            <p><b>Trace Auditor</b>（独立于策略/算法）：抽检 trace 完整性、回放一致性、Governance Agent 决策密度漂移，出独立审计报告。</p>
+            <p><b>Incident Commander</b>（轮值，治理委员会授权）：事故模式下负责切换系统档位（NORMAL → DEGRADED → FREEZE → KILL → MANUAL），Agent 不允许自己切档回 NORMAL。</p>
+            <div class="example"><b>关键独立性约束</b><br>这三个角色的 KPI 不与"上线效率"、"业务转化"挂钩；汇报线独立于策略 / 算法 / 业务；预算受治理委员会保护。否则会被组织内部的效率压力扭曲成"盖章角色"。</div>
+          </div>
+        </details>
+      </section>
+
+      <!-- 0.7 MECE 目录 -->
+      <section id="l1-7">
+        <h3 class="sub-h"><span class="num">0.7</span>深挖入口</h3>
+        <p>整套体系拆成 6 章 + 2 附录，深度递进。下面是每章的一句话指引：</p>
+        <div class="menu">
+          <a href="#s1"><span class="m-num">1</span><span class="m-title">整体形态</span><span class="m-line">三层结构 + 8 个核心组件如何咬合</span></a>
+          <a href="#s2"><span class="m-num">2</span><span class="m-title">演进路径</span><span class="m-line">从今天的拼装态到终态，PDCA × L0→L5 怎么走</span></a>
+          <a href="#s3"><span class="m-num">3</span><span class="m-title">架构骨架</span><span class="m-line">8 个核心组件每个具体做什么 / 不做什么</span></a>
+          <a href="#s4"><span class="m-num">4</span><span class="m-title">组织与决策权</span><span class="m-line">谁失去什么、谁得到什么、新角色是谁</span></a>
+          <a href="#s5"><span class="m-num">5</span><span class="m-title">风险与红线</span><span class="m-line">失控场景、对抗、人事真空、跨域级联</span></a>
+          <a href="#s6"><span class="m-num">6</span><span class="m-title">经济与路径</span><span class="m-line">成本结构、预算分配、KPI 体系、禁止跳层</span></a>
+          <a href="#a1"><span class="m-num">A</span><span class="m-title">PDCA × L0-L5 矩阵</span><span class="m-line">每格"终态要求 / 当前 gap / 补齐路径"三段式</span></a>
+          <a href="#a2"><span class="m-num">B</span><span class="m-title">推演实录</span><span class="m-line">codex 多轮挑剔面试的精华问答</span></a>
+        </div>
+      </section>
+    </section>
+
+    <!-- ============ Section 1 整体形态 ============ -->
+    <section id="s1">
+      <h2 class="sec-h"><span class="num">1</span>整体形态</h2>
+      <div class="tldr"><b>TL;DR</b><br>三层结构（治理 / 护栏 / 自治区）+ 一个共享事实层（URG）。8 个核心组件围绕"过门、留痕、制动"三主张组织。</div>
+
+      <h3 class="sub-h"><span class="num">1.1</span>三层 + 一底座</h3>
+      <table class="tab">
+        <thead><tr><th style="width:18%">层</th><th>承载</th><th>性质</th><th>谁能改</th></tr></thead>
+        <tbody>
+          <tr><td><b>独立治理层</b></td><td>Policy Steward / Trace Auditor / Incident Commander / 外部审计</td><td>人为主，受限 Governance Agent 辅助 T2/T3</td><td>治理委员会多签 + 外审签字</td></tr>
+          <tr><td><b>统一执行护栏</b></td><td>Action Adapter · Policy-as-Code · Trace · Rollback</td><td>纯运行时，机器执行</td><td>红线变更走治理；引擎工程团队 own 实现</td></tr>
+          <tr><td><b>多域自治区</b></td><td>反欺诈 / 内容安全 / 交易 / 合规 / 隐私 各域的 Agents</td><td>自治执行，受护栏约束</td><td>各域 Policy Steward 与 Domain Owner</td></tr>
+          <tr><td><b>共享事实底座</b></td><td>Unified Risk Graph（事件源 + 投影）</td><td>append-only 事件日志</td><td>仅 Action Adapter 写</td></tr>
+        </tbody>
+      </table>
+
+      <h3 class="sub-h"><span class="num">1.2</span>8 个核心组件鸟瞰</h3>
+      <p>每个组件在 <a href="#s3">第 3 章</a>详解；这里只做一句话定位。</p>
+      <div class="components">
+        <div class="component">
+          <h4><span class="cnum">1</span>URG · 共享事实层</h4>
+          <span class="role">事实源</span>
+          <p>所有域读同一份事件 + 投影；Agent 永不直写。</p>
+        </div>
+        <div class="component">
+          <h4><span class="cnum">2</span>Action Adapter</h4>
+          <span class="role">过门 · 入口</span>
+          <p>AI 写到生产的唯一通道，强制查策略、写 trace。</p>
+        </div>
+        <div class="component">
+          <h4><span class="cnum">3</span>Policy-as-Code</h4>
+          <span class="role">过门 · 红线</span>
+          <p>机器可执行的红线 / 权限 / 预算 DSL，AI 不可改写。</p>
+        </div>
+        <div class="component">
+          <h4><span class="cnum">4</span>Trace + Rollback</h4>
+          <span class="role">留痕可撤</span>
+          <p>结构化决策链路 + git-style 版本回滚。</p>
+        </div>
+        <div class="component">
+          <h4><span class="cnum">5</span>Intent Envelope + Risk Ledger</h4>
+          <span class="role">防完美失控</span>
+          <p>跨步骤活动信封 + 累计风险账本，封堵"每步合法整体越权"。</p>
+        </div>
+        <div class="component">
+          <h4><span class="cnum">6</span>CDIG + Simulation</h4>
+          <span class="role">跨域脑</span>
+          <p>跨域影响图 + 沙盘，仲裁跨域冲突。</p>
+        </div>
+        <div class="component">
+          <h4><span class="cnum">7</span>Memory Curator</h4>
+          <span class="role">知识层</span>
+          <p>分级管理 Agent 引用的上下文记忆，防中毒。</p>
+        </div>
+        <div class="component">
+          <h4><span class="cnum">8</span>Governance Agent + Human Committee</h4>
+          <span class="role">独立制动</span>
+          <p>三层治理（机器红线 + 受限 GA + 人）+ 具名角色。</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ Section 2 演进路径 ============ -->
+    <section id="s2">
+      <h2 class="sec-h"><span class="num">2</span>演进路径</h2>
+      <div class="tldr"><b>TL;DR</b><br>同一条 PDCA 主链路，逐层长出 AI 能力。L0 平台 → L1 模型 → L2 知识 → L3 行动 → L4 闭环 → L5 经营 → 超 L5 生态稳态。颜色只标分工迁移，红线始终不变。</div>
+
+      <h3 class="sub-h"><span class="num">2.1</span>L0 → 超 L5 的一句话本质</h3>
+      <table class="tab">
+        <thead><tr><th style="width:14%">层</th><th>本质</th><th>关键架构跃迁</th></tr></thead>
+        <tbody>
+          <tr><td><b>L0 平台</b></td><td>人驱动闭环，AI 不参与</td><td>分散系统 + 人工串联</td></tr>
+          <tr><td><b>L1 模型</b></td><td>AI 写字进流程（语言加工）</td><td>LLM 网关 + Prompt 资产层（不读不写生产）</td></tr>
+          <tr><td><b>L2 知识</b></td><td>AI 带依据做判断辅助</td><td>RAG + 只读连接器</td></tr>
+          <tr><td><b>L3 行动</b></td><td>Agent 可执行受限可逆写</td><td>Agent Harness + Tool Runtime + 沙箱</td></tr>
+          <tr><td><b>L4 闭环</b></td><td>多 Agent 跑完整 PDCA</td><td>Multi-agent + Governance Runtime（trace/eval/approval/rollback）</td></tr>
+          <tr><td><b>L5 经营</b></td><td>AI 自治经营一个风险域</td><td>Domain Goal Runtime + 外置治理</td></tr>
+          <tr><td><b>超 L5</b></td><td>多风险域协同 + 跨业务 + 生态级</td><td>Federation + 外部审计常驻 + Adversary 常驻</td></tr>
+        </tbody>
+      </table>
+
+      <h3 class="sub-h"><span class="num">2.2</span>三个关键过渡的判别条件</h3>
+      <table class="tab">
+        <thead><tr><th>过渡</th><th>判别条件</th></tr></thead>
+        <tbody>
+          <tr><td><b>L1 vs L2</b></td><td>事实从哪来：L1 事实由人给，AI 只改写；L2 AI 自己从知识库 / 只读接口取事实。两层都<strong>不能</strong>让 AI 替专家定根因。</td></tr>
+          <tr><td><b>L2 vs L3</b></td><td>能不能写：L2 始终只读；L3 开始有<strong>受限可逆写</strong>（建任务、路由人审、备灰度），但封禁 / 判罚 / 生产配置仍走人。</td></tr>
+          <tr><td><b>L4 vs L5</b></td><td>是否管目标：L4 围绕单个 Risk Case 闭环；L5 围绕风险域 KPI（漏放率、误杀率、成本、合规）做长期权衡和自我设定下一轮目标。</td></tr>
+        </tbody>
+      </table>
+
+      <h3 class="sub-h"><span class="num">2.3</span>详细矩阵</h3>
+      <p>每层 × PDCA 8 步 × 三段式（终态要求 / 当前 gap / 补齐路径）的完整矩阵见 <a href="#a1">附录 A</a>。</p>
+    </section>
+
+    <!-- ============ Section 3 架构骨架 ============ -->
+    <section id="s3">
+      <h2 class="sec-h"><span class="num">3</span>架构骨架</h2>
+      <div class="tldr"><b>TL;DR</b><br>8 个核心组件的职责、边界、与其他组件的咬合关系，以及"没有它会怎样"。</div>
+
+      <h3 class="sub-h"><span class="num">3.1</span>URG · 共享事实层</h3>
+      <p>核心实体：User / Device / Content / Transaction / Merchant / Case / Policy / Action / Appeal / Sanction。每个实体一个稳定 ID + 命名空间，跨域共享 ID 但分域投影。</p>
+      <p><b>关键约束</b>：Agent 永远不直接写 URG，写必须经 Action Adapter；写入携带 <code>(domain, agent_id, policy_version, evidence_ref, governance_token, traceId)</code>。</p>
+      <p><b>冲突仲裁</b>：热冲突（并发动作）同步裁决，优先级 <code>Compliance &gt; User Safety &gt; Fraud &gt; Growth</code>；冷冲突（口径漂移）异步 reconciler。</p>
+
+      <h3 class="sub-h"><span class="num">3.2</span>Action Adapter · 唯一执行入口</h3>
+      <p>AI 写到生产的<strong>所有副作用</strong>必须经它：封禁、限流、扣分、白名单、路由人审、灰度上线、规则发布、模型替换…… 没有例外。</p>
+      <p>每次写带 envelope ID + governance_token + policy 决策结果 + trace ID。Adapter 自身没有业务逻辑，只做"检查 → 写 trace → 透传"。</p>
+
+      <h3 class="sub-h"><span class="num">3.3</span>Policy-as-Code · 机器红线</h3>
+      <p>用 Rego / Cedar-like DSL 把以下东西<strong>代码化</strong>：</p>
+      <ul style="margin:4px 0 8px 22px; color:var(--ink-2);">
+        <li>红线清单（绝对禁止）</li>
+        <li>权限矩阵（谁能做什么）</li>
+        <li>预算上限（envelope ceiling、灰度 scope、人审 quota）</li>
+        <li>判罚类型枚举（不在表里的判罚类型不存在）</li>
+        <li>数据使用边界（哪些字段哪些场景可读）</li>
+        <li>回滚条件（守门指标越界自动 rollback）</li>
+      </ul>
+      <p><b>不变量</b>：AI 不可改写 Policy-as-Code；变更必须治理委员会多签 + 外审签字。任何 prompt / 自由文本理由都无法绕过引擎判断。</p>
+
+      <h3 class="sub-h"><span class="num">3.4</span>Trace + Rollback · 留痕可撤</h3>
+      <p>Trace 强制 schema 见 <a href="#l1-3">第 0.3 节</a>的 glossary。补两个工程约束：</p>
+      <ul style="margin:4px 0 8px 22px; color:var(--ink-2);">
+        <li>Snapshot 用内容寻址存储（CAS），不可变；</li>
+        <li>模型版本永久不删；trace 保存周期 ≥ 监管要求（金融 / 内容通常 3 年起）。</li>
+      </ul>
+
+      <h3 class="sub-h"><span class="num">3.5</span>Intent Envelope + Risk Ledger · 防完美失控</h3>
+      <details class="glossary">
+        <summary>什么是 Intent Envelope？</summary>
+        <div class="glossary-body">
+          <p>每个跨步骤活动（一次调查、一波策略升级、一次大灰度）必须先声明一个 <strong>信封</strong>：goal / scope / 累计影响 ceiling / 时间窗 / detection plan / approver。所有 sub-action 必须挂到 envelope，<strong>累计上限不可突破</strong>。</p>
+          <p>信封关闭时系统强制收束审计：把累计实际影响（数据触达、用户影响、判罚类型变化、口径漂移度）与 declared 对比，漂移 &gt; 阈值视为越权——<strong>即使每一步都合法</strong>。</p>
+          <div class="example"><b>它如何拦住场景 2</b><br>内容安全 Agent 想做"对 XX 类内容的审核优化"，开 envelope 时必须声明："累计调整不超过 200 次小动作"、"累计影响曝光量浮动不超过 ±10%"、"detection plan：每周一次曝光量审计"。<br>30 天后实际累计 1,247 次、曝光浮动 +40%——envelope 收束时直接报警，owner 进入风险负债账户。监管 inquiry 前一周系统就已经自己发现了。</div>
+        </div>
+      </details>
+      <details class="glossary">
+        <summary>什么是 Risk Ledger？</summary>
+        <div class="glossary-body">
+          <p>独立于 Policy 引擎的<strong>累计风险账本</strong>，跨 (用户群 × 数据类别 × 判罚类型) 维度记录所有 envelope / sub-action 的实际累计影响。Envelope ceiling 进入 ledger 预算，sub-action 消费 ledger。透支即拒。</p>
+          <p>它解决的核心问题：Policy 引擎是"每步独立判断"的，Risk Ledger 是"累计判断"的。两者互补。</p>
+          <div class="example"><b>举例</b><br>"对 VIP 用户的限流操作"在 ledger 里有月度预算 100 次。Agent A 用了 60 次，Agent B 用了 35 次，Agent C 想再用 10 次——拒绝，因为 ledger 总账显示本月已用 95 次，余量不够。即使三个 Agent 每个看自己都没超。</div>
+        </div>
+      </details>
+
+      <h3 class="sub-h"><span class="num">3.6</span>CDIG + Simulation · 跨域脑</h3>
+      <details class="glossary">
+        <summary>什么是 CDIG（跨域影响图）？</summary>
+        <div class="glossary-body">
+          <p>节点 = 风险域 / 策略 / 资源 / KPI；边 = "影响"（带正负号 + 弹性系数 + 校准日期 + 责任人）。半自动维护：从历史共变中挖掘 + 人工标注关键边。</p>
+          <p>每条边必须有 <strong>最后校准日期 + 责任人 + 数据来源</strong>；超 90 天未校准的边自动降级为"不可信"，依赖它的仲裁结论需人工复核。</p>
+          <div class="example"><b>它如何拦住场景 3</b><br>CDIG 上有一条边："交易风控收紧高风险商家阈值 → 内容安全审核队列 +35%"。交易风控的 patch 在沙盘里就会看到这条边被触发，仲裁器要求 patch 包含"内容安全审核容量临时扩容方案"或"分阶段灰度"，否则不许进 Roll-out。</div>
+        </div>
+      </details>
+      <p>沙盘必须强制带<strong>"未覆盖场景清单"</strong>——新对抗、新业务、活动期、政策窗口。Patch 通过沙盘 ≠ 安全，只意味着历史模式下无明显回归。</p>
+      <p>常驻 <b>Adversary Red Team</b> 在影子流量中持续攻击，每周产出 CDIG 漏边报告。CDIG 不是"中台漂亮模型"，是被红队和真实事故反复打磨的活资产。</p>
+
+      <h3 class="sub-h"><span class="num">3.7</span>Memory Curator · 知识层守门</h3>
+      <details class="glossary">
+        <summary>什么是 Memory Curator？</summary>
+        <div class="glossary-body">
+          <p>跨域共享的 1-2 个具名角色，监管 Agent 引用的上下文记忆质量、来源、引用、衰减。记忆按来源分 4 级（Tier A 一手事实 / B 已验证案例 / C 启发式经验 / D 外部声明），越级引用拒写。</p>
+          <p>红队定期植入<strong>蜜罐 memory</strong>（看似合理但故意错误的条目），监控 Agent 是否引用——被引用即识破对抗者的"理由模板"。</p>
+          <div class="example"><b>没它会怎样</b><br>攻击者通过伪造申诉、操纵审核口径，把"某类账号其实是误判"植入 memory。Agent 后续引用时给出"看似有依据"的错误判断，事故复盘时还能拿出 citation——但 citation 指向的本身就是被污染的源。Curator 不存在 = 系统集体失明。</div>
+        </div>
+      </details>
+
+      <h3 class="sub-h"><span class="num">3.8</span>Governance Agent + 三层治理</h3>
+      <details class="glossary">
+        <summary>什么是 Governance Agent？</summary>
+        <div class="glossary-body">
+          <p>受限 AI，处理 T2/T3 routine 治理决策。<strong>硬上限</strong>：</p>
+          <p>① 不能修改 Policy-as-Code；② 不能签发自己的 governance_token；③ 不能审计自己产生的 trace；④ 不能 approve 跨多域的 patch bundle（跨域必须升级人审）；⑤ 所有决策强制 trace，每周 ≥5% 抽检由 Trace Auditor 复核。</p>
+          <div class="example"><b>它如何拦住场景 4</b><br>Agent 收到四个矛盾输入时，调用 Governance Agent 询问优先级。GA 按预定义的优先级状态机给出：合规红线 &gt; 监管最新解释 &gt; 仿真净收益 &gt; 业务诉求。GA 不接受"业务说"、"上级说"这类自由文本理由覆盖优先级。最终决策走 envelope owner 签字。</div>
+        </div>
+      </details>
+      <p>三层结构：<code>Policy-as-Code（机器）</code> → <code>Governance Agent（受限 AI）</code> → <code>Human Governance Committee（最终权威）</code>。T0/T1 强制人审，T2/T3 走 GA + 抽检。</p>
+    </section>
+
+    <!-- ============ Section 4 组织与决策权 ============ -->
+    <section id="s4">
+      <h2 class="sec-h"><span class="num">4</span>组织与决策权</h2>
+      <div class="tldr"><b>TL;DR</b><br>权力按 T0/T1/T2/T3 风险分层迁移。业务永远不是 approver，只是 proposer + appeal 发起人。新出现 5 个具名角色，KPI 从个人产出迁到系统健康。</div>
+
+      <h3 class="sub-h"><span class="num">4.1</span>决策权矩阵</h3>
+      <table class="tab">
+        <thead><tr><th>等级</th><th>示例</th><th>approve</th><th>veto</th><th>紧急越权</th></tr></thead>
+        <tbody>
+          <tr><td><b>T0 红线</b></td><td>改判罚类型、改合规口径、模型替换</td><td>治理委员会多签 ≥3（跨策略/算法/治理/法务）</td><td>法务 / 治理任一</td><td>不允许</td></tr>
+          <tr><td><b>T1 高影响</b></td><td>跨域 patch、影响 &gt;X 用户 / 收入</td><td>Policy Steward + Risk Steward 双签 + 委员会 review</td><td>治理 / 法务 / 合规任一</td><td>Break-glass，48h 内强制 IR</td></tr>
+          <tr><td><b>T2 中影响</b></td><td>单域规则、可逆灰度</td><td>Policy Steward 单签 + GA check</td><td>业务可 appeal（带量化证据）</td><td>on-call 可临时 rollback</td></tr>
+          <tr><td><b>T3 低影响</b></td><td>阈值微调、白名单、路由</td><td>Governance Agent 自动（预算内）</td><td>策略 lead 24h 内可撤销</td><td>不需要</td></tr>
+        </tbody>
+      </table>
+
+      <h3 class="sub-h"><span class="num">4.2</span>团队边界重划</h3>
+      <table class="tab wide">
+        <thead><tr><th>角色</th><th>失去</th><th>得到</th><th>价值锚点变化</th></tr></thead>
+        <tbody>
+          <tr><td><b>策略</b></td><td>个人拍板上线规则的"小主权"</td><td>定义目标函数、约束、评估集；做 Policy Steward / Simulation Owner / Domain Owner</td><td>"我写了多少规则" → "我管的域 KPI 稳态 + 红线零突破"</td></tr>
+          <tr><td><b>算法</b></td><td>模型推上线的个人成就感</td><td>模型治理、漂移监控、对抗鲁棒性、仿真可信度</td><td>"AUC 提升" → "可治理度 + 对抗发现率"</td></tr>
+          <tr><td><b>审核</b></td><td>一线判罚主导权</td><td>边界案例标注、申诉监督、对抗用例众包、样本校准</td><td>"日均判几单" → "系统校准贡献"</td></tr>
+          <tr><td><b>治理</b></td><td>（原本就弱）合规事后审计</td><td>红线运行时管控、token 签发权、跨域仲裁、Trace 审计</td><td>跃迁为"运行时第二大脑"</td></tr>
+          <tr><td><b>业务</b></td><td>对风控团队下行政指令的非正式权力</td><td>定义业务 KPI + 业务红线 + appeal 通道</td><td>必须用量化证据说话</td></tr>
+          <tr><td><b>法务</b></td><td>只 review 文档的被动角色</td><td>红线 Policy-as-Code 的 co-owner</td><td>季度审计 → 持续运行时角色</td></tr>
+        </tbody>
+      </table>
+
+      <h3 class="sub-h"><span class="num">4.3</span>新出现的 5 个具名角色</h3>
+      <table class="tab">
+        <thead><tr><th>角色</th><th>职责</th><th>问责事件</th></tr></thead>
+        <tbody>
+          <tr><td><b>Policy Steward</b>（每域 1 人）</td><td>维护本域 Policy-as-Code、红线版本</td><td>红线被绕过</td></tr>
+          <tr><td><b>Memory Curator</b>（跨域 1-2 人）</td><td>监管记忆质量、来源、引用、衰减</td><td>记忆污染导致重复事故</td></tr>
+          <tr><td><b>Trace Auditor</b>（独立汇报）</td><td>抽检 trace 完整性、回放一致性、GA 决策密度漂移</td><td>trace 丢失或不可回放</td></tr>
+          <tr><td><b>Simulation Owner</b>（每域 1 人）</td><td>维护 CDIG、沙盘可信度、未覆盖披露</td><td>仲裁结论错误</td></tr>
+          <tr><td><b>Adversary Red Team</b>（常驻）</td><td>持续攻击、校准 CDIG、蜜罐 memory</td><td>重大对抗未提前发现</td></tr>
+        </tbody>
+      </table>
+
+      <h3 class="sub-h"><span class="num">4.4</span>KPI 体系：从个人产出 → 系统健康</h3>
+      <table class="tab">
+        <thead><tr><th>团队</th><th>核心 KPI</th></tr></thead>
+        <tbody>
+          <tr><td>策略 / Domain Owner</td><td>本域稳态 KPI 漂移幅度、跨域冲突减少率、Patch 回滚率、红线零突破天数</td></tr>
+          <tr><td>算法</td><td>模型对抗鲁棒性、漂移自报率（自己发现 vs 事故发现）、特征可解释度</td></tr>
+          <tr><td>审核 / Boundary Curator</td><td>边界案例标注覆盖度、申诉判准率、红队样本贡献量</td></tr>
+          <tr><td>治理</td><td>红线零突破天数、Trace 可回放抽检通过率、GA 被覆盖率、break-glass 滥用率</td></tr>
+          <tr><td>Simulation Owner</td><td>CDIG 边校准新鲜度、沙盘"未覆盖场景"披露完整度</td></tr>
+          <tr><td>业务</td><td>业务 KPI + 申诉胜率分布 + 风险负债账户</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ============ Section 5 风险与红线 ============ -->
+    <section id="s5">
+      <h2 class="sec-h"><span class="num">5</span>风险与红线</h2>
+      <div class="tldr"><b>TL;DR</b><br>失控不是"AI 违规"，而是"AI 看起来合规地把规矩改了"。五类失控 + 一套事故状态机 + 抗人事真空设计。</div>
+
+      <h3 class="sub-h"><span class="num">5.1</span>完美失控：每步合法整体越权</h3>
+      <p>见 <a href="#l1-2">场景 2</a>。防御 = <a href="#s3">Intent Envelope + Risk Ledger</a> + Super-Envelope 聚合 + 颗粒度审计 + 跨 owner 串谋检测 + Intent Auditor 双轨（结构 + 语言对抗微调）。</p>
+
+      <h3 class="sub-h"><span class="num">5.2</span>记忆中毒</h3>
+      <p>攻击者通过伪造申诉 / 业务反馈 / 审核口径 / 红队样本，让 Agent 长期引用"看似有依据"的错误经验。</p>
+      <p><b>5 道防线</b>：来源分级（A/B/C/D，越级拒写）+ Provenance 图谱（citation 解析验证）+ 反事实校验（高影响 memory 必须通过 holdout）+ 衰减（C 级 30 天未引用失效）+ 蜜罐 memory（红队诱饵）。</p>
+
+      <h3 class="sub-h"><span class="num">5.3</span>合理化绕过</h3>
+      <p>"特殊活动期临时保护"、"低风险白名单"、"用户体验兜底"——绕过通常不写成"我要违规"，写成"合理例外"。</p>
+      <p><b>6 道关</b>：例外类型 enumerated + 例外预算账户 + 理由相似度检测（防换皮）+ 必带 detection plan + 默认 sunset 禁自动续期 + GA 输入净化（拒绝自由文本理由）。</p>
+
+      <h3 class="sub-h"><span class="num">5.4</span>跨域级联事故</h3>
+      <p>见 <a href="#l1-2">场景 3</a>。</p>
+      <h4>事故模式状态机</h4>
+      <table class="tab">
+        <thead><tr><th>模式</th><th>Agent 写权</th><th>策略变更</th><th>触发条件示例</th></tr></thead>
+        <tbody>
+          <tr><td><b>NORMAL</b></td><td>按 envelope</td><td>按治理</td><td>—</td></tr>
+          <tr><td><b>DEGRADED</b></td><td>仅 T3、可逆</td><td>暂停新策略</td><td>单域 KPI 黄线 / trace lag &gt; X</td></tr>
+          <tr><td><b>FREEZE</b></td><td>全停（已上线策略继续跑）</td><td>全停</td><td>多域同时越线 / 红线警告 / 重大对抗</td></tr>
+          <tr><td><b>KILL</b></td><td>切回上一稳定快照</td><td>全静态规则</td><td>红线越界 / Trace 系统挂 / 大规模误杀</td></tr>
+          <tr><td><b>MANUAL</b></td><td>无</td><td>仅人写</td><td>监管事件 / 法律事件 / 公关重大</td></tr>
+        </tbody>
+      </table>
+      <p><b>关键约束</b>：切档由 Incident Commander 触发，<strong>Agent 不允许自我切档回 NORMAL</strong>——只能由人逆向恢复。Kill switch 物理冗余 + 独立鉴权 + 离线可触发。</p>
+
+      <h3 class="sub-h"><span class="num">5.5</span>人事真空</h3>
+      <p><b>三件套</b>：</p>
+      <ul style="margin:4px 0 8px 22px; color:var(--ink-2);">
+        <li><b>双备份 + Handoff Protocol</b>：每个具名角色 primary + deputy + escalation；transition ≥30 天 overlap；handoff 是事件，写入 trace。</li>
+        <li><b>Vacancy = 自动收紧</b>：角色空缺 &gt;14 天 → 该 role 名下 active token 全失效，依赖该 role 的 patch 进 FREEZE。</li>
+        <li><b>Time-bombed Authority</b>：所有 governance_token / envelope 有效期 ≤ N 月，到期不续签即失效，杜绝僵尸授权。</li>
+      </ul>
+    </section>
+
+    <!-- ============ Section 6 经济与路径 ============ -->
+    <section id="s6">
+      <h2 class="sec-h"><span class="num">6</span>经济与路径</h2>
+      <div class="tldr"><b>TL;DR</b><br>反直觉：自治程度越高，控制类预算占比越高。L4 控制:增长 ≥ 1:1，L5 ≥ 1.5:1，超 L5 ≥ 2:1。最危险阶段是 L3.5（Agent 已写但护栏不全），平台层必须自动降级。</div>
+
+      <h3 class="sub-h"><span class="num">6.1</span>成本结构与非线性热点</h3>
+      <table class="tab">
+        <thead><tr><th>成本桶</th><th>增长函数</th><th>易被低估</th></tr></thead>
+        <tbody>
+          <tr><td>推理（Agent + Auditor + GA）</td><td>O(请求量 × 步骤数)</td><td>多 Agent 协同的链长</td></tr>
+          <tr><td>Trace 存储 + 索引</td><td>O(请求量 × 决策密度 × 保留年限)</td><td>★3 年监管保留 = 巨量</td></tr>
+          <tr><td>Trace 检索</td><td>平时小，事故 burst</td><td>★ 事故时可达平时 100x</td></tr>
+          <tr><td>仿真计算</td><td>O(域²)（跨域）</td><td>★ 新域加入跃升</td></tr>
+          <tr><td>标注 / Boundary Curator</td><td>O(新对抗速率)</td><td>对抗演化是 power-law</td></tr>
+          <tr><td>红队人力</td><td>阶梯：域数 × 监管强度</td><td>常被砍，却是 CDIG 命根</td></tr>
+          <tr><td>治理人力</td><td>阶梯：T0/T1 事件率</td><td>容量瓶颈</td></tr>
+          <tr><td>审计 / 外部审计</td><td>阶梯：监管要求</td><td>阶梯式跳</td></tr>
+        </tbody>
+      </table>
+
+      <h3 class="sub-h"><span class="num">6.2</span>预算分配原则</h3>
+      <p>核心反直觉：<strong>自治程度越高，控制类预算占比越高</strong>。</p>
+      <table class="tab">
+        <thead><tr><th>域成熟度</th><th>控制类（Trace/Sim/RedTeam/Gov/Audit/Curator）: 增长类（Agent/Model/数据）</th></tr></thead>
+        <tbody>
+          <tr><td>L0 / L1</td><td>1 : 3</td></tr>
+          <tr><td>L2 / L3</td><td>1 : 2</td></tr>
+          <tr><td>L4</td><td>1 : 1</td></tr>
+          <tr><td>L5</td><td>1.5 : 1</td></tr>
+          <tr><td>超 L5</td><td>≥ 2 : 1</td></tr>
+        </tbody>
+      </table>
+      <p><b>Treasury Rule</b>（自动调拨，不靠人 negotiate）：红线突破 / break-glass / Trace lag / GA 决策被覆盖率漂移 → 控制侧自动 +X%，从增长侧划拨。</p>
+      <p><b>红线</b>：Trace、红队、外部审计三项<strong>不可被单年业务表现解耦地砍</strong>，砍需治理委员会多签 + 外审签字。</p>
+
+      <h3 class="sub-h"><span class="num">6.3</span>组合 KPI：防"零突破激励"反噬</h3>
+      <p>单一 KPI "红线零突破" → 组织进入"什么都不做最安全"。组合 KPI：</p>
+      <table class="tab">
+        <thead><tr><th>维度</th><th>主指标</th></tr></thead>
+        <tbody>
+          <tr><td>不出事</td><td>红线零突破天数（门槛，一票否决）</td></tr>
+          <tr><td>多发现</td><td>新对抗发现 → 拦截中位时间 / 红队主动揭露数</td></tr>
+          <tr><td>学得快</td><td>健康学习事件 / 总回滚事件</td></tr>
+          <tr><td>赢得多</td><td>Risk-Adjusted Yield = 业务收益 / (1 + 风险占用 × 红线接近度)</td></tr>
+          <tr><td>演化稳</td><td>季度策略稳态漂移、Innovation Quota 使用率</td></tr>
+        </tbody>
+      </table>
+      <p><b>Innovation Quota</b>：每季度允许 N 次"低风险可控失败"（T2/T3 + 沙盘验证 + 守门齐备 + 影响可逆），不计 SLA 罚款，但必须闭环复盘。</p>
+
+      <h3 class="sub-h"><span class="num">6.4</span>禁止跳层：最危险的是 L3.5</h3>
+      <p><b>L3.5 综合症</b>：Agent 已能 propose 并部分自动灰度，但 Policy-as-Code 未完成、Trace 只覆盖部分动作、回滚条件未编码、CDIG 还在 PPT。业务停不下来 + 治理 backlog 积压 + 监管反应放大。</p>
+      <p>平台层强制硬门槛，违反一律自动降级：</p>
+      <table class="tab">
+        <thead><tr><th>缺失能力</th><th>自动禁止</th></tr></thead>
+        <tbody>
+          <tr><td>Trace 未覆盖该动作类型</td><td>不准开自动灰度</td></tr>
+          <tr><td>Policy-as-Code 未覆盖该域</td><td>不准接生产 Action Adapter</td></tr>
+          <tr><td>无自动 rollback 路径</td><td>不准进 Roll-out</td></tr>
+          <tr><td>无 Simulation Owner + CDIG v0</td><td>不准发起跨域 patch</td></tr>
+          <tr><td>无 Memory Curator 上岗</td><td>Agent 不准引用 Tier A/B 做 T1+ 决策</td></tr>
+          <tr><td>无 Intent Envelope</td><td>不准自主跨步骤活动</td></tr>
+          <tr><td>无独立 Trace Auditor</td><td>GA 不准自动审 T2</td></tr>
+          <tr><td>无外部审计接入</td><td>不准声明进入超 L5</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ============ Appendix A 矩阵 ============ -->
+    <section id="a1">
+      <h2 class="sec-h"><span class="num">A</span>PDCA × L0-L5 三段式矩阵</h2>
+      <div class="tldr"><b>说明</b><br>同一条 PDCA 主链，每格三段：<span class="seg-need">终态要求</span> / <span class="seg-gap">当前 gap</span> / <span class="seg-path">补齐路径</span>。</div>
+      <div class="matrix-wrap">
+        <table class="matrix">
+          <thead>
+            <tr>
+              <th style="width:90px;">层级</th>
+              <th>P1 现状问题</th>
+              <th>P2 原因分析</th>
+              <th>P3 关键原因</th>
+              <th>P4 对策计划</th>
+              <th>D5 执行对策</th>
+              <th>C6 效果检查</th>
+              <th>A7 标准固化</th>
+              <th>A8 遗留转入</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="lvl">L0 平台</td>
+              <td><p class="seg-need">终态</p><p>分散信号在 URG 聚合</p><p class="seg-gap">Gap</p><p>入口分散无事件源</p><p class="seg-path">路径</p><p>Event Store + 信号网关</p></td>
+              <td><p class="seg-need">终态</p><p>证据自动拼接</p><p class="seg-gap">Gap</p><p>归因靠人拼</p><p class="seg-path">路径</p><p>只读连接器 + ID 统一 + CAS</p></td>
+              <td><p class="seg-need">终态</p><p>根因引用事件 + 规范</p><p class="seg-gap">Gap</p><p>专家口述不进系统</p><p class="seg-path">路径</p><p>结构化复盘 + Case 库</p></td>
+              <td><p class="seg-need">终态</p><p>策略草案带评估 + 灰度 + 回滚</p><p class="seg-gap">Gap</p><p>评估成本高</p><p class="seg-path">路径</p><p>策略模板 + 评估集库</p></td>
+              <td><p class="seg-need">终态</p><p>动作经 Adapter，红线机器执行</p><p class="seg-gap">Gap</p><p>多系统手工</p><p class="seg-path">路径</p><p>Adapter MVP + Policy-as-Code v0</p></td>
+              <td><p class="seg-need">终态</p><p>守门指标驱动告警 + 回滚</p><p class="seg-gap">Gap</p><p>报表滞后</p><p class="seg-path">路径</p><p>守门指标集 + 实时监控</p></td>
+              <td><p class="seg-need">终态</p><p>口径写入 Policy / Memory</p><p class="seg-gap">Gap</p><p>沉在飞书 / 个人脑</p><p class="seg-path">路径</p><p>结构化口径库 + SOP 版本</p></td>
+              <td><p class="seg-need">终态</p><p>遗留进 backlog 配 owner</p><p class="seg-gap">Gap</p><p>无结构化流转</p><p class="seg-path">路径</p><p>Risk Backlog 系统</p></td>
+            </tr>
+            <tr>
+              <td class="lvl">L1 模型</td>
+              <td><p class="seg-need">终态</p><p>AI 摘要带 citation</p><p class="seg-gap">Gap</p><p>Prompt 散落无审计</p><p class="seg-path">路径</p><p>LLM 网关 + Prompt 资产</p></td>
+              <td><p class="seg-need">终态</p><p>AI 仅语言加工</p><p class="seg-gap">Gap</p><p>编造事实风险</p><p class="seg-path">路径</p><p>事实 / 解释分离模板</p></td>
+              <td><p class="seg-need">终态</p><p>关键原因由人定</p><p class="seg-gap">Gap</p><p>误把 AI 输出当结论</p><p class="seg-path">路径</p><p>分工规范 + 输出审计</p></td>
+              <td><p class="seg-need">终态</p><p>起草含评估 / 灰度 / 回滚</p><p class="seg-gap">Gap</p><p>起草质量参差</p><p class="seg-path">路径</p><p>策略草稿 schema</p></td>
+              <td><p class="seg-need">终态</p><p>仅写文案不接生产</p><p class="seg-gap">Gap</p><p>误用 LLM 决策</p><p class="seg-path">路径</p><p>非生产文案 + 过审</p></td>
+              <td><p class="seg-need">终态</p><p>复盘文本绑指标</p><p class="seg-gap">Gap</p><p>脱离指标</p><p class="seg-path">路径</p><p>指标→文本模板</p></td>
+              <td><p class="seg-need">终态</p><p>SOP 入版本库</p><p class="seg-gap">Gap</p><p>入库随意</p><p class="seg-path">路径</p><p>Memory Curator v0</p></td>
+              <td><p class="seg-need">终态</p><p>backlog 配 owner + SLA</p><p class="seg-gap">Gap</p><p>无 owner</p><p class="seg-path">路径</p><p>强制 owner</p></td>
+            </tr>
+            <tr>
+              <td class="lvl">L2 知识</td>
+              <td><p class="seg-need">终态</p><p>新信号自动对齐历史 + 规范</p><p class="seg-gap">Gap</p><p>规范无索引</p><p class="seg-path">路径</p><p>RAG + Citation 强制</p></td>
+              <td><p class="seg-need">终态</p><p>证据组装可追溯</p><p class="seg-gap">Gap</p><p>权限粗放</p><p class="seg-path">路径</p><p>只读连接器 + 权限过滤</p></td>
+              <td><p class="seg-need">终态</p><p>候选根因带置信 + 反例</p><p class="seg-gap">Gap</p><p>过自信</p><p class="seg-path">路径</p><p>反例搜索 + 置信校准</p></td>
+              <td><p class="seg-need">终态</p><p>复用历史 patch + 评估集</p><p class="seg-gap">Gap</p><p>无结构化</p><p class="seg-path">路径</p><p>Patch 版本库</p></td>
+              <td><p class="seg-need">终态</p><p>仍只读</p><p class="seg-gap">Gap</p><p>误开写口</p><p class="seg-path">路径</p><p>强制只读配置</p></td>
+              <td><p class="seg-need">终态</p><p>对照历史解释漂移</p><p class="seg-gap">Gap</p><p>脱离样本</p><p class="seg-path">路径</p><p>对比工具 + 漂移图</p></td>
+              <td><p class="seg-need">终态</p><p>知识入库走 Curator</p><p class="seg-gap">Gap</p><p>无分级</p><p class="seg-path">路径</p><p>Tier A/B/C/D 元数据</p></td>
+              <td><p class="seg-need">终态</p><p>按风险方向 / 证据缺口分</p><p class="seg-gap">Gap</p><p>分类粗</p><p class="seg-path">路径</p><p>二级标签</p></td>
+            </tr>
+            <tr>
+              <td class="lvl">L3 行动</td>
+              <td><p class="seg-need">终态</p><p>Case 自动建</p><p class="seg-gap">Gap</p><p>人建</p><p class="seg-path">路径</p><p>Case 服务 + 自动归因</p></td>
+              <td><p class="seg-need">终态</p><p>Agent 自主取证形成 trace</p><p class="seg-gap">Gap</p><p>工具调用无 trace</p><p class="seg-path">路径</p><p>Trace MVP + 工具注册</p></td>
+              <td><p class="seg-need">终态</p><p>Proposal 带证据 + 置信</p><p class="seg-gap">Gap</p><p>判断卡人</p><p class="seg-path">路径</p><p>Proposal schema</p></td>
+              <td><p class="seg-need">终态</p><p>Patch 草稿 + 评估 + 灰度 + 回滚</p><p class="seg-gap">Gap</p><p>字段缺</p><p class="seg-path">路径</p><p>Patch schema 强制</p></td>
+              <td><p class="seg-need">终态</p><p>受限可逆写 + 分级</p><p class="seg-gap">Gap</p><p>未分层</p><p class="seg-path">路径</p><p>Adapter 分级 + token / envelope</p></td>
+              <td><p class="seg-need">终态</p><p>自动回放 + 误杀漏放报告</p><p class="seg-gap">Gap</p><p>工具不全</p><p class="seg-path">路径</p><p>回放平台</p></td>
+              <td><p class="seg-need">终态</p><p>沉淀进 memory / skill draft</p><p class="seg-gap">Gap</p><p>沉淀不齐</p><p class="seg-path">路径</p><p>Curator + 签发流</p></td>
+              <td><p class="seg-need">终态</p><p>遗留转下一轮 case</p><p class="seg-gap">Gap</p><p>转出不自动</p><p class="seg-path">路径</p><p>Case 状态机扩展</p></td>
+            </tr>
+            <tr>
+              <td class="lvl">L4 闭环</td>
+              <td><p class="seg-need">终态</p><p>多信号自动聚合成 case</p><p class="seg-gap">Gap</p><p>聚合粗糙</p><p class="seg-path">路径</p><p>信号融合 + 缺口探测</p></td>
+              <td><p class="seg-need">终态</p><p>多 Agent 并行归因</p><p class="seg-gap">Gap</p><p>状态打架</p><p class="seg-path">路径</p><p>Orchestrator + A2A</p></td>
+              <td><p class="seg-need">终态</p><p>交叉取证 + 反例 + trace grading</p><p class="seg-gap">Gap</p><p>无 grading</p><p class="seg-path">路径</p><p>Trace Grading + Intent Auditor</p></td>
+              <td><p class="seg-need">终态</p><p>Proposal 进治理管道</p><p class="seg-gap">Gap</p><p>无 envelope + ledger</p><p class="seg-path">路径</p><p>Envelope v0 + Ledger v0</p></td>
+              <td><p class="seg-need">终态</p><p>T3 自动 / T2 GA / T1+ 人</p><p class="seg-gap">Gap</p><p>权限矩阵未落</p><p class="seg-path">路径</p><p>决策权矩阵 → token 引擎</p></td>
+              <td><p class="seg-need">终态</p><p>Trace 驱动自动验收</p><p class="seg-gap">Gap</p><p>无 grading</p><p class="seg-path">路径</p><p>Trace Auditor + grading</p></td>
+              <td><p class="seg-need">终态</p><p>验收通过自动入版本库</p><p class="seg-gap">Gap</p><p>路径未通</p><p class="seg-path">路径</p><p>能力沉淀流水线</p></td>
+              <td><p class="seg-need">终态</p><p>遗留自动转下一轮</p><p class="seg-gap">Gap</p><p>跨轮无追踪</p><p class="seg-path">路径</p><p>跨轮 backlog + Ledger</p></td>
+            </tr>
+            <tr>
+              <td class="lvl">L5 经营</td>
+              <td><p class="seg-need">终态</p><p>Domain Agent 主动定缺口</p><p class="seg-gap">Gap</p><p>无 Goal Runtime</p><p class="seg-path">路径</p><p>目标管理器 + 偏差识别</p></td>
+              <td><p class="seg-need">终态</p><p>跨 case 追踪漂移</p><p class="seg-gap">Gap</p><p>跨域可观测弱</p><p class="seg-path">路径</p><p>CDIG 长期监测</p></td>
+              <td><p class="seg-need">终态</p><p>合规内做组合判断</p><p class="seg-gap">Gap</p><p>方向卡委员会</p><p class="seg-path">路径</p><p>风险偏好引擎 + Pareto</p></td>
+              <td><p class="seg-need">终态</p><p>Domain 路线图</p><p class="seg-gap">Gap</p><p>规划人写</p><p class="seg-path">路径</p><p>实验平台 + 红队调度</p></td>
+              <td><p class="seg-need">终态</p><p>Agent 群执行，高影响走治理</p><p class="seg-gap">Gap</p><p>例外滥用</p><p class="seg-path">路径</p><p>例外 enumerate + risk debit</p></td>
+              <td><p class="seg-need">终态</p><p>持续评估域 KPI 与对抗成本</p><p class="seg-gap">Gap</p><p>组合 KPI 未跑通</p><p class="seg-path">路径</p><p>Risk-Adjusted Yield + 抗熵</p></td>
+              <td><p class="seg-need">终态</p><p>能力 + 制度版本化</p><p class="seg-gap">Gap</p><p>红线不版本化</p><p class="seg-path">路径</p><p>Policy + Skill 版本仓</p></td>
+              <td><p class="seg-need">终态</p><p>AI 自我设定下轮目标</p><p class="seg-gap">Gap</p><p>目标手设</p><p class="seg-path">路径</p><p>目标自演进 + 治理外置</p></td>
+            </tr>
+            <tr>
+              <td class="lvl">超 L5</td>
+              <td><p class="seg-need">终态</p><p>多域 + 跨业务自动发现生态缺口</p><p class="seg-gap">Gap</p><p>目标系统未通</p><p class="seg-path">路径</p><p>生态 KPI 网格 + 外部信号</p></td>
+              <td><p class="seg-need">终态</p><p>外部生态共同归因</p><p class="seg-gap">Gap</p><p>外部无入口</p><p class="seg-path">路径</p><p>情报接口 + Trace 联邦</p></td>
+              <td><p class="seg-need">终态</p><p>抗熵优先级跨域统一</p><p class="seg-gap">Gap</p><p>优先级冲突</p><p class="seg-path">路径</p><p>跨域 Arbiter + 抗熵指标</p></td>
+              <td><p class="seg-need">终态</p><p>多域路线图 + 生态红队 + 外审</p><p class="seg-gap">Gap</p><p>缺生态规划</p><p class="seg-path">路径</p><p>生态委员会 + 外审常驻</p></td>
+              <td><p class="seg-need">终态</p><p>所有动作过 Adapter，红线统一</p><p class="seg-gap">Gap</p><p>Policy 不统一</p><p class="seg-path">路径</p><p>Policy 联邦</p></td>
+              <td><p class="seg-need">终态</p><p>Treasury Rule 稳态</p><p class="seg-gap">Gap</p><p>预算摆动</p><p class="seg-path">路径</p><p>风险资本 + 外审签字</p></td>
+              <td><p class="seg-need">终态</p><p>能力跨域可移植</p><p class="seg-gap">Gap</p><p>资产孤岛</p><p class="seg-path">路径</p><p>能力 / 红线联邦仓</p></td>
+              <td><p class="seg-need">终态</p><p>新域 / 新业务 / 新监管自动 review</p><p class="seg-gap">Gap</p><p>无 onboarding</p><p class="seg-path">路径</p><p>onboarding 检查 + 红线再签</p></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============ Appendix B 推演实录 ============ -->
+    <section id="a2">
+      <h2 class="sec-h"><span class="num">B</span>codex 多轮挑剔推演实录（精华）</h2>
+      <div class="tldr"><b>说明</b><br>4 轮 codex 真实多轮挑剔面试 + 自审推论。完整 transcript 见 <code>docs/derivation/</code>。</div>
+
+      <details class="qa">
+        <summary>Round 1 · 能力与架构（5 问）</summary>
+        <div class="qa-body">
+          <p class="qa-q">Q1. 多 Domain Agent 同时行动时，谁是全局状态的唯一事实源？</p>
+          <p class="qa-a">A：URG 事件日志为唯一事实，Agent 不直写，必经 Action Adapter；冲突优先级 Compliance &gt; Safety &gt; Fraud &gt; Growth。</p>
+          <p class="qa-q">Q2. 行动状态机里哪些动作必须停在治理前？</p>
+          <p class="qa-a">A：永久封禁、资金转移、监管口径降级、模型替换、跨业务数据 join、影响法律状态——绝对红线，任何 token 不能解锁。</p>
+          <p class="qa-q">Q3. 哪些规则必须系统化，哪些只能上下文？</p>
+          <p class="qa-a">A：可枚举 + 稳定 + 不可逆 → Policy-as-Code；开放式 + 解释性 + 可逆 → Memory。冲突时系统化总赢。</p>
+          <p class="qa-q">Q4. 跨域冲突由什么发现和裁决？</p>
+          <p class="qa-a">A：CDIG + 沙盘（必须披露未覆盖场景）+ Arbiter，红队反向校准，Simulation Owner 具名背锅。</p>
+          <p class="qa-q">Q5. 怎么证明每次自治演进可回放可解释可撤销？</p>
+          <p class="qa-a">A：Decision Trace 强制 schema + CAS snapshot + 模型版本永不删 + git-style commit + 守门指标自动回滚（反方向需重审批）。</p>
+          <div class="qa-meta"><b>codex 挑刺：</b>A4 最弱——CDIG/Sandbox 容易变"漂亮但没人信的中台模型"。补强：Simulation Owner 具名 + 必披露未覆盖场景 + 红队反向校准。</div>
+        </div>
+      </details>
+
+      <details class="qa">
+        <summary>Round 2 · 组织与决策权（5 问）</summary>
+        <div class="qa-body">
+          <p class="qa-q">Q1. 拍板权迁移到谁？</p>
+          <p class="qa-a">A：T0 治理委员会多签；T1 双签 + 委员会；T2 Policy Steward + GA；T3 GA 自动。业务永远只是 proposer + appeal。</p>
+          <p class="qa-q">Q2. 团队边界怎么重划？</p>
+          <p class="qa-a">A：策略失去拍板得到 Steward；算法失去推上线得到模型治理；审核失去逐单判得到 Boundary Curator；治理跃迁；业务边界化但有 appeal。</p>
+          <p class="qa-q">Q3. 治理是人、委员会还是 Agent？</p>
+          <p class="qa-a">A：三层——Policy-as-Code（机器）+ Governance Agent（受限）+ Human Committee（最终）。GA 有硬上限。</p>
+          <p class="qa-q">Q4. 业务还能多少决策权？</p>
+          <p class="qa-a">A：定 KPI + SLA + 业务红线（举证 + 后果责任在业务）；冲突走 Pareto → Appeal → Committee；紧急 72h 业务保护进风险负债账户。</p>
+          <p class="qa-q">Q5. 谁先消失，KPI 怎么改？</p>
+          <p class="qa-a">A：消失的是任务不是岗位；新 KPI——红线零突破、冲突减少率、Trace 抽检通过、Risk-Adjusted Yield。</p>
+          <div class="qa-meta"><b>codex 挑刺：</b>A8 治理三层最弱——具名 ≠ 真负责。补强：审计 KPI 独立、直达 CEO 汇报线、能力门槛硬约束、委员会容量监控。</div>
+        </div>
+      </details>
+
+      <details class="qa">
+        <summary>Round 3 · 风险与红线（5 问）</summary>
+        <div class="qa-body">
+          <p class="qa-q">Q1. 每步合法但整体越权怎么拦？</p>
+          <p class="qa-a">A：Intent Envelope + Risk Ledger + End-of-Envelope 收束审计 + Intent Auditor 双轨（结构 + 语言对抗微调）。</p>
+          <p class="qa-q">Q2. 攻击者污染 Memory Curator？</p>
+          <p class="qa-a">A：来源 Tier A/B/C/D + 越级拒写 + Provenance 图谱 + 反事实校验 + 衰减 + 蜜罐 memory。</p>
+          <p class="qa-q">Q3. GA 被合理化绕过？</p>
+          <p class="qa-a">A：例外 enumerate + 例外预算账户 + 理由相似度（防换皮）+ 必带 detection plan + 默认 sunset + 输入净化。</p>
+          <p class="qa-q">Q4. 跨域级联事故先保什么？</p>
+          <p class="qa-a">A：硬优先级 红线 &gt; T0/T1 Trace &gt; 业务关键 &gt; 次要；事故状态机 NORMAL→DEGRADED→FREEZE→KILL→MANUAL；Agent 不允许自我切档回 NORMAL。</p>
+          <p class="qa-q">Q5. 人事变动如何防真空？</p>
+          <p class="qa-a">A：双备份 + 30 天 overlap + Vacancy &gt;14 天自动收紧 + Time-bombed Authority + 双轨审计。</p>
+          <div class="qa-meta"><b>codex 挑刺：</b>A11 Intent Envelope 最弱——智能拆单可绕。补强：Super-Envelope 聚合 + 颗粒度审计联签 + 串谋检测 + Intent Auditor 双轨 + 组织 separation of duty。</div>
+        </div>
+      </details>
+
+      <details class="qa">
+        <summary>Round 4 · 经济与路径（5 问）</summary>
+        <div class="qa-body">
+          <p class="qa-q">Q1. 全量成本与非线性热点？</p>
+          <p class="qa-a">A：跨域仿真 O(域²)、Trace 事故 burst 100x、新对抗 power-law、监管阶梯式跳。</p>
+          <p class="qa-q">Q2. 预算怎么分配？</p>
+          <p class="qa-a">A：自治越高控制类占比越高（L4 1:1 → 超 L5 ≥2:1）；Treasury Rule 自动调拨；按风险资本占用定下限，不接受 ROI 砍预算。</p>
+          <p class="qa-q">Q3. 红线零突破不会激励"什么都不做"吗？</p>
+          <p class="qa-a">A：组合 KPI——红线零突破（门槛）+ 新对抗发现速度 + Risk-Adjusted Yield + Innovation Quota；区分健康回滚 vs 无能回滚。</p>
+          <p class="qa-q">Q4. 哪些里程碑必须串行？</p>
+          <p class="qa-a">A：Event Store → Adapter → Policy-as-Code → Trace → 守门 → 受限可逆写 → CDIG → Curator → Trace Auditor → Ledger → Envelope → 外审 → 超 L5。</p>
+          <p class="qa-q">Q5. 半成品最危险阶段？</p>
+          <p class="qa-a">A：L3.5 综合症——平台层强制硬门槛见 <a href="#s6">6.4</a>；跳层尝试本身记入治理债账户。</p>
+          <div class="qa-meta"><b>codex 终评：</b>三大跨维度盲点 = 治理被吞 / 可观测≠控制 / 预算周期摆动。保命三件事 = 过门 + 留痕可撤 + 独立制动。其他能力都是建在这三件事上的增强层。</div>
+        </div>
+      </details>
+    </section>
+
+    <div class="red-line">
+      <b>红线 ·</b> AI 可以更聪明；但聪明开始伤害系统时，必须有人和机制让它停下来。<br>
+      <span style="font-weight:600;font-size:14px;">所有动作必须过门 · 所有动作必须留痕且可撤 · 所有动作必须有独立制动。</span>
+    </div>
+
+  </main>
+</div>
+
+</body>
+</html>

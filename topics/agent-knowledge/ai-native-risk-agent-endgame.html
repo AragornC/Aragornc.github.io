@@ -1,0 +1,823 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI Native 风控认知框架：PDCA 与 L0-L5 演进</title>
+  <style>
+    :root {
+      --bg: #f6f7f5;
+      --paper: #ffffff;
+      --ink: #172126;
+      --muted: #5f6b71;
+      --line: #dbe1df;
+      --soft: #eef3f1;
+      --blue: #1f6c86;
+      --green: #2c765f;
+      --red: #9b3f42;
+      --amber: #9a682c;
+      --dark: #26343b;
+      --shadow: 0 18px 46px rgba(23, 33, 38, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--bg);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+        "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      line-height: 1.72;
+      overflow-x: hidden;
+    }
+
+    a {
+      color: var(--blue);
+      text-decoration: none;
+      border-bottom: 1px solid rgba(31, 108, 134, 0.28);
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+      min-height: 100vh;
+      max-width: 100vw;
+    }
+
+    aside {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      min-width: 0;
+      padding: 28px 22px;
+      border-right: 1px solid var(--line);
+      background: rgba(255,255,255,0.82);
+      backdrop-filter: blur(14px);
+      overflow: auto;
+    }
+
+    .brand { margin-bottom: 26px; }
+    .eyebrow {
+      margin: 0 0 8px;
+      color: var(--blue);
+      font-size: 12px;
+      font-weight: 850;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    h1, h2, h3 { line-height: 1.22; letter-spacing: 0; }
+    h1 { margin: 0; font-size: 23px; }
+    nav { display: grid; gap: 6px; }
+    nav a {
+      display: block;
+      padding: 10px 11px;
+      color: var(--muted);
+      border: 0;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 760;
+    }
+    nav a:hover { color: var(--ink); background: var(--soft); }
+
+    main {
+      min-width: 0;
+      padding: 48px min(5vw, 72px) 80px;
+    }
+    .hero {
+      max-width: 1160px;
+      margin-bottom: 34px;
+      padding-bottom: 30px;
+      border-bottom: 1px solid var(--line);
+    }
+    .hero h2 {
+      max-width: 1000px;
+      margin: 0 0 16px;
+      font-size: clamp(32px, 4.2vw, 56px);
+      overflow-wrap: anywhere;
+      word-break: break-all;
+    }
+    .hero p {
+      max-width: 960px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 18px;
+    }
+
+    section {
+      max-width: 1160px;
+      margin: 0 0 42px;
+      min-width: 0;
+    }
+    section > h2 { margin: 0 0 14px; font-size: 30px; }
+    section > p {
+      max-width: 940px;
+      margin: 0 0 18px;
+      color: var(--muted);
+      font-size: 16px;
+    }
+
+    .thesis {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 18px;
+      max-width: 1160px;
+      margin-bottom: 38px;
+    }
+    .panel, .mini, .stage-card, .flow-box {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--paper);
+      box-shadow: var(--shadow);
+    }
+    .panel { overflow: hidden; }
+    .panel .head {
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--line);
+      background: #fbfcfb;
+    }
+    .panel .head h3 { margin: 0; font-size: 18px; }
+    .panel .body { padding: 20px; }
+    .panel p { margin: 0 0 12px; }
+    .panel p:last-child { margin-bottom: 0; }
+
+    .callout {
+      border-left: 4px solid var(--blue);
+      padding: 14px 16px;
+      background: #eef7f8;
+      color: #214653;
+      border-radius: 0 8px 8px 0;
+      font-weight: 760;
+    }
+
+    .matrix {
+      width: 100%;
+      table-layout: fixed;
+      border-collapse: collapse;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      overflow: hidden;
+      background: var(--paper);
+      box-shadow: var(--shadow);
+    }
+    .matrix th, .matrix td {
+      padding: 14px 15px;
+      border-bottom: 1px solid var(--line);
+      border-right: 1px solid var(--line);
+      vertical-align: top;
+      text-align: left;
+      font-size: 14px;
+      overflow-wrap: anywhere;
+    }
+    .matrix th {
+      color: #203139;
+      background: #eef3f1;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+    .matrix tr:last-child td { border-bottom: 0; }
+    .matrix th:last-child, .matrix td:last-child { border-right: 0; }
+
+    .grid-3, .grid-4 {
+      display: grid;
+      gap: 14px;
+      margin-top: 16px;
+    }
+    .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .stage-card { min-height: 210px; padding: 18px; }
+    .stage-card .num {
+      color: var(--blue);
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .stage-card h3 { margin: 8px 0 8px; font-size: 20px; }
+    .stage-card p { margin: 0; color: var(--muted); font-size: 14px; }
+
+    .step-list {
+      display: grid;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .step {
+      display: grid;
+      grid-template-columns: 120px minmax(0, 1fr) minmax(0, 1fr);
+      gap: 12px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--paper);
+      box-shadow: var(--shadow);
+    }
+
+    .step strong {
+      color: var(--blue);
+    }
+
+    .step p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .tag {
+      display: inline-block;
+      margin: 0 6px 6px 0;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: var(--soft);
+      color: var(--dark);
+      font-size: 12px;
+      font-weight: 820;
+      white-space: nowrap;
+    }
+
+    .layer-marker {
+      max-width: 1160px;
+      margin: 34px 0 18px;
+      padding: 14px 16px;
+      border: 1px solid var(--line);
+      border-left: 5px solid var(--blue);
+      border-radius: 8px;
+      background: #fbfcfb;
+    }
+
+    .layer-marker .eyebrow {
+      margin-bottom: 4px;
+    }
+
+    .layer-marker h2 {
+      margin: 0 0 6px;
+      font-size: 24px;
+    }
+
+    .layer-marker p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .pyramid {
+      display: grid;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .pyramid-row {
+      display: grid;
+      grid-template-columns: 150px minmax(0, 1fr) minmax(0, 1.25fr);
+      gap: 12px;
+      align-items: stretch;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--paper);
+      box-shadow: var(--shadow);
+    }
+
+    .pyramid-row strong {
+      color: var(--blue);
+    }
+
+    .pyramid-row p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .sub-layer {
+      max-width: 1160px;
+      margin: 32px 0 18px;
+      padding: 12px 14px;
+      border-left: 4px solid var(--green);
+      background: #f3f8f5;
+      border-radius: 0 8px 8px 0;
+    }
+
+    .sub-layer h3 {
+      margin: 0 0 5px;
+      font-size: 20px;
+    }
+
+    .sub-layer p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: 1fr 44px 1fr 44px 1fr;
+      align-items: stretch;
+      gap: 10px;
+      margin-top: 16px;
+    }
+    .flow-box { padding: 18px; }
+    .flow-box h3 { margin: 0 0 8px; font-size: 18px; }
+    .flow-box p { margin: 0; color: var(--muted); font-size: 14px; }
+    .arrow {
+      display: grid;
+      place-items: center;
+      color: var(--blue);
+      font-size: 28px;
+      font-weight: 900;
+    }
+
+    .architecture {
+      display: grid;
+      gap: 10px;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--paper);
+      box-shadow: var(--shadow);
+    }
+    .layer {
+      display: grid;
+      grid-template-columns: 210px minmax(0, 1fr);
+      gap: 14px;
+      align-items: start;
+      padding: 13px 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfcfb;
+    }
+    .layer strong { color: var(--blue); }
+    .layer span { color: var(--muted); font-size: 14px; }
+
+    .compare {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+    .mini { padding: 18px; }
+    .mini h3 { margin: 0 0 10px; font-size: 18px; }
+    .mini ul { margin: 0; padding-left: 20px; }
+    .mini li { margin: 0 0 8px; color: var(--muted); }
+
+    .footer {
+      max-width: 1160px;
+      padding-top: 20px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    @media (max-width: 980px) {
+      .layout { grid-template-columns: 1fr; }
+      aside {
+        position: static;
+        height: auto;
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+      nav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      main { padding: 34px 20px 56px; }
+      aside, main {
+        width: 100vw;
+        max-width: 100vw;
+        overflow-x: hidden;
+      }
+      .hero, section, .thesis, .layer-marker {
+        max-width: calc(100vw - 40px);
+      }
+      .thesis, .compare { grid-template-columns: 1fr; }
+      .grid-3, .grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .step { grid-template-columns: 1fr; }
+      .pyramid-row { grid-template-columns: 1fr; }
+      .flow { grid-template-columns: 1fr; }
+      .arrow { transform: rotate(90deg); min-height: 28px; }
+    }
+
+    @media (max-width: 620px) {
+      nav, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+      .layer { grid-template-columns: 1fr; }
+      .hero h2 { font-size: 30px; }
+      .hero p { font-size: 16px; }
+      .matrix th { white-space: normal; }
+      .matrix {
+        display: block;
+        max-width: 100%;
+        overflow-x: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <aside>
+      <div class="brand">
+        <p class="eyebrow">Risk AI Native</p>
+        <h1>风控终态流程</h1>
+      </div>
+      <nav>
+        <a href="#layer-cognition">1. 认知框架</a>
+        <a href="#pdca">1.1 PDCA 不变</a>
+        <a href="#levels">1.2 L0-L5 定义</a>
+        <a href="#pdca-matrix">1.3 演进矩阵</a>
+        <a href="#ceilings">1.4 分环节天花板</a>
+        <a href="#risk-mapping">1.5 风控系统映射</a>
+        <a href="#next-table">1.6 下一步怎么填表</a>
+        <a href="#layer-architecture">2. 架构设计（待重建）</a>
+        <a href="#layer-roadmap">3. 演进路线（待重建）</a>
+        <a href="#sources">来源</a>
+      </nav>
+    </aside>
+
+    <main>
+      <header class="hero" id="endgame">
+        <p class="eyebrow">第一层 · 认知框架</p>
+        <h2>AI native 风控的第一刀，不是画新系统，而是用 PDCA 看清 L0 到 L5 的能力演进。</h2>
+        <p>从最传统的风控架构到真正 AI 自治的 agent，Plan、Do、Check、Act 这套认知执行闭环不会消失；真正变化的是每一环由谁主导、AI 进入到多深、生产责任在哪里被治理兜住。</p>
+      </header>
+
+      <div class="thesis">
+        <article class="panel">
+          <div class="head"><h3>核心坐标系</h3></div>
+          <div class="body">
+            <p><strong>横轴是 PDCA：</strong>Plan 计划、Do 执行、Check 检查、Act 改进。这是风控天然在跑的循环，不是为了 AI 新造出来的概念。</p>
+            <p><strong>纵轴是 L0-L5：</strong>L0 传统系统，L1 表达，L2 理解，L3 执行，L4 闭环，L5 自治。它描述 AI 进入风控认知闭环的深度。</p>
+            <div class="callout">第一层先不回答“建哪些 agent”，而是回答：在同一个 PDCA 闭环里，AI 从只能写说明，到能理解证据、执行可逆动作、跑闭环、最后在有限环节自治，系统到底怎样逐级演进。</div>
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="head"><h3>Claude 评审后的边界</h3></div>
+          <div class="body">
+            <p><strong>这个框架优于四件套的地方：</strong>四件套像终态快照，PDCA x L0-L5 像成熟度地图，能解释“现在在哪、下一步往哪爬”。</p>
+            <p><strong>必须防止跑偏：</strong>每一格都要落到具体风控动作，不能只写“AI 协助理解”。</p>
+            <p><strong>L5 不是全系统自治：</strong>Plan 和 Check 可以接近 L5，Do 的不可逆生产动作永远不能绕过治理写口。</p>
+          </div>
+        </article>
+      </div>
+
+      <div class="layer-marker" id="layer-cognition">
+        <p class="eyebrow">Layer 01</p>
+        <h2>认知框架：PDCA 不变，AI 能力逐层进入闭环</h2>
+        <p>总论点：AI native 风控不是“新增一套 AI 系统”，而是把风控原本的计划、执行、检查、改进闭环，从人主导的离散协作，逐步演进为人、确定性系统、agent 群和治理管道共同运行的自适应系统。</p>
+      </div>
+
+      <section id="pdca">
+        <h2>1.1 横轴：PDCA 是风控不变的认知执行流程</h2>
+        <p>无论是 L0 的传统风控，还是 L5 的自治 agent，风控都绕不开同一件事：先判断要解决什么风险，再执行处置，再检查效果，最后把经验改进回系统。AI native 的第一层认知，就是先承认这个闭环不变。</p>
+        <table class="matrix">
+          <thead>
+            <tr>
+              <th>PDCA 环节</th>
+              <th>风控里对应什么</th>
+              <th>今天主要由谁做</th>
+              <th>AI native 要问的问题</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Plan 计划</strong></td>
+              <td>风险发现、风险定义、策略目标、误杀漏放权衡、策略方案设计。</td>
+              <td>策略运营、算法、风控专家、红蓝军、监管/舆情输入。</td>
+              <td>AI 能否从监控、红蓝军、申诉、人审反馈中主动提出风险假设和策略候选？</td>
+            </tr>
+            <tr>
+              <td><strong>Do 执行</strong></td>
+              <td>机审判定、人审分流、判罚动作、灰度发布、回放任务、证据包组装。</td>
+              <td>机审系统、人审系统、判罚系统、策略后台、人工操作。</td>
+              <td>AI 能执行哪些可逆动作？哪些强处置必须仍由确定性系统和治理写口完成？</td>
+            </tr>
+            <tr>
+              <td><strong>Check 检查</strong></td>
+              <td>监控指标、trace 分析、误杀漏放、申诉结果、人审质量、模型漂移、灰度效果。</td>
+              <td>监控报表、人工复盘、算法评估、策略例会。</td>
+              <td>AI 能否持续读运行结果，识别漂移、归因异常、发现策略衰减？</td>
+            </tr>
+            <tr>
+              <td><strong>Act 改进</strong></td>
+              <td>规则变更、模型迭代、阈值调整、人审口径更新、memory/skill/eval 补充、rollback。</td>
+              <td>策略运营提改动，算法训练模型，工程/平台发布，人审校准口径。</td>
+              <td>AI 产出的 Proposal 如何经过 eval、回放、审批、灰度、rollback，变成可治理的系统改进？</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="callout" style="margin-top:16px">这一刀很关键：不要先问“要几个 agent”，先问每个 agent 到底在 PDCA 哪一环做工，能做到 L 几，写生产时由谁兜底。</div>
+      </section>
+
+      <section id="levels">
+        <h2>1.2 纵轴：L0-L5 是 AI 进入风控闭环的深度</h2>
+        <p>L1 到 L5 不是抽象智能等级，而是 AI 在风控系统里从“能表达”到“能自治”的工程可用性路线。这里必须把边界讲硬：L3 的执行不是直接写生产，L5 的自治也不是全链路自治。</p>
+        <table class="matrix">
+          <thead>
+            <tr>
+              <th>等级</th>
+              <th>定义</th>
+              <th>风控场景例子</th>
+              <th>边界</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>L0 传统系统</strong></td>
+              <td>AI 不参与认知工作；即使有模型，也只是单点打分接入规则。</td>
+              <td>反欺诈模型给分，规则引擎组合阈值、名单、动作，机审系统输出 PASS / DENY / REVIEW。</td>
+              <td>不读 trace，不归因，不写复盘，不生成策略 Proposal。</td>
+            </tr>
+            <tr>
+              <td><strong>L1 表达</strong></td>
+              <td>AI 能生成可被人审阅的文本、摘要、说明和草案。</td>
+              <td>起草策略说明、复盘报告、人审证据摘要、申诉回复口径、上线材料初稿。</td>
+              <td>不做事实判断，不替人选动作；L1 在前是工程可用性顺序，不是逻辑上先表达再理解。</td>
+            </tr>
+            <tr>
+              <td><strong>L2 理解</strong></td>
+              <td>AI 能从多源原始信号中抽取结构化判断。</td>
+              <td>把红蓝军样本归并到风险方向，把申诉自动分类到根因，把用户日志、机审命中、人审标签抽成证据包。</td>
+              <td>不主动做动作；输出是结构化判断和证据，供人或下一步系统消费。</td>
+            </tr>
+            <tr>
+              <td><strong>L3 执行</strong></td>
+              <td>AI 在受限作用域内执行可逆动作或低风险动作。</td>
+              <td>自动创建 Risk Case、调用回放、准备人审证据、路由队列、生成 memory/skill/eval 草稿。</td>
+              <td>不直接写生产策略，不直接触发强判罚；写入资产和生产配置必须经过治理。</td>
+            </tr>
+            <tr>
+              <td><strong>L4 闭环</strong></td>
+              <td>AI 连续参与一整圈 PDCA：提案、治理写入、观测回流、再提案。</td>
+              <td>agent 起草规则 patch，跑回放和 eval，经治理 commit，上线后读 trace，再生成改进 Proposal。</td>
+              <td>闭环里的写入步骤仍是治理 commit，不是 agent 直接 commit。</td>
+            </tr>
+            <tr>
+              <td><strong>L5 自治</strong></td>
+              <td>AI 能自主设定子目标、设计探索任务、发现策略空白并产出新方向。</td>
+              <td>agent 主动发现某风险方向覆盖率持续偏低，自主设计红蓝军式自测，产出新策略候选和评估计划。</td>
+              <td>只能在 Plan / Check 等认知环节接近 L5；Do 环节的不可逆动作永远不能 L5。</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="callout" style="margin-top:16px">硬边界：L5 不是“AI 全权接管风控”。在风控里，越靠近真实用户动作、资金动作、内容处置和账号判罚，越必须被治理管道、hook、审批、灰度和 rollback 兜住。</div>
+      </section>
+
+      <section id="pdca-matrix">
+        <h2>1.3 核心矩阵：同一个 PDCA，在 L0-L5 下分别怎么演进</h2>
+        <p>这张表先搭骨架。后续要继续填细时，每一格都必须落到风控动作、系统能力和责任边界，不能停在“AI 辅助”这种空话。</p>
+        <table class="matrix">
+          <thead>
+            <tr>
+              <th>等级</th>
+              <th>Plan 计划</th>
+              <th>Do 执行</th>
+              <th>Check 检查</th>
+              <th>Act 改进</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>L0 传统系统</strong></td>
+              <td>人看监控、监管、舆情、红蓝军结果，手工定义风险和策略目标。</td>
+              <td>机审规则/模型、人审队列、判罚系统按配置执行。</td>
+              <td>报表和人工复盘发现误杀漏放、策略漂移、人审积压。</td>
+              <td>人写规则、调阈值、发版、复盘，经验散在文档和会议里。</td>
+            </tr>
+            <tr>
+              <td><strong>L1 表达</strong></td>
+              <td>AI 帮写风险假设、策略方案、上线说明。</td>
+              <td>AI 帮写人审摘要、判罚原因解释、客服/申诉口径。</td>
+              <td>AI 帮写复盘报告、指标波动说明、case 总结。</td>
+              <td>AI 帮写规则变更说明、灰度复盘、知识沉淀草稿。</td>
+            </tr>
+            <tr>
+              <td><strong>L2 理解</strong></td>
+              <td>AI 归并多入口线索，识别风险方向、影响面和相似历史 case。</td>
+              <td>AI 读用户日志、画像、机审命中、人审标签，组装结构化证据包。</td>
+              <td>AI 从 trace、申诉、人审反馈里识别异常模式和根因。</td>
+              <td>AI 把反馈归类为规则问题、模型问题、口径问题或治理问题。</td>
+            </tr>
+            <tr>
+              <td><strong>L3 执行</strong></td>
+              <td>AI 创建 Risk Case，拆任务，拉样本，生成可评审的 Proposal。</td>
+              <td>AI 调回放、建人审任务、路由低风险队列、准备灰度材料；不直接强处置。</td>
+              <td>AI 自动跑评估、漂移检测、误杀漏放聚类和对抗样本扩展。</td>
+              <td>AI 生成规则 patch、eval 补充、memory/skill 草稿，提交治理管道。</td>
+            </tr>
+            <tr>
+              <td><strong>L4 闭环</strong></td>
+              <td>AI 基于运行结果持续提出下一轮策略计划和实验计划。</td>
+              <td>AI 在低风险、可回滚范围内串联工具；生产写入仍由治理管道 commit。</td>
+              <td>AI 持续监控自己上轮 Proposal 的线上效果和副作用。</td>
+              <td>AI 完成“提案 -> eval/回放 -> 治理 -> 灰度 -> 反馈 -> 再提案”的闭环。</td>
+            </tr>
+            <tr>
+              <td><strong>L5 自治</strong></td>
+              <td>AI 主动发现风险空白，设定子目标，规划探索和对抗测试。</td>
+              <td>不可整体 L5；强处置、判罚、生产配置写入仍由确定性系统和治理写口控制。</td>
+              <td>AI 自主分配注意力，主动深挖异常，发现未知未知。</td>
+              <td>AI 自主维护候选策略池和评估集，但 commit 权仍受治理约束。</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="ceilings">
+        <h2>1.4 关键判断：终态不是全表 L5，而是各环节有不同天花板</h2>
+        <p>这个框架最容易被误读成“最终所有格子都升到 L5”。在风控里这不成立。因为 PDCA 四环承接的风险不同，越靠近真实用户处置，越不能让幻觉暴露到生产爆炸半径里。</p>
+        <table class="matrix">
+          <thead>
+            <tr>
+              <th>环节</th>
+              <th>合理终态上限</th>
+              <th>为什么</th>
+              <th>治理要求</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Plan 计划</strong></td>
+              <td>L5</td>
+              <td>计划阶段的核心是发现、假设、探索和方案生成，错误可以被后续 eval、回放和审批拦住。</td>
+              <td>目标函数、业务红线、合规边界必须由人定义。</td>
+            </tr>
+            <tr>
+              <td><strong>Do 执行</strong></td>
+              <td>L3</td>
+              <td>执行阶段直接影响用户、内容、资金、账号和业务动作，不可逆风险最高。</td>
+              <td>低风险可逆动作可由 AI 执行；强处置和生产写入必须走治理管道。</td>
+            </tr>
+            <tr>
+              <td><strong>Check 检查</strong></td>
+              <td>L5</td>
+              <td>检查阶段适合 AI 大规模读 trace、找漂移、做归因、主动发现未知异常。</td>
+              <td>检查结论是信号，不是生产动作；高影响归因需要抽样复核。</td>
+            </tr>
+            <tr>
+              <td><strong>Act 改进</strong></td>
+              <td>L4</td>
+              <td>改进可以闭环，但最终 commit 会改变系统状态，必须保留版本、审批、灰度、rollback。</td>
+              <td>AI 产 Proposal，治理管道负责 commit；这是红线。</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="callout" style="margin-top:16px">所以终点不是“AI 判每一次请求”，而是“Plan 和 Check 高度自治，Do 有界执行，Act 经治理闭环”。这才和幻觉硬限制、主链路稳定性、风控责任边界同时兼容。</div>
+      </section>
+
+      <section id="risk-mapping">
+        <h2>1.5 落到现有风控：机审、人审、判罚和风险运营如何映射进 PDCA</h2>
+        <p>用 PDCA 做第一层框架的好处，是不用先推倒现有系统。机审、人审、判罚仍是 Do 的执行底座；策略运营、算法、风险发现入口和反馈运营，被重新放进 Plan、Check、Act 的演进位置里。</p>
+        <table class="matrix">
+          <thead>
+            <tr>
+              <th>现有风控模块</th>
+              <th>主要落在哪个环节</th>
+              <th>AI native 的第一步改造</th>
+              <th>后续演进方向</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>风险发现入口</strong><br>监控、红蓝军、监管指令、舆情、申诉、业务反馈。</td>
+              <td>Plan + Check</td>
+              <td>统一入口、去重、定级、关联历史 case，形成 Risk Case 的触发源。</td>
+              <td>从“人看线索”走向 AI 主动发现风险空白和对抗模式。</td>
+            </tr>
+            <tr>
+              <td><strong>策略运营</strong><br>策略配置、链路串联、灰度方案、上线材料。</td>
+              <td>Plan + Act</td>
+              <td>把策略目标、约束、规则、阈值、灰度、回滚对象化，允许 AI 产 Proposal。</td>
+              <td>从写规则的人，变成目标定义者、规则与策略维护者、高影响审批者。</td>
+            </tr>
+            <tr>
+              <td><strong>算法</strong><br>特征、模型、样本、评估、漂移分析。</td>
+              <td>Plan + Check + Act</td>
+              <td>把特征查询、样本检索、模型评估、对抗样本生成做成 agent 可调用工具。</td>
+              <td>从单次建模，走向持续 eval、漂移归因和对抗研究。</td>
+            </tr>
+            <tr>
+              <td><strong>机审系统</strong><br>规则链路、模型分、实时判定、灰度发布。</td>
+              <td>Do</td>
+              <td>保留确定性主链路；补齐 trace、回放、版本、灰度、rollback 接口。</td>
+              <td>主链路不被 AI 接管，但被 AI 持续提案和治理管道持续改进。</td>
+            </tr>
+            <tr>
+              <td><strong>人审系统</strong><br>队列、分诊、标签、复核、争议处理。</td>
+              <td>Do + Check</td>
+              <td>把证据包、标签、复核结论、审核口径结构化，让 AI 能准备证据和学习反馈。</td>
+              <td>普通证据拼装自动化，人退到高影响、新模式、争议和口径校准。</td>
+            </tr>
+            <tr>
+              <td><strong>判罚系统</strong><br>动作集、原因码、执行状态、撤销和回滚。</td>
+              <td>Do + Act</td>
+              <td>动作集、原因码、执行结果、回滚锚点标准化，AI 只能给判罚建议。</td>
+              <td>判罚仍是治理强约束区，不能因 L5 叙事被绕开。</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="next-table">
+        <h2>1.6 下一步：用同一个矩阵填完整演进路线</h2>
+        <p>这一版先把坐标系定住。下一步不是继续堆概念，而是把每个 PDCA 环节从 L0 到 L5 的系统形态、需要建设的能力、不能越过的治理边界写完整。</p>
+        <div class="grid-3">
+          <article class="stage-card">
+            <div class="num">Step 01</div>
+            <h3>先填现状</h3>
+            <p>把今天的风险发现、策略开发、机审、人审、判罚、复盘分别放进 PDCA，标出当前大概处在 L0-L2 哪一格。</p>
+          </article>
+          <article class="stage-card">
+            <div class="num">Step 02</div>
+            <h3>再填上限</h3>
+            <p>逐环节判断合理终态：Plan/Check 可以到 L5，Do 强动作卡 L3，Act 通过治理闭环到 L4。</p>
+          </article>
+          <article class="stage-card">
+            <div class="num">Step 03</div>
+            <h3>最后填建设项</h3>
+            <p>每一格写清系统要沉淀什么：trace、Risk Case、回放、eval、guardrail、memory、skill、治理管道和 rollback。</p>
+          </article>
+        </div>
+        <div class="callout" style="margin-top:16px">第一层认知框架到这里就够了：PDCA 定流程，L0-L5 定能力，分环节天花板定红线，现有系统映射定落点。后面所有架构设计，都应该从这张矩阵往下推。</div>
+      </section>
+
+      <div class="layer-marker" id="layer-architecture">
+        <p class="eyebrow">Layer 02</p>
+        <h2>架构设计：待基于 PDCA x L0-L5 重建</h2>
+        <p>旧版三平面、治理管道和 agent 分工先不继续沿用。下一步要从第一层矩阵往下推：每个 PDCA 环节处在 L 几，需要哪些系统对象、工具接口、agent 能力和治理边界。</p>
+      </div>
+
+      <section>
+        <h2>下一轮架构设计要回答的问题</h2>
+        <table class="matrix">
+          <thead>
+            <tr>
+              <th>问题</th>
+              <th>从新认知框架怎么推</th>
+              <th>需要产出的架构件</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>系统对象</strong></td>
+              <td>先看 PDCA 每一环需要承载什么状态：风险线索、证据包、Risk Case、Proposal、eval 结果、灰度结果、rollback 记录。</td>
+              <td>对象模型和状态机。</td>
+            </tr>
+            <tr>
+              <td><strong>Agent 分工</strong></td>
+              <td>不是一个系统一个 agent，而是按 PDCA 做工切：计划类、证据理解类、可逆执行类、检查归因类、改进提案类。</td>
+              <td>Agent 职责表和协作链路。</td>
+            </tr>
+            <tr>
+              <td><strong>工具接口</strong></td>
+              <td>看 L2/L3/L4 需要调用哪些能力：读 trace、拉样本、跑回放、建人审任务、生成 eval、提交 Proposal。</td>
+              <td>工具清单、权限边界、输入输出契约。</td>
+            </tr>
+            <tr>
+              <td><strong>治理边界</strong></td>
+              <td>看 Do/Act 的天花板：哪些动作可逆，哪些动作影响生产，哪些动作必须审批、灰度、回滚。</td>
+              <td>guardrail、hook、审批、灰度、rollback 设计。</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <div class="layer-marker" id="layer-roadmap">
+        <p class="eyebrow">Layer 03</p>
+        <h2>系统演进路线：待用矩阵逐格展开</h2>
+        <p>下一步不再沿用旧的线性路线，而是从“今天每个 PDCA 环节处在 L 几”出发，反推每一阶段要补齐哪些对象、接口、评估和治理能力。</p>
+      </div>
+
+      <section>
+        <h2>演进路线的填表方式</h2>
+        <div class="grid-3">
+          <article class="stage-card">
+            <div class="num">Phase 01</div>
+            <h3>定位现状</h3>
+            <p>标出风险发现、策略开发、机审、人审、判罚、复盘分别在 PDCA 矩阵里的当前等级。</p>
+          </article>
+          <article class="stage-card">
+            <div class="num">Phase 02</div>
+            <h3>补齐底座</h3>
+            <p>优先建设 trace、Risk Case、回放、eval、guardrail、版本和 rollback，让 L3/L4 可落地。</p>
+          </article>
+          <article class="stage-card">
+            <div class="num">Phase 03</div>
+            <h3>扩大自治</h3>
+            <p>在 Plan/Check 提升到 L5，在 Do 保持 L3 红线，在 Act 通过治理闭环稳定到 L4。</p>
+          </article>
+        </div>
+      </section>
+
+      <footer class="footer" id="sources">
+        <p><strong>来源锚点：</strong>
+          A2A 官方规范将其定义为促进独立 agent 系统通信和互操作的开放标准，并包含 Agent Card、message、task、artifact 等对象；
+          OpenAI Agents SDK 文档强调 agent 可以使用上下文和工具、handoff 给 specialized agents，并保留 trace；
+          Claude Agent SDK 文档说明 agent loop 会让模型调用工具、接收结果并重复直到任务完成；
+          Anthropic MCP 官方介绍把 MCP 定位为连接 AI assistant 与数据源、业务工具和开发环境的开放标准。
+        </p>
+        <p>
+          <a href="https://google-a2a.github.io/A2A/specification/">A2A Specification</a> ·
+          <a href="https://platform.openai.com/docs/guides/agents-sdk/">OpenAI Agents SDK</a> ·
+          <a href="https://platform.claude.com/docs/en/agent-sdk/agent-loop">Claude Agent SDK Agent Loop</a> ·
+          <a href="https://www.anthropic.com/news/model-context-protocol">Anthropic MCP</a>
+        </p>
+      </footer>
+    </main>
+  </div>
+</body>
+</html>

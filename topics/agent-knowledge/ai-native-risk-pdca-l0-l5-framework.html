@@ -1,0 +1,992 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI Native 风控认知框架：PDCA x L0-L5</title>
+  <style>
+    :root {
+      --bg: #f5f6f3;
+      --paper: #ffffff;
+      --ink: #172126;
+      --muted: #5d686e;
+      --line: #dfe5e2;
+      --soft: #eef3f1;
+      --blue: #1d6980;
+      --green: #287157;
+      --red: #a33c3f;
+      --amber: #9a682c;
+      --shadow: 0 18px 44px rgba(23, 33, 38, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--bg);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+        "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      line-height: 1.68;
+    }
+
+    main {
+      width: min(1560px, calc(100vw - 48px));
+      margin: 0 auto;
+      padding: 42px 0 72px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(340px, 0.9fr);
+      gap: 24px;
+      align-items: stretch;
+      margin-bottom: 24px;
+    }
+
+    .hero-main, .note, .visual-overview, .matrix-wrap, .principles {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--paper);
+      box-shadow: var(--shadow);
+    }
+
+    .hero-main {
+      padding: 28px 30px;
+    }
+
+    .eyebrow {
+      margin: 0 0 8px;
+      color: var(--blue);
+      font-size: 12px;
+      font-weight: 850;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    h1, h2, h3 {
+      margin: 0;
+      line-height: 1.18;
+      letter-spacing: 0;
+    }
+
+    h1 {
+      max-width: 980px;
+      font-size: clamp(34px, 4.8vw, 68px);
+    }
+
+    h2 { font-size: 24px; }
+    h3 { font-size: 18px; }
+
+    p { margin: 0; }
+    strong { color: var(--ink); }
+
+    .hero-text {
+      max-width: 1060px;
+      margin-top: 18px;
+      color: var(--muted);
+      font-size: 18px;
+    }
+
+    .note {
+      display: grid;
+      gap: 14px;
+      padding: 24px;
+    }
+
+    .note-row {
+      border-left: 4px solid var(--blue);
+      padding: 10px 0 10px 14px;
+      color: var(--muted);
+    }
+
+    .note-row:nth-child(2) { border-color: var(--green); }
+    .note-row:nth-child(3) { border-color: var(--red); }
+
+    .section-title {
+      margin: 30px 0 14px;
+    }
+
+    .section-title p {
+      max-width: 1120px;
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 16px;
+    }
+
+    .visual-overview {
+      padding: 12px;
+      overflow: hidden;
+      margin-bottom: 26px;
+    }
+
+    .visual-overview img {
+      display: block;
+      width: 100%;
+      height: auto;
+      border-radius: 8px;
+      background: #f7f1df;
+    }
+
+    .architecture {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .arch-card {
+      min-height: 180px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--paper);
+      box-shadow: var(--shadow);
+    }
+
+    .arch-card h3 {
+      margin-bottom: 6px;
+      color: var(--blue);
+      font-size: 16px;
+    }
+
+    .arch-card .role {
+      display: inline-flex;
+      margin-bottom: 10px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: var(--soft);
+      color: var(--green);
+      font-size: 12px;
+      font-weight: 850;
+    }
+
+    .arch-card p {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .matrix-wrap {
+      overflow: auto;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin: 0 0 12px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 750;
+    }
+
+    .legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .legend i {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+    }
+
+    .legend i.human-led { background: #fffaf0; }
+    .legend i.ai-enabled { background: #f0f7ff; }
+    .legend i.ai-native { background: #f1fbf6; }
+
+    table {
+      width: 100%;
+      min-width: 1840px;
+      table-layout: fixed;
+      border-collapse: collapse;
+      background: var(--paper);
+    }
+
+    col.level-col { width: 128px; }
+    col.summary-col { width: 160px; }
+    col.step-col { width: 149px; }
+
+    th, td {
+      border-right: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+      text-align: left;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      padding: 14px 14px;
+      color: #203139;
+      background: #eef3f1;
+      font-size: 13px;
+      font-weight: 850;
+      white-space: nowrap;
+    }
+
+    th.phase-head,
+    th.phase-step {
+      background: #eef3f1;
+    }
+
+    th.phase-start,
+    td.phase-start {
+      border-left: 2px solid #cfd9d4;
+    }
+
+    th.phase-end,
+    td.phase-end {
+      border-right: 2px solid #cfd9d4;
+    }
+
+    th.arch-head,
+    td.arch-cell {
+      border-left: 2px solid #cfd9d4;
+      background: #eef3f1;
+    }
+
+    td {
+      padding: 15px 14px;
+      font-size: 14px;
+    }
+
+    td:first-child,
+    th.level-head {
+      position: sticky;
+      left: 0;
+      z-index: 1;
+      background: #fbfcfb;
+    }
+
+    th.level-head { z-index: 4; background: #e8efec; }
+    th.summary-head { background: #eef3f1; }
+
+    th:last-child, td:last-child { border-right: 0; }
+    tr:last-child td { border-bottom: 0; }
+
+    .level {
+      display: grid;
+      gap: 7px;
+    }
+
+    .level b {
+      color: var(--blue);
+      font-size: 18px;
+      line-height: 1.1;
+    }
+
+    .level span {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 750;
+    }
+
+    .cell {
+      display: grid;
+      gap: 8px;
+    }
+
+    .tag {
+      display: inline-flex;
+      width: fit-content;
+      padding: 2px 7px;
+      border-radius: 999px;
+      background: #edf7f8;
+      color: var(--blue);
+      font-size: 12px;
+      font-weight: 850;
+      line-height: 1.45;
+    }
+
+    .tag.green {
+      background: #edf8f2;
+      color: var(--green);
+    }
+
+    .tag.red {
+      background: #fff0f0;
+      color: var(--red);
+    }
+
+    .tag.amber {
+      background: #fff6e8;
+      color: var(--amber);
+    }
+
+    .cell p {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .cell strong {
+      display: block;
+      margin-bottom: 2px;
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    .intro-col {
+      color: var(--muted);
+    }
+
+    .intro-col strong {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--ink);
+    }
+
+    .col-sub {
+      display: block;
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 750;
+    }
+
+    .empty-cell {
+      height: 106px;
+      background:
+        linear-gradient(135deg, rgba(29, 105, 128, 0.035), rgba(40, 113, 87, 0.025));
+    }
+
+    td.human-led {
+      background: #fffaf0;
+    }
+
+    td.ai-enabled {
+      background: #f0f7ff;
+    }
+
+    td.ai-native {
+      background: #f1fbf6;
+    }
+
+    .principles {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0;
+      margin-top: 18px;
+      overflow: hidden;
+    }
+
+    .principle {
+      padding: 18px;
+      border-right: 1px solid var(--line);
+    }
+
+    .principle:last-child { border-right: 0; }
+
+    .principle h3 {
+      margin-bottom: 8px;
+      color: var(--blue);
+    }
+
+    .principle p {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .footer-note {
+      margin-top: 20px;
+      padding: 16px 18px;
+      border-left: 5px solid var(--red);
+      border-radius: 0 10px 10px 0;
+      background: #fff6f6;
+      color: #723134;
+      font-weight: 800;
+    }
+
+    @media (max-width: 920px) {
+      main { width: min(100vw - 28px, 1560px); padding-top: 24px; }
+      .hero { grid-template-columns: 1fr; }
+      h1 { font-size: 36px; }
+      .architecture { grid-template-columns: 1fr; }
+      .principles { grid-template-columns: 1fr; }
+      .principle { border-right: 0; border-bottom: 1px solid var(--line); }
+      .principle:last-child { border-bottom: 0; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="hero">
+      <div class="hero-main">
+        <p class="eyebrow">AI Native Risk Framework · Cognitive Layer</p>
+        <h1>AI native 风控认知框架：用 PDCA x L0-L5 看清系统演进</h1>
+        <p class="hero-text">用一张表把风控从平台化到自治经营的演进讲清楚：同一套 PDCA 闭环，逐层长出 AI 能力和治理边界。</p>
+      </div>
+      <aside class="note">
+        <div class="note-row">
+          <strong>表格横轴：</strong>做什么、怎么做、PDCA 8 步、架构承接。
+        </div>
+        <div class="note-row">
+          <strong>表格纵轴：</strong>平台、模型、知识、行动、闭环、经营。
+        </div>
+        <div class="note-row">
+          <strong>当前状态：</strong>L0-L5 已按“做什么、怎么做、PDCA、架构承接”展开。
+        </div>
+      </aside>
+    </section>
+
+    <section class="section-title">
+      <h2>认知框架总览图</h2>
+      <p>先用图像化方式看全局：同一套 PDCA 闭环从 L0 平台演进到 L5 经营，AI 能力逐层增强，但高影响 Commit 始终走治理。</p>
+    </section>
+
+    <section class="visual-overview" aria-label="AI native 风控 PDCA x L0-L5 认知框架总览图">
+      <img src="ai-native-risk-pdca-l0-l5-infographic.png" alt="AI native 风控认知框架总览图：同一套 PDCA，逐层长出 AI 能力和治理边界">
+    </section>
+
+    <section class="section-title">
+      <h2>主表排布：L0-L5 x PDCA</h2>
+      <p>每行先说这一层做什么、怎么做，再按 PDCA 的 8 个步骤和架构承接展开；颜色只标记 PDCA 中人、AI enable、AI native 的分工变化。</p>
+    </section>
+
+    <div class="legend">
+      <span><i class="human-led"></i>人工主导</span>
+      <span><i class="ai-enabled"></i>AI enable</span>
+      <span><i class="ai-native"></i>AI native</span>
+    </div>
+
+    <section class="matrix-wrap">
+      <table>
+        <colgroup>
+          <col class="level-col">
+          <col class="summary-col">
+          <col class="summary-col">
+          <col class="step-col">
+          <col class="step-col">
+          <col class="step-col">
+          <col class="step-col">
+          <col class="step-col">
+          <col class="step-col">
+          <col class="step-col">
+          <col class="step-col">
+          <col class="summary-col">
+        </colgroup>
+        <thead>
+          <tr>
+            <th class="level-head" rowspan="2">层级</th>
+            <th class="summary-head" rowspan="2">做什么</th>
+            <th class="summary-head" rowspan="2">怎么做</th>
+            <th class="phase-head phase-start" colspan="4">Plan<span class="col-sub">计划</span></th>
+            <th class="phase-head">Do<span class="col-sub">执行</span></th>
+            <th class="phase-head">Check<span class="col-sub">检查</span></th>
+            <th class="phase-head phase-end" colspan="2">Act<span class="col-sub">改进</span></th>
+            <th class="arch-head" rowspan="2">架构承接</th>
+          </tr>
+          <tr>
+            <th class="phase-step phase-start">1. 现状问题</th>
+            <th class="phase-step">2. 原因分析</th>
+            <th class="phase-step">3. 关键原因</th>
+            <th class="phase-step">4. 对策计划</th>
+            <th class="phase-step">5. 执行对策</th>
+            <th class="phase-step">6. 效果检查</th>
+            <th class="phase-step">7. 标准固化</th>
+            <th class="phase-step phase-end">8. 遗留转入</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <div class="level">
+                <b>L0</b>
+                <span>平台</span>
+              </div>
+            </td>
+            <td>
+              <div class="cell">
+                <strong>人工驱动风控闭环。</strong>
+                <p>人负责发现、分析、配置、执行、复盘和改进；AI 不参与认知和协作。</p>
+              </div>
+            </td>
+            <td>
+              <div class="cell">
+                <strong>靠平台配置 + 人工协作。</strong>
+                <p>机审、人审、判罚、监控、工单、文档分散运行，靠人串联上下文。</p>
+              </div>
+            </td>
+            <td class="human-led phase-start">
+              <div class="cell">
+                <strong>人汇总风险信号。</strong>
+                <p>监控、红蓝军、监管、舆情、申诉入口分散，风险发现依赖人盯。</p>
+              </div>
+            </td>
+            <td class="human-led">
+              <div class="cell">
+                <strong>人跨系统查证。</strong>
+                <p>日志、用户信息、人审记录、处罚历史要人工拼接，归因慢。</p>
+              </div>
+            </td>
+            <td class="human-led">
+              <div class="cell">
+                <strong>人判断根因。</strong>
+                <p>根因依赖专家经验，容易停留在现象，难复用到下次风险。</p>
+              </div>
+            </td>
+            <td class="human-led">
+              <div class="cell">
+                <strong>人设计策略方案。</strong>
+                <p>规则、模型、名单、阈值、人审口径互相影响，方案评估成本高。</p>
+              </div>
+            </td>
+            <td class="human-led">
+              <div class="cell">
+                <strong>人操作多个系统落地。</strong>
+                <p>系统分散、操作复杂，配置、联调、上线、沟通都依赖人工推进。</p>
+              </div>
+            </td>
+            <td class="human-led">
+              <div class="cell">
+                <strong>人看报表和样本。</strong>
+                <p>效果、误杀、漏放、申诉、业务影响分散，复盘滞后。</p>
+              </div>
+            </td>
+            <td class="human-led">
+              <div class="cell">
+                <strong>人沉淀规则和口径。</strong>
+                <p>经验落在文档、会议和个人记忆里，标准化不稳定。</p>
+              </div>
+            </td>
+            <td class="human-led phase-end">
+              <div class="cell">
+                <strong>人把遗留问题带入下一轮。</strong>
+                <p>遗留风险、待验证假设、未解决争议缺少结构化流转。</p>
+              </div>
+            </td>
+            <td class="arch-cell">
+              <div class="cell">
+                <strong>分散系统，人工串联。</strong>
+                <p>机审、人审、判罚、监控、工单、文档各自运行，流程靠策略运营、算法、审核和工程人工串起来。</p>
+              </div>
+            </td>
+          </tr>
+
+          <tr>
+            <td>
+              <div class="level">
+                <b>L1</b>
+                <span>模型</span>
+              </div>
+            </td>
+            <td>
+              <div class="cell">
+                <strong>AI 写字进流程。</strong>
+                <p>LLM 进入摘要、草稿、解释和报告环节；人仍负责判断、操作和拍板。</p>
+              </div>
+            </td>
+            <td>
+              <div class="cell">
+                <strong>LLM API + Prompt 模板。</strong>
+                <p>不接工具、不读生产数据、不写生产；所有事实由人提供，AI 只做语言加工。</p>
+              </div>
+            </td>
+            <td class="ai-enabled phase-start">
+              <div class="cell">
+                <strong>AI 把分散信号写成简报。</strong>
+                <p>入口仍分散；人粘贴监控、红蓝军、监管、舆情、申诉材料，AI 汇总成可读简报。</p>
+              </div>
+            </td>
+            <td class="human-led">
+              <div class="cell">
+                <strong>人拼证据，AI 改成段落。</strong>
+                <p>跨系统查证和归因仍靠人；AI 只把人查到的零散事实串成可读叙述。</p>
+              </div>
+            </td>
+            <td class="human-led">
+              <div class="cell">
+                <strong>专家定根因。</strong>
+                <p>关键原因仍由人判断；L1 不能让 AI 在事实判断上替代专家。</p>
+              </div>
+            </td>
+            <td class="ai-enabled">
+              <div class="cell">
+                <strong>AI 起草策略说明。</strong>
+                <p>策略同学口述目标，AI 写策略说明、规则注释、灰度方案和上线文档草稿。</p>
+              </div>
+            </td>
+            <td class="human-led">
+              <div class="cell">
+                <strong>人操作系统，AI 写沟通材料。</strong>
+                <p>配置、联调、上线靠人跨系统手工操作；AI 只起草上线公告和跨团队沟通文案。</p>
+              </div>
+            </td>
+            <td class="ai-enabled">
+              <div class="cell">
+                <strong>AI 把指标写成复盘简报。</strong>
+                <p>人把效果、误杀、漏放、申诉数据给 AI，AI 总结成结构化复盘文本。</p>
+              </div>
+            </td>
+            <td class="ai-enabled">
+              <div class="cell">
+                <strong>AI 起草规则注释和 SOP。</strong>
+                <p>模型把人的经验改写成规则注释、审核口径、SOP 草稿，人 review 后入库。</p>
+              </div>
+            </td>
+            <td class="ai-enabled phase-end">
+              <div class="cell">
+                <strong>AI 起草遗留清单。</strong>
+                <p>模型把未解决问题、待验证假设、争议点整理成结构化 backlog，进入下一轮。</p>
+              </div>
+            </td>
+            <td class="arch-cell">
+              <div class="cell">
+                <strong>LLM 网关 + Prompt 资产层。</strong>
+                <p>新增 LLM API 网关、Prompt 模板库、结构化输出 Schema、输出审计和人工确认流；机审、人审、判罚等系统保持 L0。</p>
+              </div>
+            </td>
+          </tr>
+
+          <tr>
+            <td>
+              <div class="level">
+                <b>L2</b>
+                <span>知识</span>
+              </div>
+            </td>
+            <td>
+              <div class="cell">
+                <strong>AI 带着知识做判断辅助。</strong>
+                <p>模型不只写文本，还能引用规范、案例、口径和历史经验，给人提供带依据的候选判断。</p>
+              </div>
+            </td>
+            <td>
+              <div class="cell">
+                <strong>RAG + 只读上下文接入。</strong>
+                <p>建设知识库、案例库、规范库、向量检索、引用溯源和只读查询接口；仍不写生产。</p>
+              </div>
+            </td>
+            <td class="ai-enabled phase-start">
+              <div class="cell">
+                <strong>AI 对齐历史风险。</strong>
+                <p>把新信号和历史案例、监管规范、业务例外关联起来，输出风险方向和相似案例。</p>
+              </div>
+            </td>
+            <td class="ai-enabled">
+              <div class="cell">
+                <strong>AI 组装只读证据。</strong>
+                <p>从人给的上下文和只读查询结果里整理用户日志、审核记录、处罚历史和规则命中。</p>
+              </div>
+            </td>
+            <td class="ai-enabled">
+              <div class="cell">
+                <strong>AI 给候选根因。</strong>
+                <p>基于相似案例和规则口径提出根因候选，人确认最终判断。</p>
+              </div>
+            </td>
+            <td class="ai-enabled">
+              <div class="cell">
+                <strong>AI 复用策略经验。</strong>
+                <p>对照历史 patch、审核口径和灰度经验，生成候选策略方向和评估清单。</p>
+              </div>
+            </td>
+            <td class="human-led">
+              <div class="cell">
+                <strong>人执行真实动作。</strong>
+                <p>AI 可给执行依据和注意事项，但配置、联调、上线、人审路由仍由人操作。</p>
+              </div>
+            </td>
+            <td class="ai-enabled">
+              <div class="cell">
+                <strong>AI 对照历史解释效果。</strong>
+                <p>把当前指标、申诉和样本与相似案例对比，给出误杀漏放和漂移解释。</p>
+              </div>
+            </td>
+            <td class="ai-enabled">
+              <div class="cell">
+                <strong>AI 产知识入库草稿。</strong>
+                <p>把确认过的案例、规则口径和审核经验整理成知识片段，等待人审后入库。</p>
+              </div>
+            </td>
+            <td class="ai-enabled phase-end">
+              <div class="cell">
+                <strong>AI 标注遗留问题。</strong>
+                <p>把未解决问题按风险方向、证据缺口、规则冲突和待补样本分类，进入下一轮。</p>
+              </div>
+            </td>
+            <td class="arch-cell">
+              <div class="cell">
+                <strong>知识服务层 + 只读连接器。</strong>
+                <p>新增 RAG/向量索引、案例与规范知识库、Citation 引用、权限过滤、只读 Tool/MCP 查询；生产写口仍关闭。</p>
+              </div>
+            </td>
+          </tr>
+
+          <tr>
+            <td>
+              <div class="level">
+                <b>L3</b>
+                <span>行动</span>
+              </div>
+            </td>
+            <td>
+              <div class="cell">
+                <strong>AI 变成可执行工作单元。</strong>
+                <p>Agent 围绕 Risk Case 自主跑多步，产证据包、任务、回放结果和策略草稿。</p>
+              </div>
+            </td>
+            <td>
+              <div class="cell">
+                <strong>Agent Harness 承接任务循环。</strong>
+                <p>引入任务状态、工具编排、Trace、沙箱和受限写工具；生产 commit 仍走治理。</p>
+              </div>
+            </td>
+            <td class="ai-native phase-start">
+              <div class="cell">
+                <strong>Agent 自动建 Risk Case。</strong>
+                <p>从风险信号生成 case，挂证据入口、影响面、优先级和待验证假设。</p>
+              </div>
+            </td>
+            <td class="ai-native">
+              <div class="cell">
+                <strong>Agent 自主取证。</strong>
+                <p>按 case 计划调用日志、特征、回放、人审记录等工具，形成可审计证据链。</p>
+              </div>
+            </td>
+            <td class="ai-enabled">
+              <div class="cell">
+                <strong>Agent 提出根因 Proposal。</strong>
+                <p>模型给出候选根因、证据引用和置信说明，但关键判断仍由人或治理节点确认。</p>
+              </div>
+            </td>
+            <td class="ai-native">
+              <div class="cell">
+                <strong>Agent 起草策略 Patch。</strong>
+                <p>自动生成规则草稿、特征建议、评估集补充和灰度方案，作为 proposal 提交。</p>
+              </div>
+            </td>
+            <td class="ai-enabled">
+              <div class="cell">
+                <strong>Agent 做受限可逆动作。</strong>
+                <p>可建任务、路由人审、准备灰度材料；封禁、判罚、生产配置不直接写。</p>
+              </div>
+            </td>
+            <td class="ai-native">
+              <div class="cell">
+                <strong>Agent 自动跑评估。</strong>
+                <p>触发回放、样本聚类、误杀漏放分析和影响面评估，生成检查报告。</p>
+              </div>
+            </td>
+            <td class="ai-enabled">
+              <div class="cell">
+                <strong>Agent 生成沉淀草稿。</strong>
+                <p>把证据链、策略草稿、评估结果写入 memory/skill draft，等待治理确认。</p>
+              </div>
+            </td>
+            <td class="ai-native phase-end">
+              <div class="cell">
+                <strong>Agent 续接下一轮任务。</strong>
+                <p>把未解决假设、失败样本、待补工具和待审批 patch 转成下一轮 case backlog。</p>
+              </div>
+            </td>
+            <td class="arch-cell">
+              <div class="cell">
+                <strong>Agent Harness + Tool Runtime。</strong>
+                <p>新增 Risk Case 服务、工具注册表、状态机、Trace、沙箱、受限写工具和 draft memory；生产写入接治理管道。</p>
+              </div>
+            </td>
+          </tr>
+
+          <tr>
+            <td>
+              <div class="level">
+                <b>L4</b>
+                <span>闭环</span>
+              </div>
+            </td>
+            <td>
+              <div class="cell">
+                <strong>AI 跑完整风险闭环。</strong>
+                <p>从发现、调查、提案、评估、灰度到复盘沉淀形成可追踪循环；人主要守治理门。</p>
+              </div>
+            </td>
+            <td>
+              <div class="cell">
+                <strong>多 Agent 编排 + 治理流水线。</strong>
+                <p>Risk Case 成为状态载体，Agent 之间通过 handoff/A2A 协作，所有动作进入 trace、eval、approval、rollback。</p>
+              </div>
+            </td>
+            <td class="ai-native phase-start">
+              <div class="cell">
+                <strong>系统自动发现风险缺口。</strong>
+                <p>监控、申诉、监管、舆情、红蓝军信号自动聚合成 case，并识别影响面、优先级和证据缺口。</p>
+              </div>
+            </td>
+            <td class="ai-native">
+              <div class="cell">
+                <strong>多 Agent 并行归因。</strong>
+                <p>调查、策略、审核、算法 Agent 分工取证，产出带引用、状态和 artifact 的因果链路。</p>
+              </div>
+            </td>
+            <td class="ai-native">
+              <div class="cell">
+                <strong>AI 形成可审计根因结论。</strong>
+                <p>多 Agent 交叉取证、自动反例搜索和 trace grading 通过后产出结构化根因；高影响或争议项进入治理复核。</p>
+              </div>
+            </td>
+            <td class="ai-native">
+              <div class="cell">
+                <strong>AI 生成治理就绪 Proposal。</strong>
+                <p>策略 patch、评估集、灰度计划、回滚条件和审批材料一起生成，进入治理管道。</p>
+              </div>
+            </td>
+            <td class="ai-enabled">
+              <div class="cell">
+                <strong>AI 推进，治理 Commit。</strong>
+                <p>低风险可逆动作自动执行；高影响判罚、封禁、生产规则变更必须经过 approval 和 rollback 兜底。</p>
+              </div>
+            </td>
+            <td class="ai-native">
+              <div class="cell">
+                <strong>Trace 驱动自动验收。</strong>
+                <p>系统持续跑回放、对照实验、误杀漏放分析、漂移监测和 trace grading，定位失败步骤。</p>
+              </div>
+            </td>
+            <td class="ai-native">
+              <div class="cell">
+                <strong>经验自动沉淀成能力。</strong>
+                <p>eval suite 自动验收通过的策略、样本、口径、失败模式进入 memory、skill 和规则版本库；失败或争议项进人审。</p>
+              </div>
+            </td>
+            <td class="ai-native phase-end">
+              <div class="cell">
+                <strong>遗留项自动转下一轮。</strong>
+                <p>未解决假设、异常样本、审批驳回和回滚原因自动生成下一轮 case，不靠人记。</p>
+              </div>
+            </td>
+            <td class="arch-cell">
+              <div class="cell">
+                <strong>Multi-agent Workflow + Governance Runtime。</strong>
+                <p>多 Agent Orchestrator、A2A/Handoff、durable workflow、trace/eval、approval gate、gray release、rollback 和能力沉淀层共同承接。</p>
+              </div>
+            </td>
+          </tr>
+
+          <tr>
+            <td>
+              <div class="level">
+                <b>L5</b>
+                <span>经营</span>
+              </div>
+            </td>
+            <td>
+              <div class="cell">
+                <strong>AI 自治经营一个风险域。</strong>
+                <p>AI 承担业务域/风险域的持续目标管理和结果优化，对风险、体验、成本和合规做长期权衡。</p>
+              </div>
+            </td>
+            <td>
+              <div class="cell">
+                <strong>目标系统 + 自演进元循环。</strong>
+                <p>Domain Agent 管目标、预算、实验、能力库和风险偏好；治理系统约束边界，防止自治越权。</p>
+              </div>
+            </td>
+            <td class="ai-native phase-start">
+              <div class="cell">
+                <strong>AI 主动定义经营缺口。</strong>
+                <p>围绕漏放率、误杀率、申诉率、成本、审核产能和合规红线，主动发现目标偏差和新型风险。</p>
+              </div>
+            </td>
+            <td class="ai-native">
+              <div class="cell">
+                <strong>AI 跟踪长期状态漂移。</strong>
+                <p>跨 case、跨策略、跨人审口径追踪相关性变化，提出对抗迁移、业务变化、策略副作用等候选解释。</p>
+              </div>
+            </td>
+            <td class="ai-native">
+              <div class="cell">
+                <strong>AI 选择主攻方向。</strong>
+                <p>在合规红线内，对风险收益、用户体验和审核成本做组合判断，提出下一阶段关键原因和优先级。</p>
+              </div>
+            </td>
+            <td class="ai-native">
+              <div class="cell">
+                <strong>AI 制定风险域路线图。</strong>
+                <p>规划实验、策略升级、模型迭代、红蓝军任务和数据建设；识别人审产能缺口，由运营管理者决策人力配置。</p>
+              </div>
+            </td>
+            <td class="ai-enabled">
+              <div class="cell">
+                <strong>AI 调度资源，治理放行。</strong>
+                <p>Agent 群执行实验和策略组合；影响用户权益、业务收入和合规边界的 commit 仍由治理系统放行。</p>
+              </div>
+            </td>
+            <td class="ai-native">
+              <div class="cell">
+                <strong>AI 持续评估经营结果。</strong>
+                <p>不只看单条策略效果，而是持续评估风险域 KPI、对抗成本、体验损伤和治理稳定性。</p>
+              </div>
+            </td>
+            <td class="ai-native">
+              <div class="cell">
+                <strong>AI 更新能力与制度资产。</strong>
+                <p>把成功策略、失败教训、技能和评估集版本化，成为下一轮自治能力；红线和治理策略由治理团队独立维护。</p>
+              </div>
+            </td>
+            <td class="ai-native phase-end">
+              <div class="cell">
+                <strong>AI 自我设定下一轮目标。</strong>
+                <p>根据经营结果和环境变化调整目标、预算、实验队列和能力缺口，形成持续自治循环。</p>
+              </div>
+            </td>
+            <td class="arch-cell">
+              <div class="cell">
+                <strong>Domain Goal Runtime + External Governance。</strong>
+                <p>目标管理器、长期记忆、技能库、自评估循环、实验平台、资源调度和风险偏好引擎共同组成；治理策略引擎与生产红线均外置。</p>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="section-title">
+      <h2>排布原则</h2>
+      <p>这张表不是拆成六套流程，而是用同一条 PDCA 主链路观察 AI 能力逐层进入风控系统的位置。</p>
+    </section>
+
+    <section class="principles">
+      <article class="principle">
+        <h3>1. 横轴</h3>
+        <p>横轴固定为 PDCA：先定位问题，再归因和计划，执行后检查效果，最后固化并进入下一轮。</p>
+      </article>
+      <article class="principle">
+        <h3>2. 纵轴</h3>
+        <p>纵轴是 L0-L5 成熟度：同一套架构逐层长出 AI 能力。</p>
+      </article>
+      <article class="principle">
+        <h3>3. 填表</h3>
+        <p>架构承接不另起一套体系，而是解释这一层需要哪些系统能力来支撑同一条闭环。</p>
+      </article>
+    </section>
+
+    <section class="section-title">
+      <h2>L4/L5 证据边界</h2>
+      <p>L4 主要来自已经进入工程实践的 agent 编排、持久执行、观测评估和治理护栏；L5 借鉴自我反思、长期记忆、技能库和开放式学习研究，但在风控生产中必须保留治理红线。</p>
+    </section>
+
+    <section class="principles">
+      <article class="principle">
+        <h3>工程依据</h3>
+        <p><a href="https://openai.github.io/openai-agents-python/">OpenAI Agents SDK</a>、<a href="https://github.com/a2aproject/A2A/blob/main/docs/specification.md">Google A2A</a>、<a href="https://docs.langchain.com/oss/python/langgraph/overview">LangGraph</a> 和 <a href="https://www.anthropic.com/engineering/building-effective-agents">Anthropic agent patterns</a> 支撑多 Agent、handoff、trace、eval、durable workflow 和 human-in-the-loop。</p>
+      </article>
+      <article class="principle">
+        <h3>研究依据</h3>
+        <p><a href="https://arxiv.org/abs/2303.11366">Reflexion</a> 证明语言反馈和 episodic memory 可改善多轮 agent 表现；<a href="https://arxiv.org/abs/2305.16291">Voyager</a> 展示自动 curriculum、技能库和环境反馈驱动的 lifelong learning。</p>
+      </article>
+      <article class="principle">
+        <h3>治理依据</h3>
+        <p><a href="https://www.nist.gov/itl/ai-risk-management-framework">NIST AI RMF</a> 强调在 AI 系统设计、开发、使用和评估中纳入可信与风险管理；所以 L5 自治经营仍不能绕过生产红线。</p>
+      </article>
+    </section>
+
+    <div class="footer-note">
+      红线：AI 可以提出 proposal、运行评估、推动闭环和自治经营，但高影响生产 commit 必须经过治理管道。
+    </div>
+  </main>
+</body>
+</html>

@@ -1,0 +1,1101 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LangChain 生态演进 · 8 阶段体系化拆解</title>
+<style>
+  :root{
+    --bg:#fafaf7; --surface:#fffffc; --surface-muted:#f3f2ed;
+    --text:#2f302d; --text-muted:#676861; --text-soft:#8a8b82;
+    --primary:#2f5d50; --secondary:#8b5e34; --accent:#6f7f8f;
+    --line:#dedbd2; --line-soft:#ebe8df; --table-zebra:#f6f5ef;
+    --code-bg:#f1f0ea; --code-text:#3a3b36;
+    --shadow-sm:0 1px 2px rgba(47,48,45,.05); --shadow-md:0 10px 28px rgba(47,48,45,.08);
+    --radius-card:8px; --radius-small:5px;
+    --font-title:"Source Serif 4","Literata","Georgia","Noto Serif SC","Source Han Serif SC","Songti SC",serif;
+    --font-body:"Inter","IBM Plex Sans","Helvetica Neue","Noto Sans SC","Source Han Sans SC","PingFang SC",Arial,sans-serif;
+    --font-mono:"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--text);font:16px/1.72 var(--font-body);letter-spacing:0}
+  .wrap{max-width:none;margin:0;padding:42px max(40px, 6vw) 96px max(288px, 16vw);transition:padding .25s ease}
+  .wrap.toc-collapsed{padding-left:max(88px, 6vw)}
+  @media (max-width:1100px){ .wrap{padding:42px 32px 96px 32px !important} .toc{position:static !important;width:auto !important;height:auto !important;max-height:none !important;border-right:none !important;border-bottom:1px solid var(--line-soft);margin-bottom:24px} .toc-toggle{display:none !important} }
+  header{border-bottom:1px solid var(--line);padding-bottom:24px;margin-bottom:40px}
+  h1{margin:0 0 8px;font-family:var(--font-title);font-weight:600;font-size:30px;line-height:1.18;color:#252622;letter-spacing:-.2px}
+  .meta{color:var(--text-soft);font-size:13px;font-style:italic}
+  h2.sec{font-family:var(--font-title);font-weight:600;font-size:24px;line-height:1.2;margin:56px 0 18px;padding:0 0 12px;border-bottom:1px solid var(--line);color:#252622;display:flex;align-items:baseline;gap:14px}
+  h2.sec .n{font-family:var(--font-title);color:var(--primary);font-size:18px;font-weight:500;min-width:24px}
+  h3.sub{font-family:var(--font-title);font-weight:600;font-size:18px;color:#252622;margin:30px 0 10px;display:flex;align-items:baseline;gap:10px}
+  h3.sub .n{color:var(--secondary);font-size:14px;font-weight:500;font-family:var(--font-title)}
+  h4{margin:20px 0 8px;font-family:var(--font-title);font-weight:600;font-size:15px;color:var(--primary)}
+  p{margin:0 0 14px}
+  em{color:var(--secondary);font-style:normal;font-weight:600}
+  code{background:var(--code-bg);color:var(--code-text);padding:1px 6px;border-radius:var(--radius-small);font:12.5px/1.6 var(--font-mono);border:1px solid #dedbd0}
+  pre.code{background:var(--code-bg);color:var(--code-text);border:1px solid #dedbd0;border-radius:var(--radius-small);padding:16px 18px;overflow-x:auto;font:12.5px/1.62 var(--font-mono)}
+  .tldr{padding:18px 20px;border:1px solid #ded7cc;border-left:4px solid var(--secondary);background:#f7f3ed;border-radius:7px;margin:14px 0 20px;font-size:14.5px}
+  .tldr b{color:var(--secondary);font-weight:650}
+  .callout{padding:18px 20px;margin:14px 0;border:1px solid #d9ddd4;border-left:4px solid var(--primary);background:#f5f7f2;border-radius:7px;font-size:14px}
+  .callout.info{border-left-color:var(--accent);background:#f2f5f5;border-color:#d7dce0}
+  .callout.ok{border-left-color:var(--primary);background:#f0f4ee;border-color:#d4dccb}
+  .callout.warn{border-left-color:#9b6842;background:#f8f1eb;border-color:#e1d4c6}
+  table.tab{width:100%;border-collapse:collapse;margin:18px 0;font-size:13.5px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);table-layout:fixed}
+  table.tab th,table.tab td{padding:13px 16px;border-bottom:1px solid var(--line-soft);text-align:left;vertical-align:top;word-break:break-word;overflow-wrap:anywhere}
+  table.tab td code,table.tab td .keyfile{word-break:break-all;overflow-wrap:anywhere;display:inline-block;max-width:100%}
+  table.tab th{background:#f0eee6;color:#252622;font-weight:650;font-family:var(--font-body);font-size:13px;letter-spacing:.2px}
+  table.tab tr:nth-child(even) td{background:var(--table-zebra)}
+  table.tab.bordered th,table.tab.bordered td{border:1px solid var(--line-soft)}
+  table.tab td.mark-main{background:#e8efe2 !important;color:var(--primary);font-weight:650;text-align:center}
+  table.tab td.mark-sub{background:#f4ebe0 !important;color:var(--secondary);text-align:center}
+  table.tab td.mark-empty{color:var(--text-soft);text-align:center;font-style:italic}
+  .badge{display:inline-block;padding:2px 8px;border-radius:11px;background:var(--surface-muted);color:var(--text-muted);font-size:11px;margin:0 4px 3px 0;border:1px solid var(--line-soft);font-weight:500;letter-spacing:.2px}
+  .badge.oss{background:#e6efde;color:#33572b;border-color:#c8d8b8}
+  .badge.closed{background:#f1e6ee;color:#6a3460;border-color:#dcc6d4}
+  .badge.layer1{background:#eef2f8;color:#3a5275;border-color:#cdd5e3}
+  .badge.layer2{background:#f5e8e0;color:#7a3a1e;border-color:#e1c8b4}
+  .badge.layer3{background:#e0eff2;color:#1f5d68;border-color:#bcd6da}
+  .layer{background:var(--surface);border:1px solid var(--line-soft);border-radius:var(--radius-card);padding:24px 26px;margin:18px 0;box-shadow:var(--shadow-sm)}
+  .layer .head{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:10px}
+  .layer .head .num{display:inline-block;width:36px;height:36px;line-height:36px;text-align:center;border-radius:50%;font-weight:700;color:#fff;font-family:var(--font-title);font-size:15px}
+  .layer.l1 .num{background:#4d7a90}.layer.l2 .num{background:#9b6842}.layer.l3 .num{background:#3f8c8f}
+  .layer h3{margin:0;font-family:var(--font-title);font-weight:600;font-size:18px;color:#252622}
+  .layer .def{font-size:13.5px;color:var(--text-muted);margin-top:3px;line-height:1.55}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin:16px 0}
+  .card{background:var(--surface);border:1px solid var(--line-soft);border-radius:var(--radius-card);padding:18px 20px;box-shadow:var(--shadow-sm)}
+  .card h5{margin:0 0 8px;color:#252622;font-family:var(--font-title);font-size:15px;font-weight:600}
+  .fig{margin:22px 0;padding:18px;background:var(--surface);border:1px solid var(--line-soft);border-radius:var(--radius-card);text-align:center;box-shadow:var(--shadow-sm)}
+  .fig svg,.fig img{max-width:100%;height:auto;display:block;margin:0 auto;border-radius:6px}
+  .fig .cap{margin-top:12px;font-size:13px;color:var(--text-muted);text-align:left;line-height:1.65;font-style:italic;border-top:1px solid var(--line-soft);padding-top:12px}
+  .toc{position:fixed;top:0;left:0;width:248px;height:100vh;overflow-y:auto;background:var(--surface);border-right:1px solid var(--line-soft);padding:32px 22px 32px 28px;box-shadow:var(--shadow-sm);font-size:12.5px;z-index:50;transition:width .25s ease,padding .25s ease}
+  .toc.collapsed{width:48px;padding:32px 4px 32px 4px;overflow:hidden}
+  .toc.collapsed .toc-title,.toc.collapsed ul{opacity:0;pointer-events:none;transition:opacity .15s}
+  .toc.collapsed .toc-toggle{transform:rotate(180deg)}
+  .toc::-webkit-scrollbar{width:6px}.toc::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
+  .toc-toggle{position:absolute;top:14px;right:10px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;background:var(--surface-muted);border:1px solid var(--line-soft);border-radius:50%;cursor:pointer;color:var(--text-muted);font-size:14px;line-height:1;padding:0;transition:transform .25s ease,background .15s,color .15s;z-index:2}
+  .toc-toggle:hover{background:#e8e8e0;color:var(--primary)}
+  .toc-toggle svg{width:14px;height:14px;display:block}
+  .toc-title{font-family:var(--font-title);font-weight:600;font-size:13px;color:var(--text-soft);letter-spacing:.5px;text-transform:uppercase;margin:0 36px 14px 0;padding-bottom:10px;border-bottom:1px solid var(--line-soft);transition:opacity .25s ease}
+  .toc ul{list-style:none;margin:0;padding:0;transition:opacity .25s ease}
+  .toc li{margin:0;border-left:3px solid transparent;padding:7px 0 7px 12px;line-height:1.5;transition:border-color .2s,background .2s,padding-left .2s;position:relative}
+  .toc li.active{border-left-color:var(--primary);background:linear-gradient(90deg,#e8efe2 0%,#f0f4ee 70%, transparent 100%);padding-left:14px}
+  .toc li.active a{color:var(--primary);font-weight:650}
+  .toc li.active::before{content:"▸";position:absolute;left:-2px;top:7px;color:var(--primary);font-size:10px;line-height:1.5;animation:tocBlink 2s ease-in-out infinite}
+  @keyframes tocBlink{0%,100%{opacity:.5}50%{opacity:1}}
+  .toc a{color:var(--text-muted);text-decoration:none;display:block}
+  .toc a:hover{color:var(--primary)}
+  .toc li.sub{padding-left:28px;font-size:12px;color:var(--text-soft)}
+  .sec-divider{border:none;border-top:1px solid var(--line);margin:64px 0 0;height:0}
+  .sec-divider::before{content:"❦";display:block;text-align:center;color:var(--text-soft);font-size:14px;margin-top:-10px;background:var(--bg);width:24px;margin-left:auto;margin-right:auto}
+  /* inline glossary: <span class="g">term<span class="gb">body</span></span>, click to toggle */
+  .g{cursor:help;color:var(--primary);text-decoration:underline dotted;text-underline-offset:3px;font-weight:500;outline:none}
+  .g::after{content:" ⓘ";color:var(--text-soft);font-size:.85em;font-weight:normal}
+  .g.o::after{content:" ⊖";color:var(--secondary)}
+  .g .gb{display:none}
+  .g.o .gb{display:block;background:#fbf8f1;border:1px solid #e7e1d0;border-left:3px solid var(--secondary);padding:12px 16px;margin:8px 0;border-radius:5px;font-size:13.5px;color:var(--text);line-height:1.7;font-weight:400}
+  .g.o .gb em{color:var(--secondary)}
+  details.expand{background:var(--surface-muted);border:1px solid var(--line-soft);border-radius:var(--radius-small);padding:10px 14px;margin:10px 0}
+  details.expand summary{cursor:pointer;font-weight:600;color:var(--primary);outline:none;font-family:var(--font-title);font-size:14.5px}
+  details.expand .body{margin-top:12px;border-top:1px dashed var(--line);padding-top:12px;font-size:14px}
+  .keyfile{background:#fbf8f1;border:1px solid #e7e1d0;border-radius:var(--radius-small);padding:2px 8px;font:11.5px/1.6 var(--font-mono);color:#5d4f33;display:inline-block;margin:2px 0;word-break:break-all}
+  .insight{background:#f2f5f5;border-left:4px solid var(--accent);padding:14px 18px;margin:14px 0;font-size:14px;border-radius:5px;border-top:1px solid #d7dce0;border-right:1px solid #d7dce0;border-bottom:1px solid #d7dce0}
+  .insight b{color:var(--accent);font-weight:650}
+  ul.ref{font-size:13.5px;line-height:1.85}.ref a{color:var(--primary);text-decoration:underline;text-decoration-color:#bcc4b4;text-underline-offset:3px}
+  ul,ol{padding-left:22px}li{margin:4px 0}
+  .design-pros{color:var(--primary);font-weight:600}
+  .design-cons{color:var(--secondary);font-weight:600}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>LangChain 生态演进 · 8 阶段体系化拆解</h1>
+  <div class="meta">2026 年 5 月 · 与 codex 多轮共审 · 每阶段贴硬社区数据（PyPI 下载 / GitHub stars / HN 批评 ID / 竞品压力 / 商业里程碑） · 暂无配图，先看内容</div>
+</header>
+
+<nav class="toc" id="toc">
+  <button class="toc-toggle" id="tocToggle" type="button" aria-label="收起/展开目录" title="收起 / 展开目录">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="10 4 4 8 10 12"/></svg>
+  </button>
+  <div class="toc-title">目录 / Outline</div>
+  <ul>
+    <li data-target="p0"><a href="#p0">0 · 为什么单独看 LangChain 演进</a></li>
+    <li data-target="p1"><a href="#p1">1 · 速查 · 8 阶段一览</a></li>
+    <li data-target="p2"><a href="#p2">2 · 当前生态全景（2026-05 实测）</a></li>
+    <li data-target="s1"><a href="#s1">3 · 阶段 1 · Chain 爆发期 · 2022-10~2023-Q1</a></li>
+    <li data-target="s2"><a href="#s2">4 · 阶段 2 · 抽象反噬期 · 2023-Q2~2023-08</a></li>
+    <li data-target="s3"><a href="#s3">5 · 阶段 3 · LCEL 修补期 · 2023-08~2023-12</a></li>
+    <li data-target="s4"><a href="#s4">6 · 阶段 4 · 多 Agent 心智争夺期 · 2023-09~2024-01</a></li>
+    <li data-target="s5"><a href="#s5">7 · 阶段 5 · LangGraph 确立期 · 2024-01~2024-05</a></li>
+    <li data-target="s6"><a href="#s6">8 · 阶段 6 · 推荐路径迁移期 · 2024-05~2024-11</a></li>
+    <li data-target="s7"><a href="#s7">9 · 阶段 7 · 平台化取舍期 · 2024-11~2025-10</a></li>
+    <li data-target="s8"><a href="#s8">10 · 阶段 8 · 1.0 收敛期 · 2025-10~至今</a></li>
+    <li data-target="rule"><a href="#rule">11 · 演进规律 · 三条主线</a></li>
+    <li data-target="future"><a href="#future">12 · 对 Agent Runtime 未来的判断</a></li>
+    <li data-target="ref"><a href="#ref">A · 参考来源（社区数据 + 官方原话）</a></li>
+    <li style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--line-soft)"><a href="agent-3-layer-architecture.html" style="color:var(--secondary);font-weight:600">← 姊妹文：Agent 3 层理念架构</a></li>
+  </ul>
+</nav>
+
+<section id="p0">
+  <h2 class="sec"><span class="n">0</span>为什么单独看 LangChain 演进</h2>
+  <div class="tldr"><b>这篇文档想干什么</b><br>把 LangChain 生态过去 3 年的演进，按"<em>社区压力 → 设计回应 → 产出 → 留下的问题 → 下一阶段起爆点</em>" 五段式拆成 8 个阶段。<em>不只是讲 LangChain 是什么</em>，而是把它当成<em>整个 Agent 运行时演进的活样本</em>——读懂它的转向，基本就读懂了从 Chain → DAG → 状态机 → 平台 的整条路。</div>
+  <p><b>为什么独立成册</b>：之前在《Agent 3 层理念架构》里 LangChain 章节偏散点——只引用了 Harrison Chase 几段博客原话当证据，读者反馈"看不出体系"。本篇换一种讲法：<em>不靠"谁说了什么"，靠社区硬数据</em>（PyPI 月下载量、GitHub stars 增长、HN 批评原帖 ID、竞品 star 对比、商业融资里程碑）。</p>
+  <p><b>核心论断（先说结论）</b>：LangChain 三年演进不是"<em>组件越堆越多</em>"，而是 <em>从应用拼装库，逐步退化成协议入口</em>——把真正的 Agent 复杂性下沉到一个<em>可恢复、可观测、可中断</em> 的运行时（LangGraph）。这条主线适用于 <em>所有</em> 未来想做生产级 Agent 框架的人。</p>
+  <p><b>读法建议</b>：第 1 章看速查表立刻知道全图；第 2 章看当前生态规模；第 3-10 章是 8 个阶段五段式精读；第 11 章把规律提炼成 3 条可迁移的演进定律；第 12 章给"<em>对未来 Agent Runtime 的判断</em>"。每段尾部带社区数据出处，可直接溯源。</p>
+</section>
+
+<hr class="sec-divider">
+
+<section id="p1">
+  <h2 class="sec"><span class="n">1</span>速查 · 8 阶段一览</h2>
+
+  <figure class="figure" style="margin:20px 0">
+    <img src="images/lc-fig-11.png" alt="图 1 · 8 阶段一览总览图。LangChain 三年演进的时间线全图——从 2022-10 Chain 爆发到 2025-10 1.0 收敛，8 段彩色色块沿水平时间轴串联，每段标核心矛盾。一眼看完全文走向。" style="width:100%; max-width:100%; height:auto; border-radius:6px" />
+    <figcaption style="margin-top:10px; font-size:13.5px; color:var(--text-muted); line-height:1.65; font-style:italic">图 1 · <b>8 阶段一览总览图</b>。LangChain 三年演进的时间线全图——从 2022-10 Chain 爆发到 2025-10 1.0 收敛，8 段彩色色块沿水平时间轴串联，每段标核心矛盾。一眼看完全文走向。</figcaption>
+  </figure>
+  <p>下表把 8 个阶段、时间区间、核心矛盾、关键产出物、单条最硬数据 一次给齐。每行后续在第 3-10 章展开。</p>
+  <table class="tab bordered">
+    <thead><tr>
+      <th style="width:5%">#</th>
+      <th style="width:14%">阶段名 · 时间</th>
+      <th style="width:30%">核心矛盾</th>
+      <th style="width:23%">关键产出</th>
+      <th style="width:28%">最硬一条数据</th>
+    </tr></thead>
+    <tbody>
+      <tr><td>1</td><td><b>Chain 爆发期</b><br>2022-10~2023-Q1</td><td>ChatGPT 引爆需求，开发者急缺"<em>prompt + retriever + tool</em>" 脚手架</td><td>langchain Python 包 · Chain / LLMChain / SequentialChain / AgentExecutor</td><td>GitHub stars 2023-02 5k → 2023-04 18k（<em>2 个月 3.6×</em>）；Benchmark $10M Seed</td></tr>
+      <tr><td>2</td><td><b>抽象反噬期</b><br>2023-Q2~2023-08</td><td>"<em>用的人多了就发现难控</em>"——抽象黑盒、prompt 藏在框架里、调试痛</td><td>(无产品产出，主要是<em>压力积累</em>)</td><td>HN 6 个原帖批评：ID 36097439 / 36442231 / 36645575 / 36647964 / 36648272 / 36725982</td></tr>
+      <tr><td>3</td><td><b>LCEL 修补期</b><br>2023-08~2023-12</td><td>第一次"<em>把 Chain 拆透明</em>"的尝试——统一接口、可组合、原生流式</td><td><span class="g" tabindex="0" onclick="this.classList.toggle('o')">LCEL<span class="gb"><em>LCEL</em>（LangChain Expression Language）= 2023-08 LangChain 发布的新核心抽象：把所有可调用单元统一成 Runnable 接口，用 Python 的 <code>|</code> 操作符组合（<code>prompt | model | parser</code>）。一次性把 stream / batch / async / retry / fallback 这些工程能力做成原生支持。本质是 DAG——可以并行、可以分叉，但不能循环。</span></span> · <span class="g" tabindex="0" onclick="this.classList.toggle('o')">Runnable<span class="gb"><em>Runnable</em> = LCEL 的统一接口基类。所有 LCEL 组件（prompt / model / parser / retriever / tool）都实现这个接口，有 <code>invoke / stream / batch / ainvoke</code> 等方法。<em>核心价值</em>：把各种异构组件压成同一接口，可以用 <code>|</code> 自由拼装。<code>langchain-core</code> 包就是为了独立分发这套接口而拆出来的。</span></span> / RunnableSequence / RunnableParallel · <code>|</code> 操作符</td><td>langchain-core 现累计 PyPI 下载 <em>1.30B</em>，月下载 109M（2026-05 实测）</td></tr>
+      <tr><td>4</td><td><b>多 Agent 心智争夺期</b><br>2023-09~2024-01</td><td>AutoGen / CrewAI 抢"<em>多 agent runtime</em>" 叙事；LangChain 不能只靠 LCEL 回应</td><td>（设计酝酿，2024-01 出 LangGraph）</td><td>AutoGen 2023-09-29 发布累计 stars 58.3k；CrewAI 2023-10-27 仓库创建累计 stars 52.1k</td></tr>
+      <tr><td>5</td><td><b>LangGraph 确立期</b><br>2024-01~2024-05</td><td>把 AgentExecutor 的"<em>一种循环</em>" 升级为"<em>显式状态图 runtime</em>"</td><td>LangGraph · <span class="g" tabindex="0" onclick="this.classList.toggle('o')">StateGraph<span class="gb"><em>StateGraph</em> = LangGraph 的核心抽象：用户用 <code>add_node / add_edge / add_conditional_edges</code> 描述一个有状态的图，节点是函数，边是条件路由，整张图共享一个 State schema（TypedDict）。<em>支持循环</em>——A → B → A 没问题；这是它替代 LCEL 做 Agent runtime 的关键。</span></span> · <span class="g" tabindex="0" onclick="this.classList.toggle('o')">Pregel<span class="gb"><em>Pregel</em> = Google 2010 年发的图计算论文（同名系统跑全网爬虫图）。核心是 BSP（Bulk Synchronous Parallel）模型——把"循环" 切成多个 superstep，每步分 Plan / Execution / Update 三阶段，每步结束可以 checkpoint、可以中断、可以恢复。LangGraph 的 <code>CompiledStateGraph</code> 直接继承 <code>Pregel</code> 类。</span></span> · <span class="g" tabindex="0" onclick="this.classList.toggle('o')">Channel<span class="gb"><em>Channel</em> = LangGraph 节点之间的通信通道，决定<em>多个入边的写入怎么合并</em>。常用类型：LastValue / Topic / BinaryOperatorAggregate / EphemeralValue / AnyValue（reducer 决定合并规则）。</span></span> · <span class="g" tabindex="0" onclick="this.classList.toggle('o')">Checkpointer<span class="gb"><em>Checkpointer</em> = 每次 superstep 结束后把 State 持久化到 SQLite / Postgres / Redis 的组件。<em>让 Agent 跑挂了能从断点恢复</em>。也支持时间旅行：可以读历史 State 改一改再 resume。</span></span> · <span class="g" tabindex="0" onclick="this.classList.toggle('o')">interrupt()<span class="gb"><em>interrupt()</em> = LangGraph 节点里调用这个函数，会立刻<em>写盘 + 退出整个图</em>，把控制权交回外部。外部喂回人审决策后从断点继续。是 HITL 的标准实现。</span></span></td><td>2024-01-08 v0.1.0 + 同时官宣 LangGraph；2024-01-17 发布博客明确点名 DAG 局限</td></tr>
+      <tr><td>6</td><td><b>推荐路径迁移期</b><br>2024-05~2024-11</td><td>新 runtime 出来了，但<em>旧 LangChain 抽象债没消失</em>，社区认知滞后</td><td>v0.2 把 LangGraph 升为"recommended way"；prebuilt agent；create_react_agent</td><td>Octomind《Why we no longer use LangChain》HN 480 分（id=40739982）；Harrison 亲自下场回应</td></tr>
+      <tr><td>7</td><td><b>平台化取舍期</b><br>2024-11~2025-10</td><td>"<em>怎么跑</em>" 解决了，<em>怎么观测/评估/部署</em> 成为新瓶颈</td><td>LangServe deprecated；LangSmith trace+eval 强化；LangGraph Platform 商业化</td><td>LangSmith 用户 70k beta → 80k GA → <em>250k+</em>（2025-02），累计 1B traces，12× YoY</td></tr>
+      <tr><td>8</td><td><b>1.0 收敛期</b><br>2025-10~至今</td><td>4 条产品线（LangChain / LangGraph / LangSmith / Platform）必须给企业稳定承诺</td><td>LangChain 1.0 + LangGraph 1.0 GA · <span class="g" tabindex="0" onclick="this.classList.toggle('o')"><code>create_agent</code><span class="gb"><em>create_agent()</em> = LangChain v1（2025-10）唯一推荐的 Agent 入口函数。一行代码起 Agent：<code>agent = create_agent(model, tools=[...], system_prompt=...)</code>。<em>底层完全跑在 LangGraph 上</em>——内部用 StateGraph 编排了一个标准的 ReAct loop，但用户不需要知道。这是 LangChain"门面变薄、runtime 下沉" 的标志。</span></span> 替换 AgentExecutor · 旧物迁入 <code>langchain-classic</code></td><td>Series B $125M @ $1.25B 估值（独角兽，2025-10-20）；LangGraph v1.x 发布 7 个月占 <em>60%+</em> 下载</td></tr>
+    </tbody>
+  </table>
+  <p class="callout info"><b>怎么读这张表</b>：横向看是<em>一条线性进化</em>，纵向看每段都是 "<em>外部压力（社区/竞品/批评） → 内部回应（设计 + 版本）</em>" 的循环。把这条循环看明白，比记每个组件叫什么名字重要 100 倍。</p>
+</section>
+
+<hr class="sec-divider">
+
+<section id="p2">
+  <h2 class="sec"><span class="n">2</span>当前生态全景（2026-05 实测）</h2>
+
+  <figure class="figure" style="margin:20px 0">
+    <img src="images/lc-fig-12.png" alt="图 2 · 当前生态全景图（2026-05 实测）。5 仓库矩阵 + PyPI 月下载横向条形图 + 商业里程碑时间轴（A 轮 → B 轮独角兽）+ 公开客户 logo——一图穿透 LangChain 当前的真实体量与产品边界。" style="width:100%; max-width:100%; height:auto; border-radius:6px" />
+    <figcaption style="margin-top:10px; font-size:13.5px; color:var(--text-muted); line-height:1.65; font-style:italic">图 2 · <b>当前生态全景图（2026-05 实测）</b>。5 仓库矩阵 + PyPI 月下载横向条形图 + 商业里程碑时间轴（A 轮 → B 轮独角兽）+ 公开客户 logo——一图穿透 LangChain 当前的真实体量与产品边界。</figcaption>
+  </figure>
+  <p>在进入阶段拆解前，先把"<em>今天的 LangChain 长什么样</em>" 用数据展示一下，避免读者把它想成 2022 年那个单包脚手架。</p>
+
+  <h3 class="sub"><span class="n">2.1</span>仓库矩阵</h3>
+  <table class="tab bordered">
+    <thead><tr><th style="width:24%">仓库</th><th style="width:10%">协议</th><th style="width:11%">状态</th><th style="width:10%">stars</th><th style="width:45%">定位</th></tr></thead>
+    <tbody>
+      <tr><td><code>langchain-ai/langchain</code></td><td>MIT</td><td>active</td><td><b>138k</b></td><td>主仓库（monorepo）：langchain-core（Runnable）/ langchain v1（瘦身后 6 模块 + <code>create_agent</code>）/ <span class="g" tabindex="0" onclick="this.classList.toggle('o')">langchain-classic<span class="gb"><em>langchain-classic</em> = LangChain v1（2025-10）把旧 Chain / AgentExecutor / 旧 memory / 旧 vectorstores 整体迁移到的归档包。仍能装（<code>pip install langchain-classic</code>）、仍能跑，但<em>不再加新功能</em>、官方明确建议新项目不要用。这是 LangChain 给历史包袱安排的"博物馆"。</span></span>）</td></tr>
+      <tr><td><code>langchain-ai/langgraph</code></td><td>MIT</td><td>active</td><td><b>32.8k</b></td><td>v1 agent 真正的 runtime。<code>CompiledStateGraph</code> 直接继承 <code>Pregel</code>（<code>graph/state.py:1391-1392</code>）</td></tr>
+      <tr><td><code>langchain-ai/langsmith-sdk</code></td><td>MIT</td><td>active</td><td>897</td><td>客户端 SDK，trace / dataset / eval 上报。<em>server / Platform 闭源付费</em></td></tr>
+      <tr><td><code>langchain-ai/langserve</code></td><td>MIT</td><td><b>archived 2026-05-05</b></td><td>2.3k</td><td>把 Runnable 暴露成 FastAPI 服务的工具。<em>deprecated 2024-11-18</em>，官方建议改用 LangGraph Platform</td></tr>
+      <tr><td><code>langgraph-supervisor</code> / <code>langgraph-swarm</code></td><td>MIT</td><td>辅助</td><td>—</td><td>多 Agent 模板包，适合 demo / 低风险编排</td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="sub"><span class="n">2.2</span>PyPI 下载（pepy.tech / pypistats 实测 2026-05-24）</h3>
+  <table class="tab bordered">
+    <thead><tr><th style="width:20%">包</th><th style="width:20%">累计下载</th><th style="width:20%">近 30 天</th><th style="width:20%">近 24 小时</th><th style="width:20%">下载速率</th></tr></thead>
+    <tbody>
+      <tr><td><code>langchain</code></td><td><b>2.11 B</b></td><td>251 M</td><td>10.8 M</td><td>111.71 / s</td></tr>
+      <tr><td><code>langchain-core</code></td><td><b>1.30 B</b></td><td>109 M</td><td>4.6 M</td><td>55.87 / s</td></tr>
+      <tr><td><code>langsmith</code></td><td><b>1.63 B</b></td><td>79 M</td><td>297 k</td><td>32.43 / s</td></tr>
+      <tr><td><code>langgraph</code></td><td><b>323 M</b></td><td>52 M</td><td>1.3 M</td><td>23.25 / s</td></tr>
+      <tr><td><code>langchain-community</code></td><td>—</td><td>44 M</td><td>—</td><td>—</td></tr>
+    </tbody>
+  </table>
+  <p class="callout ok"><b>读数据</b>：<em>langchain-core 1.30B + langsmith 1.63B</em> 说明 LangChain 的"<em>核心价值已经从应用层下沉到协议层 + 观测层</em>"——<em>langchain-core 已成协议层事实依赖</em>（大量第三方框架直接依赖它的 Runnable / Tool / Message 接口），<em>LangSmith 下载量与 trace 量说明观测层需求强劲</em>。</p>
+
+  <h3 class="sub"><span class="n">2.3</span>商业 / 融资里程碑</h3>
+  <ul>
+    <li><b>2023-04 Seed</b>：$10M，Benchmark 领投</li>
+    <li><b>2024-02-15 Series A</b>：$25M，Sequoia 领投，估值 $200M（同期 LangSmith GA）</li>
+    <li><b>2025-10-20 Series B</b>：<em>$125M，估值 $1.25B（独角兽）</em>，IVP 领投，CapitalG / Sapphire 新进</li>
+    <li><b>累计融资 ≈ $160M；估值 14 个月 6.25×（200M → 1.25B）</b>。员工数 2025-02 时点 68 人</li>
+    <li><b>Fortune 500 渗透 35%</b>（公开客户：LinkedIn / Klarna / Uber / Replit / Cloudflare / Harvey / Rippling / J.P. Morgan / BlackRock / GitLab 等）</li>
+  </ul>
+
+  <h3 class="sub"><span class="n">2.4</span>同类框架对比（2026-05-24 stars）</h3>
+  <table class="tab bordered">
+    <thead><tr><th style="width:30%">项目</th><th style="width:15%">stars</th><th style="width:15%">首次开源</th><th style="width:20%">月下载（最新）</th><th style="width:20%">定位</th></tr></thead>
+    <tbody>
+      <tr><td><b>langchain-ai/langchain</b></td><td>138 k</td><td>2022-10</td><td>251 M</td><td>应用脚手架 + 协议层</td></tr>
+      <tr><td>microsoft/autogen</td><td>58.3 k</td><td>2023-09</td><td>1.3 M</td><td>多 agent 会话 runtime</td></tr>
+      <tr><td>crewAIInc/crewAI</td><td>52.1 k</td><td>2023-10</td><td>5 M</td><td>角色协作 / crew / task</td></tr>
+      <tr><td>run-llama/llama_index</td><td>49.6 k</td><td>2022-11</td><td>—</td><td>RAG / index</td></tr>
+      <tr><td><b>langchain-ai/langgraph</b></td><td>32.8 k</td><td>2024-01</td><td>52 M</td><td>状态图 runtime（v1 agent 底座）</td></tr>
+    </tbody>
+  </table>
+  <p><b>读数据</b>：LangChain stars 是 AutoGen 的 2.6×、LangGraph 的 4.2×，但 stars 是历史累计；<em>LangGraph 月下载 ≈ 40× AutoGen</em>——这是更强的<em>工程采用信号</em>（依赖活跃度，不直接等同于生产部署规模）。CrewAI 多 agent 心智不能忽视，但生产部署体量远低于 LangGraph。</p>
+</section>
+
+<hr class="sec-divider">
+
+<!-- ============ 阶段 1 ============ -->
+<section id="s1">
+  <h2 class="sec"><span class="n">3</span>阶段 1 · Chain 爆发期 · 把 LLM 应用先串起来 · 2022-10~2023-Q1</h2>
+
+  <figure class="figure" style="margin:20px 0">
+    <img src="images/lc-fig-1.png" alt="图 3 · 阶段 1 · Chain 爆发期框架图。左栏社区压力（ChatGPT 引爆 + stars 5k→18k 增长曲线）→ 中栏 LangChain 的设计回应（4 核心 Chain 抽象 + 首版里程碑）→ 右栏埋下的雷（抽象/黑" style="width:100%; max-width:100%; height:auto; border-radius:6px" />
+    <figcaption style="margin-top:10px; font-size:13.5px; color:var(--text-muted); line-height:1.65; font-style:italic">图 3 · <b>阶段 1 · Chain 爆发期框架图</b>。左栏社区压力（ChatGPT 引爆 + stars 5k→18k 增长曲线）→ 中栏 LangChain 的设计回应（4 核心 Chain 抽象 + 首版里程碑）→ 右栏埋下的雷（抽象/黑盒/难调试）→ 引爆下一阶段。</figcaption>
+  </figure>
+
+  <h4>社区压力</h4>
+  <ul>
+    <li><b>ChatGPT 2022-11-30 引爆</b> LLM 应用需求，开发者急需"<em>prompt + LLM + retriever + tool</em>" 应用脚手架。2022-10-24 Harrison Chase（前 Robust Intelligence 工程师）写出 LangChain 第一版（800 行 Python），刚好踩在 ChatGPT 发布前一个月，吃到了红利。</li>
+    <li><b>GitHub stars 2 个月 3.6×</b>：2023-02 ≈ 5k → 2023-04 ≈ 18k；同期 Benchmark $10M Seed 入场。Runa Capital ROSS Index Q2 2023 把 LangChain 列入<em>增长最快开源创业公司</em>。</li>
+  </ul>
+
+  <h4>LangChain 团队的设计回应</h4>
+  <ul>
+    <li><b>产出</b>：<code>langchain</code> Python 包；核心抽象是 <span class="g" tabindex="0" onclick="this.classList.toggle('o')"><code>Chain</code><span class="gb"><em>Chain</em> = LangChain 早期最基础的抽象，把一次 LLM 调用 + 输入处理 + 输出解析包成一个可复用步骤。父类下面有几十种子类：<em>LLMChain</em>（单模型调用）、<em>SequentialChain</em>（串多个 Chain）、<em>ConversationChain</em>（带历史的对话）……越加越多最终被批"过度抽象"，v1 后整体迁入 langchain-classic 归档。</span></span> / <span class="g" tabindex="0" onclick="this.classList.toggle('o')"><code>LLMChain</code><span class="gb"><em>LLMChain</em> = 最常用的 Chain 子类：prompt 模板 + LLM 调用 + 输出解析三件套。早期所有 LangChain 教程的第一行代码几乎都是 <code>chain = LLMChain(llm=llm, prompt=prompt)</code>。LCEL 出现后被 <code>prompt | model | parser</code> 替代。</span></span> / <span class="g" tabindex="0" onclick="this.classList.toggle('o')"><code>SequentialChain</code><span class="gb"><em>SequentialChain</em> = 把多个 Chain 串起来跑（前一个的输出当后一个的输入）。被 HN 批评的典型："要改一个细节得穿过 5 层抽象"。LCEL 的 <code>|</code> 操作符就是为了替代它——同样的功能改成 <code>chain_a | chain_b | chain_c</code>，透明可读。</span></span> / <span class="g" tabindex="0" onclick="this.classList.toggle('o')"><code>AgentExecutor</code><span class="gb"><em>AgentExecutor</em> = LangChain 早期的 Agent 运行循环：内部硬编码"think → tool call → observe → think" 循环，加一堆参数（max_iterations / early_stopping / handle_parsing_errors…）。Harrison 自己承认它"只是一种 loop"——加再多参数都改不了控制流。2025-10 v1 正式 deprecated，被 create_agent（跑在 LangGraph 上）替换。</span></span>。靠子类化堆叠出几十种预制 Chain。
+      <details class="expand"><summary>展开看："几十种预制 Chain" 具体都有哪些 · 实测 langchain_classic/chains/ 源码扒出 ~50 个，按 8 大类归口</summary><div class="body">
+        <p>下面这份是 2023-Q3 顶峰期的真实 Chain 全景（v1 后整体迁入 <code>langchain-classic</code> 归档）。看完就懂为什么 HN 集中开火、为什么团队必须重做协议层。</p>
+        <h4 style="color:var(--primary)">1. 基础原型（4 个）· 串胶水</h4>
+        <ul>
+          <li><code>Chain</code>（基类） · <code>LLMChain</code>（prompt + LLM + parser，最常用） · <code>SequentialChain</code> / <code>SimpleSequentialChain</code>（串多个 Chain） · <code>TransformChain</code>（纯数据转换，不调 LLM）</li>
+        </ul>
+        <h4 style="color:var(--primary)">2. 文档处理"切碎—合并"四件套（5 个）· RAG 时代的核心拼图</h4>
+        <ul>
+          <li><code>StuffDocumentsChain</code>（所有文档塞一次 prompt） · <code>MapReduceDocumentsChain</code>（每文档 map → 汇总 reduce） · <code>MapRerankDocumentsChain</code>（每文档评分 → 取最高） · <code>RefineDocumentsChain</code>（逐文档迭代精炼） · <code>ReduceDocumentsChain</code>（只跑 reduce 阶段） · <code>AnalyzeDocumentChain</code>（切分 + 串以上四件套）</li>
+        </ul>
+        <h4 style="color:var(--primary)">3. RAG / 问答（6 个）· 一个能力多次改名是这里最乱的部分</h4>
+        <ul>
+          <li><code>RetrievalQA</code>（最终留下来的版本） · <code>VectorDBQA</code> / <code>VectorDBQAWithSourcesChain</code>（旧名，被 RetrievalQA 替代） · <code>ConversationalRetrievalChain</code>（带对话历史的 RAG） · <code>ChatVectorDBChain</code>（更早版本，被前者替代） · <code>RetrievalQAWithSourcesChain</code>（带引用） · <code>MultiRetrievalQAChain</code>（多 retriever 路由） · <code>QAGenerationChain</code> / <code>QAWithSourcesChain</code></li>
+        </ul>
+        <h4 style="color:var(--primary)">4. 对话（1 个）</h4>
+        <ul>
+          <li><code>ConversationChain</code>：带 memory 的多轮对话</li>
+        </ul>
+        <h4 style="color:var(--primary)">5. 数据源接入（5 个）· RAG 之外的另一条业务线</h4>
+        <ul>
+          <li><code>SQLDatabaseChain</code> / <code>SQLDatabaseSequentialChain</code> · <code>APIChain</code> / <code>OpenAPIEndpointChain</code> · <code>ElasticsearchDatabaseChain</code></li>
+        </ul>
+        <h4 style="color:var(--primary)">6. 路由 / 分支（5 个）· "用 LLM 做 if-else"</h4>
+        <ul>
+          <li><code>RouterChain</code>（基类） · <code>LLMRouterChain</code>（让 LLM 选路） · <code>EmbeddingRouterChain</code>（用 embedding 选路） · <code>MultiPromptChain</code>（多 prompt 路由） · <code>MultiRouteChain</code></li>
+        </ul>
+        <h4 style="color:var(--primary)">7. 推理 / 数学 / 代码（5 个）· 把不擅长的事 offload 给工具</h4>
+        <ul>
+          <li><code>LLMMathChain</code>（让 LLM 输出 Python 算式自己算，避免算错） · <code>LLMSymbolicMathChain</code>（调 SymPy 做符号数学） · <code>LLMBashChain</code>（让 LLM 输出 bash 自己跑） · <code>LLMRequestsChain</code>（先发 HTTP 再喂回 LLM） · <code>PALChain</code>（Program-Aided Language 论文实现）</li>
+        </ul>
+        <h4 style="color:var(--primary)">8. 自检 / 安全 / 修正（4 个）· 第一代"guardrail" 的雏形</h4>
+        <ul>
+          <li><code>LLMCheckerChain</code>（自检事实性） · <code>LLMSummarizationCheckerChain</code>（摘要再检查） · <code>ConstitutionalChain</code>（按"宪法 AI" 规则改写输出） · <code>OpenAIModerationChain</code>（包 OpenAI moderation API）</li>
+        </ul>
+        <h4 style="color:var(--primary)">9. 知识图谱 QA（整个 graph_qa/ 子目录，7+ 个）· 2023 年 KG hype 的痕迹</h4>
+        <ul>
+          <li><code>GraphCypherQAChain</code>（Neo4j） · <code>GraphSparqlQAChain</code> · <code>NebulaGraphQAChain</code> · <code>KuzuQAChain</code> · <code>HugeGraphQAChain</code> · <code>ArangoGraphQAChain</code> · <code>OntotextGraphDBQAChain</code> · <code>NeptuneOpenCypherQAChain</code></li>
+        </ul>
+        <h4 style="color:var(--primary)">10. 实验性 / 单论文实现（3 个）· 学术 paper → 一个 Chain 类的典型</h4>
+        <ul>
+          <li><code>HypotheticalDocumentEmbedder</code>（HyDE 论文实现） · <code>FlareChain</code>（Forward-Looking Active REtrieval 论文实现） · <code>NatBotChain</code>（让 LLM 操作浏览器的早期 demo）</li>
+        </ul>
+        <h4 style="color:var(--primary)">11. Function calling 时代追加的一波（2023-06 OpenAI 函数调用发布后）</h4>
+        <ul>
+          <li>工厂函数：<code>create_openai_fn_chain</code> · <code>create_structured_output_chain</code> · <code>create_extraction_chain</code> · <code>create_tagging_chain</code> · <code>create_citation_fuzzy_match_chain</code> · <code>create_qa_with_sources_chain</code>—— 配合 Pydantic 模板，本质仍是 Chain 派生</li>
+        </ul>
+        <p class="callout warn" style="margin-top:14px"><b>看完这份清单再读 HN 当年的吐槽就懂了</b>。<a href="https://news.ycombinator.com/item?id=36648272" target="_blank">id=36648272</a> 那句 "<em>abstraction over abstractions — chains, runnables, agents, tools, callbacks…</em>" 直指这种<em>每个新场景就发一个新 Chain 类</em>的设计：<br>
+          · 想做 SQL 查询？用 <code>SQLDatabaseSequentialChain</code>（一个串了 4 步的固定流程）<br>
+          · 想换其中一步？得读完 <code>Chain</code> + <code>SequentialChain</code> + 自己这一层，才知道怎么 hook<br>
+          · 想加 streaming / async？每个 Chain 子类自己实现一遍，要么有要么没有<br>
+          · 论文出一篇就发一个 Chain（HyDE、FlARE、PAL）—— 用户得追论文才知道库里有啥<br>
+          <em>这就是 LCEL 出现的直接动因</em>：与其每个场景发一个 Chain 类，不如出一个统一接口（Runnable）+ 一个组合操作符（<code>|</code>），让用户<em>自己拼</em>（<code>retriever | reranker | prompt | model | parser</code> 你自己写）。
+        </p>
+        <p style="font-size:13px;color:var(--text-muted);margin-top:10px"><b>溯源</b>：实测 <code>langchain-ai/langchain</code> 仓库 <code>libs/langchain/langchain_classic/chains/</code> 目录（v1 后归档位置），grep <code>^class .*Chain</code> 共 37 个直接 Chain 子类，加上 <code>graph_qa/</code> 子目录 + function calling 工厂函数 + 重命名的旧版本，合计 ~50 个。</p>
+      </div></details>
+    </li>
+    <li><b>版本</b>：2022-10-24 首次 Python 包发布；后续 0.0.x 高速迭代，每周一版。</li>
+  </ul>
+
+  <h4>核心抽象 + 工程价值</h4>
+  <p><code>Chain</code>：<em>把 LLM 调用包装成可复用步骤</em>。工程价值：<em>先让应用拼得起来</em>，从 0 到 1 的脚手架。</p>
+
+  <h4>没解决的问题 → 起爆点</h4>
+  <p>抽象靠子类堆叠，<em>prompt 和控制流被藏在框架里</em>；用户越多，黑盒感、难调试、难组合的问题暴露越快——直接引出<em>阶段 2 抽象反噬期</em>。</p>
+</section>
+
+<hr class="sec-divider">
+
+<!-- ============ 阶段 2 ============ -->
+<section id="s2">
+  <h2 class="sec"><span class="n">4</span>阶段 2 · 抽象反噬期 · 增长带来黑盒批评 · 2023-Q2~2023-08</h2>
+
+  <figure class="figure" style="margin:20px 0">
+    <img src="images/lc-fig-2.png" alt="图 4 · 阶段 2 · 抽象反噬期框架图。左列 4 条用户痛点症状 + 中列 HN 6 个原帖批评墙（橙色卡片带帖子 ID）+ 右列下载量仍在涨——「批评 ≠ 没人用，而是用的人多了才暴露问题」。" style="width:100%; max-width:100%; height:auto; border-radius:6px" />
+    <figcaption style="margin-top:10px; font-size:13.5px; color:var(--text-muted); line-height:1.65; font-style:italic">图 4 · <b>阶段 2 · 抽象反噬期框架图</b>。左列 4 条用户痛点症状 + 中列 HN 6 个原帖批评墙（橙色卡片带帖子 ID）+ 右列下载量仍在涨——「批评 ≠ 没人用，而是用的人多了才暴露问题」。</figcaption>
+  </figure>
+
+  <h4>社区压力</h4>
+  <ul>
+    <li><b>HN 6 个原帖集中批评</b>（2023 Q2/Q3，按时间序）：
+      <ul style="font-size:13.5px">
+        <li><a href="https://news.ycombinator.com/item?id=36097439" target="_blank">id=36097439</a> · 2023-05 · "So much 'Yes!' for LangChain being bad practice. An unnecessarily bloated abstraction..."</li>
+        <li><a href="https://news.ycombinator.com/item?id=36442231" target="_blank">id=36442231</a> · 2023-06 · "I'm really puzzled about LangChain. It looks like a lot of cruft and abstraction..."</li>
+        <li><a href="https://news.ycombinator.com/item?id=36645575" target="_blank">id=36645575</a> · 2023-07 · "Langchain Is Pointless"</li>
+        <li><a href="https://news.ycombinator.com/item?id=36647964" target="_blank">id=36647964</a> · 2023-07 · "the chains they say are 'composable' are not really composable"</li>
+        <li><a href="https://news.ycombinator.com/item?id=36648272" target="_blank">id=36648272</a> · 2023-07 · "I believe the abstractions in Langchain are inherently flawed"</li>
+        <li><a href="https://news.ycombinator.com/item?id=36725982" target="_blank">id=36725982</a> · 2023-07 · "The Problem with LangChain"</li>
+      </ul>
+    </li>
+    <li>典型原话："<em>you have to go through 5 layers of abstraction just to change a minute detail</em>" / "<em>death by abstraction</em>" / "<em>abstraction over abstractions — chains, runnables, agents, tools, callbacks…</em>"</li>
+    <li><b>但 stars / 下载继续涨</b>——说明批评不是"<em>没人用</em>"，而是"<em>用的人多了以后发现难控</em>"。这种"<em>增长 × 批评</em>" 的双重压力<em>必须用产品回应</em>。</li>
+  </ul>
+
+  <h4>LangChain 团队的设计回应</h4>
+  <ul>
+    <li>这一阶段<em>没有立即出新产品</em>，是<em>压力积累期</em>。团队转向"<em>不再加新 Chain 子类，而是重新设计协议</em>" 的方向——这是 LCEL 出现的直接前提。</li>
+    <li><b>旁支</b>：同期 2023-07 LangSmith closed beta 启动（70k 候补），但这是<em>观测痛点</em>的回应，不是 Chain 抽象的回应；对 Chain 抽象的直接回应留到<em>下一阶段 LCEL</em>。</li>
+  </ul>
+
+  <h4>核心抽象 + 工程价值</h4>
+  <p>（无新抽象。本段的工程价值在于<em>团队选择"不堆新组件，而是重做协议"</em>——这是 LCEL 出现的前提。）</p>
+
+  <h4>没解决的问题 → 起爆点</h4>
+  <p>批评焦点全部集中在"<em>预制 Chain 子类太多、prompt 不透明、组合性差</em>"，<em>下一步必须出一个统一可组合协议</em>——直接催生<em>阶段 3 LCEL</em>。</p>
+</section>
+
+<hr class="sec-divider">
+
+<!-- ============ 阶段 3 ============ -->
+<section id="s3">
+  <h2 class="sec"><span class="n">5</span>阶段 3 · LCEL 修补期 · 从 Chain 子类到 Runnable 协议 · 2023-08~2023-12</h2>
+
+  <figure class="figure" style="margin:20px 0">
+    <img src="images/lc-fig-3.png" alt="图 5 · 阶段 3 · LCEL 修补期对照图。上半 LCEL 之前（杂乱的 Chain 子类家族）vs 下半 LCEL 之后（统一 Runnable 接口 + | 管道 + 6 个基础零件）—— 一图说清 LCEL 是什么、解决了什么。" style="width:100%; max-width:100%; height:auto; border-radius:6px" />
+    <figcaption style="margin-top:10px; font-size:13.5px; color:var(--text-muted); line-height:1.65; font-style:italic">图 5 · <b>阶段 3 · LCEL 修补期对照图</b>。上半 LCEL 之前（杂乱的 Chain 子类家族）vs 下半 LCEL 之后（统一 Runnable 接口 + <code>|</code> 管道 + 6 个基础零件）—— 一图说清 LCEL 是什么、解决了什么。</figcaption>
+  </figure>
+
+  <h4>社区压力</h4>
+  <ul>
+    <li>承接<em>阶段 2 HN 抱怨</em>——核心诉求是"<em>统一接口 + 透明组合 + 原生流式 + 原生 async</em>"。LCEL 不是凭空发明，是 5 条 HN 痛点一一回应的产物。</li>
+    <li>OpenAI 2023-06 发布 function calling，把"<em>结构化输出 / 工具调用</em>" 做成原生能力——LangChain 需要一个<em>足够薄的协议层</em>把新能力第一时间接进来，老 Chain 子类化模式跟不上节奏。</li>
+    <li>LCEL 后续验证：<code>langchain-core</code> 累计 PyPI 下载 <b>1.30 B</b>，2026-05 月下载 109M——<em>协议层被大量生态依赖</em>，连 LangChain 的竞品也在用它的 Runnable 接口。</li>
+  </ul>
+
+  <h4>LangChain 团队的设计回应</h4>
+  <p><b>产出</b>：<em>LangChain Expression Language（LCEL）</em>——把"几十种预制 Chain 类" 换成<b>一个统一接口（<code>Runnable</code>）+ 一个组合操作符（<code>|</code>）+ 几个最小化的基础零件</b>。用户不再"挑一个现成 Chain 类"，而是<em>用基础零件自己拼管道</em>。</p>
+  <p><b>版本</b>：2023-08-01 LCEL 发布博客；后续 Runnable 接口独立成 <code>langchain-core</code> 包。</p>
+  <p><b>LCEL 全部基础零件就这 6 个</b>——把它当成乐高 6 种基础积木，所有 LCEL 管道都用这 6 种拼出来：</p>
+  <table class="tab bordered">
+    <thead><tr><th style="width:18%">零件</th><th style="width:42%">中文一句话</th><th style="width:40%">解决什么 / 何时用</th></tr></thead>
+    <tbody>
+      <tr><td><code>Runnable</code></td><td><b>基类</b>：所有零件的父类，定义了 <code>invoke / stream / batch / ainvoke</code> 等统一方法</td><td>规定"<em>只要是 LCEL 零件，方法名一定相同</em>"——解决老 Chain"每个子类自己实现一套接口"的混乱</td></tr>
+      <tr><td><code>RunnableSequence</code></td><td><b>串行管道</b>：把多个 Runnable 按顺序串起来。<em>写 <code>a | b</code> 就自动生成它</em>，不用手敲</td><td>替代 SequentialChain。<em>99% 的情况你用 <code>|</code> 就行，根本看不到 RunnableSequence 这个名字</em></td></tr>
+      <tr><td><code>RunnableParallel</code></td><td><b>并行 fan-out</b>：把同一个输入分发给多个 Runnable 并行跑，结果按 key 装成 dict。<em>写一个 dict 字面量就自动生成它</em></td><td>RAG 必备——<em>同时</em>跑 retriever 拿文档 + 透传原问题，再合并喂给 prompt。一个值进 → 多字段 dict 出</td></tr>
+      <tr><td><code>RunnablePassthrough</code></td><td><b>透传</b>：输入啥就返回啥，啥也不改。类似 Unix 管道里的 <code>cat</code></td><td>RunnableParallel 的 value 必须是 Runnable，字符串不是 Runnable——想"<em>原样塞给某个 key</em>" 就用它占位</td></tr>
+      <tr><td><code>RunnableLambda</code></td><td><b>函数包装</b>：把任意 Python 函数包成 Runnable，让它能进管道</td><td>插自定义业务逻辑、做数据转换、把现成函数接进 LCEL 时用。<em>写个 lambda 直接放管道里也会自动包成它</em></td></tr>
+      <tr><td><code>RunnableBranch</code></td><td><b>条件分支</b>：根据输入跑不同子链。<code>RunnableBranch((cond1, chain1), (cond2, chain2), default)</code></td><td>简单 if-else 路由。<em>复杂分支用不动，那就是 LangGraph 的活了</em></td></tr>
+    </tbody>
+  </table>
+  <p class="callout info" style="margin:10px 0"><b>读法</b>：6 个零件里 <em>3 个会被 <code>|</code> 或 dict 字面量自动生成</em>（Sequence / Parallel / Lambda），用户实际只显式写 3 个（Runnable 基类不直接用、Passthrough、Branch）。所以 <em>LCEL 写起来像是只有 <code>|</code> 和 dict 这两件事</em>，剩下的是自动魔法。</p>
+  <p><b>官方点名的 5 个旧 Chain 痛点 → LCEL 一一回应</b>（来源 <a href="https://www.langchain.com/blog/langchain-expression-language" target="_blank">LCEL 官方博客</a>）：</p>
+  <table class="tab bordered">
+    <thead><tr><th style="width:50%">老 Chain 的痛（≈ HN 5 帖批评原话）</th><th style="width:50%">LCEL 的回应</th></tr></thead>
+    <tbody>
+      <tr><td>① "<em>chains weren't really composable</em>"——SequentialChain 难用</td><td><code>|</code> 操作符 + <code>Runnable</code> 统一接口，任意拼</td></tr>
+      <tr><td>② "<em>prompts were a bit hidden and hard to change</em>"——prompt 藏在 Chain 内部</td><td>prompt 是独立 Runnable，明摆在管道里，谁都能改</td></tr>
+      <tr><td>③ 流式（streaming）：每个 Chain 子类自己实现一套</td><td><code>.stream()</code> 是 Runnable 接口的一部分，所有 Runnable 都有</td></tr>
+      <tr><td>④ 异步（async）：看运气，部分 Chain 没 async 版</td><td><code>.ainvoke / .astream / .abatch</code> 是 Runnable 接口必备</td></tr>
+      <tr><td>⑤ 追踪（tracing）：要装 callback handler 这种 hack</td><td><code>with_config({"tags": ...})</code> 标准化注入，LangSmith 直接接</td></tr>
+    </tbody>
+  </table>
+
+  <h4>核心抽象 + 工程价值</h4>
+  <p><code>Runnable</code> + <code>|</code>：<em>声明式 DAG pipeline</em>。工程价值：<em>统一 stream / batch / async / fallbacks / retry，把黑盒链拆成透明管道</em>。</p>
+  <p><b>同一个 RAG 场景，LCEL 前后对比</b>（最能看出"<em>降低了多少认知成本</em>"）：</p>
+  <table class="tab bordered">
+    <thead><tr><th style="width:50%; color:var(--secondary)">❌ LCEL 之前（2023-Q2）</th><th style="width:50%; color:var(--primary)">✅ LCEL 之后（2023-08+）</th></tr></thead>
+    <tbody>
+      <tr><td style="vertical-align:top"><pre class="code" style="margin:0">from langchain.chains import \
+    RetrievalQAWithSourcesChain
+from langchain.chat_models import ChatOpenAI
+
+qa = RetrievalQAWithSourcesChain.from_chain_type(
+    llm=ChatOpenAI(),
+    chain_type="stuff",        # 4 选 1
+    retriever=vectorstore.as_retriever(),
+    return_source_documents=True,
+    chain_type_kwargs={
+        "prompt": custom_prompt,   # 改 prompt 要塞这个参数
+    },
+)
+
+answer = qa({"question": "..."})  # 只能这一种调法</pre></td>
+        <td style="vertical-align:top"><pre class="code" style="margin:0">chain = (
+    {"context": retriever,
+     "question": RunnablePassthrough()}
+    | prompt
+    | ChatOpenAI()
+    | StrOutputParser()
+)
+
+answer = chain.invoke("...")  # 调法见下表 ↓</pre></td></tr>
+      <tr><td style="vertical-align:top"><b>痛点</b>：<br>· 得记住 <code>RetrievalQAWithSourcesChain</code> 这个具体类名<br>· chain_type 4 选 1，记不住选哪个<br>· 改 prompt 要查文档找 <code>chain_type_kwargs</code><br>· 想加 reranker？得继承一个新 Chain 类<br>· 想流式？得给 ChatOpenAI 加 <code>streaming=True</code> + 配 callback handler，每个 Chain 子类支持不一样<br>· 想异步？看运气，部分 Chain 没 <code>acall</code></td>
+        <td style="vertical-align:top"><b>解了什么</b>：<br>· 不用记类名——所有场景都用 <code>{} | a | b | c</code><br>· prompt 是独立组件，直接在管道里改<br>· 加 reranker？管道里多串一节就行<br>· 流式、异步、批量、重试、备链——<em>不用配置，统一接口免费送</em>（见下表）<br>· 想改任何一步？换那一节的 Runnable 就行，不用碰其他</td></tr>
+    </tbody>
+  </table>
+
+  <p><b>"同一个 <code>chain</code> 对象，有 N 种调用方式可选"</b>——这是 LCEL 最容易混淆的一点。下面这些方法<em>互为替代，按需用其中一个就行，不是叠加也不是必须都写</em>。同一个 chain 对象暴露所有这些能力，由调用方决定用哪种：</p>
+  <pre class="code"># —— 同一个 chain，5 种调用模式按场景任选其一 ——
+
+chain.invoke("快手风控用了 LangGraph 吗？")              # ① 同步一次性返回完整结果
+                                                          #    最常用，写脚本/批处理时用
+
+await chain.ainvoke("...")                                # ② 异步一次性返回（FastAPI 服务里用）
+
+for chunk in chain.stream("..."):                         # ③ 流式逐 token 返回
+    print(chunk, end="")                                  #    聊天 UI 要打字机效果时用
+
+results = chain.batch(["Q1", "Q2", "Q3"])                 # ④ 批量并行处理多个输入
+                                                          #    跑 eval / 离线分析时用
+
+# —— 下面是"装饰器式" 包装：返回一个新 chain，再调上面 4 种之一 ——
+
+chain_with_retry = chain.with_retry(stop_after_attempt=3) # ⑤ 自动重试包装
+chain_with_retry.invoke("...")                            #    要的话再 invoke / stream / batch
+
+chain_safe = chain.with_fallbacks([backup_chain])         # ⑥ 主链挂掉自动走备链
+chain_safe.invoke("...")</pre>
+  <p style="font-size:13px;color:var(--text-muted)"><b>关键认知</b>：①②③④ 是<em>调用模式</em>（你只会用其中一种），⑤⑥ 是<em>对 chain 的装饰</em>（包装出一个新 chain，再用 ①②③④ 之一去调）。<em>"5 种调用都要写" 是误读</em>——它们是 6 种可能性，按需挑。</p>
+
+  <details class="expand"><summary>展开看：那个 <code>{"context": retriever, "question": RunnablePassthrough()}</code> dict 到底什么意思？—— LCEL 最容易卡住的语法糖</summary><div class="body">
+    <p>这个 dict <em>不是普通 Python dict</em>。LCEL 看到管道里出现 dict 会自动 coerce 成 <code>RunnableParallel</code>，等价于：</p>
+    <pre class="code">RunnableParallel({
+    "context": retriever,
+    "question": RunnablePassthrough(),
+})</pre>
+    <p>它的行为是：<b>把同一个输入分发给 dict 里的每个 Runnable 并行跑，结果按 key 装回去</b>。</p>
+
+    <h4 style="color:var(--primary)">跑起来一步步发生了什么</h4>
+    <p>假设 <code>chain.invoke("快手风控用了 LangGraph 吗？")</code>：</p>
+    <table class="tab bordered">
+      <thead><tr><th style="width:18%">Step</th><th style="width:82%">发生什么</th></tr></thead>
+      <tbody>
+        <tr><td><b>1 分发</b></td><td>输入 <code>"快手风控用了 LangGraph 吗？"</code> 同时发给 dict 里的两个 Runnable：<br>· <code>"context"</code>: <code>retriever</code> → 去向量库做相似度检索，得到 <code>[Doc(...), Doc(...)]</code><br>· <code>"question"</code>: <code>RunnablePassthrough()</code> → <em>原样回传</em>，得到 <code>"快手风控用了 LangGraph 吗？"</code></td></tr>
+        <tr><td><b>2 合并</b></td><td>RunnableParallel 把结果按 key 装成新 dict：<br><code>{"context": [Doc(...), Doc(...)], "question": "快手风控用了 LangGraph 吗？"}</code></td></tr>
+        <tr><td><b>3 喂给 prompt</b></td><td>prompt 模板 <code>"Answer based on context.\nContext: {context}\nQuestion: {question}"</code> 的两个占位符<em>正好对应 dict 的 key</em>——这是为什么要这么拆。</td></tr>
+        <tr><td><b>4 LLM + parser</b></td><td>填好的 prompt 喂模型，模型输出再交给 parser，结束。</td></tr>
+      </tbody>
+    </table>
+
+    <h4 style="color:var(--primary)">为什么不能直接写 <code>retriever | prompt</code>？</h4>
+    <p>因为 prompt 模板需要<em>两个</em>东西：检索到的文档 <b>和</b> 原始问题。如果只串成 <code>retriever | prompt</code>，prompt 只能收到一个东西（文档），拿不到原问题。<code>RunnableParallel</code>（dict 糖）正是为了"<em>输入一个值，分头加工，组合成多字段对象</em>" 喂给下一步。</p>
+
+    <h4 style="color:var(--primary)"><code>RunnablePassthrough()</code> 的角色</h4>
+    <p>字面意思：<b>透传</b>，输入啥就返回啥。为什么需要？因为 RunnableParallel 的每个 value 必须是 Runnable（这样 LCEL 才能给它发输入），字符串本身不是 Runnable。你想"<em>把外层输入原样塞到这个 key</em>"，这个角色就由 <code>RunnablePassthrough()</code> 充当——类似 Unix 管道里的 <code>cat</code>，啥也不改照搬。</p>
+
+    <h4 style="color:var(--primary)">常见花样</h4>
+    <ul>
+      <li><b>给已有 dict 加字段</b>：<code>RunnablePassthrough.assign(context=lambda x: retriever.invoke(x["question"]))</code> —— 保留原 dict 再加一个 <code>context</code> key</li>
+      <li><b>嵌套子管道</b>：<code>"context": retriever | reranker</code>，里面是另一根管道</li>
+      <li><b>lambda 即时算</b>：<code>"lang": lambda x: detect_language(x)</code>，lambda 也会自动 coerce 成 <code>RunnableLambda</code></li>
+    </ul>
+  </div></details>
+
+  <details class="expand"><summary>展开看：<code>|</code> 操作符到底是 Python 的什么机制？—— "__or__ dunder" 一句话讲清</summary><div class="body">
+    <p><code>|</code> 在 Python 里是 <em>运算符重载</em> 的入口。Python 看到 <code>a | b</code> 会自动调 <code>a.__or__(b)</code>——这个 <code>__or__</code> 就叫 <b>"dunder method"</b>（dunder = "double underscore"，特指 Python 里 <code>__name__</code> 形式的特殊方法）。</p>
+    <p>原生类型里 <code>|</code> 各有语义：整数是按位或，集合是并集，dict（3.10+）是合并。LangChain 在 <code>Runnable</code> 基类里实现了自己的 <code>__or__</code>，<em>劫持了 <code>|</code> 的语义</em>——让它返回 <code>RunnableSequence(a, b)</code>，从"按位或" 变成"组管道"。代码就 20 行（<code>langchain-core/runnables/base.py:619-638</code>）。</p>
+    <pre class="code">class Runnable:
+    def __or__(self, other):                  # a | b 走这里
+        return RunnableSequence(self, coerce_to_runnable(other))
+    def __ror__(self, other):                 # 左边是 dict 时走这里（反向）
+        return RunnableSequence(coerce_to_runnable(other), self)</pre>
+    <p><b>为什么 Java 写不出 <code>prompt | model</code> 这种漂亮语法？</b> Java 没有运算符重载——所以 LangGraph4j 这类 JVM 移植只能用链式方法：<code>prompt.pipe(model).pipe(parser)</code>。能表达同样的语义，但少了 LCEL 的简洁感。这也解释了"<em>为什么 LangChain 是 Python 生态先做出来的</em>"。</p>
+  </div></details>
+
+  <details class="expand"><summary>展开看：为啥说 LCEL 是 DAG？<code>a | b | c</code> 不就是一根链吗？—— "链 vs DAG vs 有环图" 三级阶梯</summary><div class="body">
+    <h4 style="color:var(--primary)">术语先掰开：什么叫 DAG？</h4>
+    <p><b>DAG = Directed Acyclic Graph（有向无环图）</b>。两个关键词：<em>directed</em>（有向，箭头单向）+ <em>acyclic</em>（无环，不存在 A→B→A 这种回环）。<b>链是 DAG 的最简单特例</b>——只是一根独苗，没有分叉、没有合并。但只要"有向 + 无环"，就是 DAG。</p>
+    <pre class="code">A → B → C        ← 这是 DAG（线性链 = trivial DAG）
+A → B → A        ← 这不是 DAG（有环）
+A → {B, C} → D   ← 这是 DAG（菱形：先分叉再合并）
+A ⇄ B            ← 这不是 DAG（双向就是环）</pre>
+    <p>你写 <code>a | b | c</code> 确实是一根链，<em>但这只是 LCEL 能表达的所有 DAG 里最简单的一种</em>。LCEL 真正的表达力远超链。</p>
+
+    <h4 style="color:var(--primary)">前面那个 RAG 例子就是个非链 DAG（菱形结构）</h4>
+    <pre class="code">                input：question 字符串
+                          │
+              ┌───────────┴───────────┐       ← fan-out（分叉）
+              ↓                       ↓
+          retriever            RunnablePassthrough
+              ↓                       ↓
+          [docs]                  [question]
+              └───────────┬───────────┘       ← merge into dict（合并）
+                          ↓
+              {context: docs, question: ...}
+                          ↓
+                        prompt
+                          ↓
+                        model
+                          ↓
+                        parser
+                          ↓
+                       output</pre>
+    <p>中间那个<b>菱形</b>：上半截 fan-out 成 2 个并行分支，下半截合并回一个 dict 喂给 prompt。<em>这就是 DAG 而不是链</em>——分叉了又合并了，但没有任何环。这种结构只用 <code>a | b | c</code> 链式语法画不出来，必须用 LCEL 的 <b>dict（RunnableParallel） + <code>|</code> </b>组合。</p>
+
+    <h4 style="color:var(--primary)">LCEL 能画的 DAG 范围</h4>
+    <ul>
+      <li><b>并行 fan-out + merge</b>：<code>{"summary": m1, "keywords": m2, "sentiment": m3} | combine_prompt | final_model</code> —— 同时跑 3 个并行处理再合并</li>
+      <li><b>嵌套子图</b>：<code>"context": retriever | reranker | dedup</code> —— 图嵌套图</li>
+      <li><b>条件分支 RunnableBranch</b>：根据 classifier 输出走不同子链 —— 仍是 DAG，因为所有可能路径在结构上都是单向的</li>
+      <li><b>生产 RAG 全图</b>：3 次 fan-out / merge 嵌套，仍是 DAG</li>
+    </ul>
+
+    <h4 style="color:var(--primary)">LCEL 画不出的图：有环图</h4>
+    <p>Agent 的本质循环：</p>
+    <pre class="code">input
+  ↓
+plan ─────────────────┐
+  ↓                   │
+act                   │
+  ↓                   │
+observe ──────────────┤    ← 这条回边让它有环
+  ↓                   │
+condition? ───────────┘    ← 决定要不要回到 plan
+  ↓ (done)
+output</pre>
+    <p><b><code>observe → plan</code> 这条回边</b>让它变成有环图，<em>LCEL 一定画不出</em>。你只能在 LCEL 外面套个 Python <code>while</code> 硬跑，但就失去了 LCEL 的 streaming / async / trace / fallback 这些统一接口。这正是 LangGraph 出场的理由——从 DAG 升级到<b>带状态的有环图</b>（StateGraph），把循环作为一等公民。</p>
+
+    <p class="callout ok"><b>一句话三级阶梯</b>：<em>链（chain）是 DAG 特例 → LCEL 能拼任意复杂 DAG（菱形、嵌套、条件分支）→ 但 LCEL 永远画不出有环图 → 这是 LangGraph 入场的唯一理由</em>。读懂这三级阶梯，整个"Chain → LCEL → LangGraph" 的演进就立刻通了。</p>
+  </div></details>
+
+  <details class="expand"><summary>展开看：那个 <code>{"context": retriever, "question": RunnablePassthrough()}</code> dict 到底什么意思？—— LCEL 最容易卡住的语法糖</summary><div class="body">
+    <p>这个 dict <em>不是普通 Python dict</em>。LCEL 看到管道里出现 dict 会自动 coerce 成 <code>RunnableParallel</code>，等价于：</p>
+    <pre class="code">RunnableParallel({
+    "context": retriever,
+    "question": RunnablePassthrough(),
+})</pre>
+    <p>它的行为是：<b>把同一个输入分发给 dict 里的每个 Runnable 并行跑，结果按 key 装回去</b>。</p>
+
+    <h4 style="color:var(--primary)">跑起来一步步发生了什么</h4>
+    <p>假设 <code>chain.invoke("快手风控用了 LangGraph 吗？")</code>：</p>
+    <table class="tab bordered">
+      <thead><tr><th style="width:18%">Step</th><th style="width:82%">发生什么</th></tr></thead>
+      <tbody>
+        <tr><td><b>1 分发</b></td><td>输入 <code>"快手风控用了 LangGraph 吗？"</code> 同时发给 dict 里的两个 Runnable：<br>· <code>"context"</code>: <code>retriever</code> → 去向量库做相似度检索，得到 <code>[Doc(...), Doc(...)]</code><br>· <code>"question"</code>: <code>RunnablePassthrough()</code> → <em>原样回传</em>，得到 <code>"快手风控用了 LangGraph 吗？"</code></td></tr>
+        <tr><td><b>2 合并</b></td><td>RunnableParallel 把结果按 key 装成新 dict：<br><code>{"context": [Doc(...), Doc(...)], "question": "快手风控用了 LangGraph 吗？"}</code></td></tr>
+        <tr><td><b>3 喂给 prompt</b></td><td>prompt 模板 <code>"Answer based on context.\nContext: {context}\nQuestion: {question}"</code> 的两个占位符<em>正好对应 dict 的 key</em>——这是为什么要这么拆。</td></tr>
+        <tr><td><b>4 LLM + parser</b></td><td>填好的 prompt 喂模型，模型输出再交给 parser，结束。</td></tr>
+      </tbody>
+    </table>
+
+    <h4 style="color:var(--primary)">为什么不能直接写 <code>retriever | prompt</code>？</h4>
+    <p>因为 prompt 模板需要<em>两个</em>东西：检索到的文档 <b>和</b> 原始问题。如果只串成 <code>retriever | prompt</code>，prompt 只能收到一个东西（文档），拿不到原问题。<code>RunnableParallel</code>（dict 糖）正是为了"<em>输入一个值，分头加工，组合成多字段对象</em>" 喂给下一步。</p>
+
+    <h4 style="color:var(--primary)"><code>RunnablePassthrough()</code> 的角色</h4>
+    <p>字面意思：<b>透传</b>，输入啥就返回啥。为什么需要？因为 RunnableParallel 的每个 value 必须是 Runnable（这样 LCEL 才能给它发输入），字符串本身不是 Runnable。你想"<em>把外层输入原样塞到这个 key</em>"，这个角色就由 <code>RunnablePassthrough()</code> 充当——类似 Unix 管道里的 <code>cat</code>，啥也不改照搬。</p>
+
+    <h4 style="color:var(--primary)">常见花样</h4>
+    <ul>
+      <li><b>给已有 dict 加字段</b>：<code>RunnablePassthrough.assign(context=lambda x: retriever.invoke(x["question"]))</code> —— 保留原 dict 再加一个 <code>context</code> key</li>
+      <li><b>嵌套子管道</b>：<code>"context": retriever | reranker</code>，里面是另一根管道</li>
+      <li><b>lambda 即时算</b>：<code>"lang": lambda x: detect_language(x)</code>，lambda 也会自动 coerce 成 <code>RunnableLambda</code></li>
+    </ul>
+  </div></details>
+
+  <details class="expand"><summary>展开看：为啥说 LCEL 是 DAG？<code>a | b | c</code> 不就是一根链吗？—— "链 vs DAG vs 有环图" 三级阶梯</summary><div class="body">
+    <h4 style="color:var(--primary)">术语先掰开：什么叫 DAG？</h4>
+    <p><b>DAG = Directed Acyclic Graph（有向无环图）</b>。两个关键词：<em>directed</em>（有向，箭头单向）+ <em>acyclic</em>（无环，不存在 A→B→A 这种回环）。<b>链是 DAG 的最简单特例</b>——只是一根独苗，没有分叉、没有合并。但只要"有向 + 无环"，就是 DAG。</p>
+    <pre class="code">A → B → C        ← 这是 DAG（线性链 = trivial DAG）
+A → B → A        ← 这不是 DAG（有环）
+A → {B, C} → D   ← 这是 DAG（菱形：先分叉再合并）
+A ⇄ B            ← 这不是 DAG（双向就是环）</pre>
+    <p>你写 <code>a | b | c</code> 确实是一根链，<em>但这只是 LCEL 能表达的所有 DAG 里最简单的一种</em>。LCEL 真正的表达力远超链。</p>
+
+    <h4 style="color:var(--primary)">前面那个 RAG 例子就是个非链 DAG（菱形结构）</h4>
+    <pre class="code">                input：question 字符串
+                          │
+              ┌───────────┴───────────┐       ← fan-out（分叉）
+              ↓                       ↓
+          retriever            RunnablePassthrough
+              ↓                       ↓
+          [docs]                  [question]
+              └───────────┬───────────┘       ← merge into dict（合并）
+                          ↓
+              {context: docs, question: ...}
+                          ↓
+                        prompt
+                          ↓
+                        model
+                          ↓
+                        parser
+                          ↓
+                       output</pre>
+    <p>中间那个<b>菱形</b>：上半截 fan-out 成 2 个并行分支，下半截合并回一个 dict 喂给 prompt。<em>这就是 DAG 而不是链</em>——分叉了又合并了，但没有任何环。这种结构只用 <code>a | b | c</code> 链式语法画不出来，必须用 LCEL 的 <b>dict（RunnableParallel） + <code>|</code> </b>组合。</p>
+
+    <h4 style="color:var(--primary)">LCEL 能画的 DAG 范围</h4>
+    <ul>
+      <li><b>并行 fan-out + merge</b>：<code>{"summary": m1, "keywords": m2, "sentiment": m3} | combine_prompt | final_model</code> —— 同时跑 3 个并行处理再合并</li>
+      <li><b>嵌套子图</b>：<code>"context": retriever | reranker | dedup</code> —— 图嵌套图</li>
+      <li><b>条件分支 RunnableBranch</b>：根据 classifier 输出走不同子链 —— 仍是 DAG，因为所有可能路径在结构上都是单向的</li>
+      <li><b>生产 RAG 全图</b>：3 次 fan-out / merge 嵌套，仍是 DAG</li>
+    </ul>
+
+    <h4 style="color:var(--primary)">LCEL 画不出的图：有环图</h4>
+    <p>Agent 的本质循环：</p>
+    <pre class="code">input
+  ↓
+plan ─────────────────┐
+  ↓                   │
+act                   │
+  ↓                   │
+observe ──────────────┤    ← 这条回边让它有环
+  ↓                   │
+condition? ───────────┘    ← 决定要不要回到 plan
+  ↓ (done)
+output</pre>
+    <p><b><code>observe → plan</code> 这条回边</b>让它变成有环图，<em>LCEL 一定画不出</em>。你只能在 LCEL 外面套个 Python <code>while</code> 硬跑，但就失去了 LCEL 的 streaming / async / trace / fallback 这些统一接口。这正是 LangGraph 出场的理由——从 DAG 升级到<b>带状态的有环图</b>（StateGraph），把循环作为一等公民。</p>
+
+    <p class="callout ok"><b>一句话三级阶梯</b>：<em>链（chain）是 DAG 特例 → LCEL 能拼任意复杂 DAG（菱形、嵌套、条件分支）→ 但 LCEL 永远画不出有环图 → 这是 LangGraph 入场的唯一理由</em>。读懂这三级阶梯，整个"Chain → LCEL → LangGraph" 的演进就立刻通了。</p>
+  </div></details>
+
+  <h4>没解决的问题 → 起爆点</h4>
+  <p>LCEL 的强项<em>是 DAG，不是循环状态机</em>——<em>"Effectively, these chains are directed acyclic graphs (DAGs)... we've lacked a method for easily introducing cycles."</em>（LangGraph 发布博客原话）。Agent 的 <em>reason → act → observe → reason</em> 天然是循环，LCEL 只能在外围包 while 硬跑，但会失去 streaming / async / trace 等统一接口。同时<em>多 Agent 协作</em> 的需求被 AutoGen / CrewAI 抢先——直接进入<em>阶段 4 多 Agent 心智争夺期</em>。</p>
+</section>
+
+<hr class="sec-divider">
+
+<!-- ============ 阶段 4 ============ -->
+<section id="s4">
+  <h2 class="sec"><span class="n">6</span>阶段 4 · 多 Agent 心智争夺期 · 竞品把 runtime 问题摆上桌 · 2023-09~2024-01</h2>
+
+  <figure class="figure" style="margin:20px 0">
+    <img src="images/lc-fig-4.png" alt="图 6 · 阶段 4 · 多 Agent 心智争夺期。时间轴叠加三方对峙：AutoGen（紫）+ CrewAI（青）+ LangGraph（墨绿）。中部「三重压力合流」框：竞品抢心智 + AgentExecutor issue 长尾爆发 +" style="width:100%; max-width:100%; height:auto; border-radius:6px" />
+    <figcaption style="margin-top:10px; font-size:13.5px; color:var(--text-muted); line-height:1.65; font-style:italic">图 6 · <b>阶段 4 · 多 Agent 心智争夺期</b>。时间轴叠加三方对峙：AutoGen（紫）+ CrewAI（青）+ LangGraph（墨绿）。中部「三重压力合流」框：竞品抢心智 + AgentExecutor issue 长尾爆发 + LCEL DAG 局限——三件事直接催生 LangGraph。</figcaption>
+  </figure>
+
+  <h4>社区压力</h4>
+  <ul>
+    <li><b>AutoGen 2023-09-29 由 Microsoft 开源</b>，主打多 agent 对话；累计 stars <b>58.3k</b>。同期论文与项目同步公开，迅速占领"<em>multi-agent runtime</em>" 心智。</li>
+    <li><b>CrewAI 2023-10-27 仓库创建</b>，主打"<em>角色协作 / crew / task</em>"；累计 stars <b>52.1k</b>，PyPI 累计 27M+ 下载。CrewAI 把多 agent 讲成<em>更直观的心智</em>（每个 agent = 一个角色），抢走非工程师用户。</li>
+    <li>LangChain 内部 <code>AgentExecutor</code> issue 长尾爆发（<a href="https://github.com/langchain-ai/langchain/issues/6025" target="_blank">#6025</a> · <a href="https://github.com/langchain-ai/langchain/issues/13897" target="_blank">#13897</a> · <a href="https://github.com/langchain-ai/langchain/issues/16263" target="_blank">#16263</a> · <a href="https://github.com/langchain-ai/langchain/issues/30608" target="_blank">#30608</a>...）——iteration limit / 提前终止 / 重复 tool call / 无法 pause/checkpoint 等。<em>用户从内部抱怨 Agent 不可控，外部又被 AutoGen / CrewAI 抢走</em>，三重压力同时合流。</li>
+  </ul>
+
+  <h4>LangChain 团队的设计回应</h4>
+  <ul>
+    <li><b>产出</b>：LangChain 把 agent 问题从"<em>一个 AgentExecutor</em>" 升级到"<em>可自定义 agent runtime</em>"。这是设计观念的根本转变。</li>
+    <li><b>版本</b>：2024-01-08 <code>langchain v0.1.0</code> 同时官宣 langgraph；2024-01-17 <em>LangGraph 发布博客</em> 明确点名 DAG 局限，提出 cyclical graph + state schema。</li>
+    <li>关键引证：<em>"We've added a lot of parameters and functionality to AgentExecutor, but it's still just one way of running a loop."</em>（v0.1.0 博客原话——LangChain 官方<em>首次承认 AgentExecutor 只是"一种循环"</em>；正式退役要等到 v0.2 推荐迁移和 2025-10 v1 deprecation）</li>
+  </ul>
+
+  <h4>核心抽象 + 工程价值</h4>
+  <p><em>Agent Runtime</em> 概念正式诞生：<em>agent 控制流可编排，而不是被框架硬塞一种循环</em>。从"<em>用预制循环</em>" 转向"<em>用户显式描述运行时</em>"。</p>
+
+  <h4>没解决的问题 → 起爆点</h4>
+  <p>竞品压力证明：<em>用户要的不是更多 Chain，而是可理解、可改写的 agent 执行模型</em>。这直接把 LangGraph 推到台前——进入<em>阶段 5 LangGraph 确立期</em>。</p>
+</section>
+
+<hr class="sec-divider">
+
+<!-- ============ 阶段 5 ============ -->
+<section id="s5">
+  <h2 class="sec"><span class="n">7</span>阶段 5 · LangGraph 确立期 · 显式状态图接管 Agent · 2024-01~2024-05</h2>
+
+  <figure class="figure" style="margin:20px 0">
+    <img src="images/lc-fig-5.png" alt="图 7 · 阶段 5 · LangGraph 确立期对照图。上半 AgentExecutor 时代（黑盒里看不清的循环 + 一堆 try-handle 参数）vs 下半 LangGraph 时代（StateGraph 显式画图 + chec" style="width:100%; max-width:100%; height:auto; border-radius:6px" />
+    <figcaption style="margin-top:10px; font-size:13.5px; color:var(--text-muted); line-height:1.65; font-style:italic">图 7 · <b>阶段 5 · LangGraph 确立期对照图</b>。上半 AgentExecutor 时代（黑盒里看不清的循环 + 一堆 try-handle 参数）vs 下半 LangGraph 时代（StateGraph 显式画图 + checkpoint + interrupt 一等公民）—— 控制流从「框架内隐藏」升级为「用户显式描述」。</figcaption>
+  </figure>
+
+  <h4>社区压力</h4>
+  <ul>
+    <li>AutoGen / CrewAI 多 agent 热点已立；LangChain 必须给"<em>循环 / 分支 / 状态 / 协作</em>" 一个开源回答。</li>
+    <li>旧 AgentExecutor 被官方承认<em>只是一种 loop</em>，<em>承载不了审批 / 强制工具 / 条件路由 / 恢复</em>。<a href="https://github.com/langchain-ai/langgraph/issues/265" target="_blank">langgraph #265 issue</a> 用户 day 1 就要求 polyfill AgentExecutor——说明 LangGraph 一开始就被定位为<em>替换者</em>。</li>
+  </ul>
+
+  <h4>LangChain 团队的设计回应</h4>
+  <p><b>产出</b>：<em>LangGraph</em>——把 Agent 的"循环 + 状态 + 分支 + 人审 + 恢复" 抽成<em>用户显式描述的图</em>，而不是 AgentExecutor 那种"<em>把控制流硬编码在框架内部</em>"。<b>版本</b>：2024-01-17 LangGraph 发布博客 · 2024-05-10 langchain v0.2 把 LangGraph 写成 "<em>the recommended way to build agents</em>"。</p>
+  <p><b>LangGraph 5 个一等公民</b>（每个零件都用最朴素的中文讲清"是什么 + 何时用"）：</p>
+  <table class="tab bordered">
+    <thead><tr><th style="width:20%">零件</th><th style="width:40%">中文一句话</th><th style="width:40%">解决 AgentExecutor 的什么死结</th></tr></thead>
+    <tbody>
+      <tr><td><code>StateGraph</code></td><td><b>带状态的循环图</b>：你用 <code>add_node</code>（加节点）+ <code>add_edge</code>（加边）+ <code>add_conditional_edges</code>（加条件边）描述图，节点是函数，边是路由，整张图共享一个 State 数据结构（用 Python <code>TypedDict</code> 定义）</td><td>控制流"<em>从框架内隐藏</em>" 升级为"<em>用户显式描述</em>"。想加一步就加节点，想换分支就改条件边</td></tr>
+      <tr><td><code>CompiledStateGraph</code></td><td><b>编译后的图</b>：<code>graph.compile(...)</code> 把上面描述好的图编译成可执行对象，自己也是 Runnable（即 LCEL 接口都能用：<code>.invoke / .stream / .batch</code>）</td><td>让 StateGraph 跟 LCEL 生态无缝接——一个 LangGraph app 可以作为 LCEL 管道里的一节</td></tr>
+      <tr><td><code>Channel</code></td><td><b>节点之间的通信通道</b>：多个节点都写同一个 State 字段时，Channel 决定怎么合并（reducer 函数说了算——比如"<em>追加到 list</em>"、"<em>取最大值</em>"、"<em>留最后一个</em>"）</td><td>多 agent 并行写状态时的<em>合并语义</em>是清晰的、可控的——不会两个 agent 互相覆盖</td></tr>
+      <tr><td><code>Checkpointer</code></td><td><b>断点恢复</b>：每跑一步自动把 State 存到 SQLite / Postgres / Redis；挂了能从最近一步继续，不用从头再来。还能做"时间旅行"——读历史 State 改一改再 resume</td><td>解决"<em>跑长任务挂了就丢全部进度</em>" 的痛——AgentExecutor 时代必须在外面套 Temporal 这类 workflow 引擎才能做</td></tr>
+      <tr><td><code>interrupt()</code></td><td><b>人审挂起</b>：在节点里调 <code>interrupt({"need": "..."})</code>，整个图<em>立刻写盘 + 退出</em>，控制权交回外部。外部喂回人审决策后从断点继续</td><td>HITL（人在回路）一等公民。AgentExecutor 时代要等"人审通过" 只能轮询数据库，没有原生暂停语义</td></tr>
+    </tbody>
+  </table>
+  <p><b>Pregel 血统</b>（官方亲口承认）：<em>"LangGraph is inspired by Pregel and Apache Beam."</em>。Pregel 是 Google 2010 年图计算论文，<span class="g" tabindex="0" onclick="this.classList.toggle('o')">BSP<span class="gb"><em>BSP</em>（Bulk Synchronous Parallel）= 1990 年 Leslie Valiant 提出的并行计算模型。把计算切成 <em>superstep</em>，每步内部所有 worker 并行算，步与步之间有<em>同步屏障</em>（barrier）。Google Pregel 把 BSP 用于图计算，LangGraph 把同样的思路用于 Agent 循环——每个 superstep 内部所有 ready 节点并行跑，结束时统一更新 State，可以 checkpoint。</span></span> 模型把"<em>循环</em>" 切成 superstep，每步可持久化、可中断、可恢复——<em>正好是 Agent 循环需要的</em>。<code>CompiledStateGraph</code> 在源码里直接继承 <code>Pregel</code> 类（<code>libs/langgraph/langgraph/pregel/main.py:448</code>）。</p>
+
+  <h4>核心抽象 + 工程价值</h4>
+  <p><code>StateGraph</code>：<em>带状态的循环图</em>。工程价值：<em>让 Agent 控制流显式可控 + 可中断 + 可恢复</em>。</p>
+  <p><b>同一个"先 plan，再 act，高风险走人审" 的需求，AgentExecutor 时代 vs LangGraph 时代怎么写</b>：</p>
+  <table class="tab bordered">
+    <thead><tr><th style="width:50%; color:var(--secondary)">❌ AgentExecutor 时代（2023）</th><th style="width:50%; color:var(--primary)">✅ LangGraph 时代（2024+）</th></tr></thead>
+    <tbody>
+      <tr><td style="vertical-align:top"><pre class="code" style="margin:0">from langchain.agents import (
+    AgentExecutor, create_react_agent
+)
+
+agent = create_react_agent(llm, tools, prompt)
+executor = AgentExecutor(
+    agent=agent,
+    tools=tools,
+    max_iterations=10,        # 硬编码循环次数上限
+    early_stopping_method="force",
+    handle_parsing_errors=True,
+    # ❌ 想插人审？没有原生位置
+    # ❌ 想挂了恢复？没有 checkpoint
+    # ❌ 想加分支？要继承 AgentExecutor
+)
+
+executor.invoke({"input": "..."})
+# 跑挂了 → 从头再来
+# 跑到高风险动作 → 没办法暂停等人</pre></td>
+        <td style="vertical-align:top"><pre class="code" style="margin:0">from langgraph.graph import StateGraph, END
+from langgraph.checkpoint.sqlite import SqliteSaver
+
+# 1. 显式描述图（节点 + 边 + 条件路由）
+g = StateGraph(MyState)             # State 是 TypedDict
+g.add_node("plan",   plan_fn)        # 节点 = 函数
+g.add_node("act",    act_fn)
+g.add_node("review", lambda s:       # 高风险节点 = 喊停等人
+    interrupt({"need": "human approval"}))
+
+g.add_conditional_edges(             # 条件分支：
+    "plan", route_fn,                #   plan 完了判断风险
+    {"safe": "act", "risky": "review"})
+g.add_edge("review", "act")          # 人审过了继续 act
+g.add_edge("act",    "plan")         # act 完回到 plan（循环！）
+
+# 2. 编译，挂 checkpointer
+app = g.compile(checkpointer=SqliteSaver(...))
+
+# 3. 跑（自动断点续跑、自动人审挂起）
+app.invoke({"goal": "..."},
+           config={"thread_id": "case-123"})</pre></td></tr>
+      <tr><td style="vertical-align:top"><b>问题</b>：<br>· 控制流写死在 AgentExecutor 内部，<em>用户只能调参数不能改流程</em><br>· 高风险动作没办法停下来等人——只能跑完再 review<br>· 跑挂了无 checkpoint，必须从头开始<br>· 分支只能靠 prompt 让 LLM 自己想，框架层没有 if-else<br>· 多 agent 协作？AgentExecutor 只跑一个 agent，多个要自己写胶水<br>· Harrison 原话："<em>just one way of running a loop</em>"</td>
+        <td style="vertical-align:top"><b>升级了什么</b>：<br>· 控制流<em>用户显式画图</em>——加节点 / 改条件边 / 加循环 / 嵌子图，都是改图不是改框架<br>· <code>interrupt()</code> 一行让图停在任意节点等外部喂决策回来<br>· <code>Checkpointer</code> 自动持久化每一步 State，挂了 resume 就行<br>· <code>add_conditional_edges</code> 是<em>框架级 if-else</em>，不靠 LLM<br>· 多 agent 就是多节点，节点之间用 Channel 通信，框架原生支持<br>· <em>每步 State 落盘 → 天然可观测、可调试、可回放</em></td></tr>
+    </tbody>
+  </table>
+
+  <details class="expand"><summary>展开看：上面那个 LangGraph 5 行代码到底跑出什么样的执行流？—— 一步步跟 superstep</summary><div class="body">
+    <p>给一个输入 <code>{"goal": "封禁某用户"}</code>，跟着 LangGraph 内部执行：</p>
+    <table class="tab bordered">
+      <thead><tr><th style="width:12%">superstep</th><th style="width:35%">框架做什么</th><th style="width:53%">State 演化（每步结束写 checkpoint）</th></tr></thead>
+      <tbody>
+        <tr><td><b>0</b></td><td>入口 → 调 <code>plan_fn</code></td><td><code>{goal: "封禁某用户", plan: null}</code> → plan_fn 加字段 → <code>{goal: ..., plan: ["check_history", "ban_user"]}</code></td></tr>
+        <tr><td><b>1</b></td><td>跑 <code>route_fn</code>：判断 plan 风险 → 返回 "risky"</td><td>State 不变，但<em>下一步路由确定走 "review"</em></td></tr>
+        <tr><td><b>2</b></td><td>跑 <code>review</code> 节点 → 调 <code>interrupt(...)</code></td><td>State 写盘 + <em>整张图退出</em>。返回给调用方一个"等人审" 信号</td></tr>
+        <tr><td>—</td><td colspan="2"><em>程序退出。等几分钟后，外部审核员通过工单系统点了"批准"，调用方喂回去：</em></td></tr>
+        <tr><td><b>3</b></td><td><code>app.invoke(Command(resume="approved"))</code> → 从 review 节点继续，按 <code>g.add_edge("review", "act")</code> 走到 act</td><td>State 加上 <code>review_decision: "approved"</code></td></tr>
+        <tr><td><b>4</b></td><td>跑 <code>act_fn</code>：执行封禁动作</td><td><code>{..., act_result: {success: true, ts: ...}}</code></td></tr>
+        <tr><td><b>5</b></td><td>按 <code>g.add_edge("act", "plan")</code> 回到 plan</td><td>plan_fn 看 State 发现任务完成 → return END</td></tr>
+        <tr><td><b>END</b></td><td>图退出，返回最终 State</td><td>完整 State 永久保留在 checkpoint 表里，可任意时刻回放</td></tr>
+      </tbody>
+    </table>
+    <p><b>注意三件 AgentExecutor 做不到的</b>：① superstep 2 退出后<em>整个程序可以关</em>（不是阻塞等人），断电也没事 ② superstep 3 不需要从头跑 plan/route，<em>从断点 review 直接继续</em> ③ superstep 5 的"循环回到 plan" 是框架原生支持，AgentExecutor 时代你得在外面写 while。</p>
+  </div></details>
+
+  <details class="expand"><summary>展开看：为啥 LangChain 团队偏偏选了 Google Pregel 这个 2010 年的图计算模型？—— BSP / superstep / checkpoint 凭什么是 Agent 循环的"自然形状"</summary><div class="body">
+    <p>Pregel 是 Google 2010 年发的图计算论文。Google 当年用它跑全网爬虫图、社交图——把图算法切成"<em>多个 superstep</em>"，每步内部所有节点并行算，步与步之间统一同步一次 State。这个模型叫 <b>BSP（Bulk Synchronous Parallel）</b>，1990 年由 Leslie Valiant 提出。</p>
+    <h4 style="color:var(--primary)">为什么这个模型刚好适合 Agent</h4>
+    <table class="tab bordered">
+      <thead><tr><th style="width:35%">BSP / Pregel 的特性</th><th style="width:65%">Agent 循环正好需要的</th></tr></thead>
+      <tbody>
+        <tr><td>每步切成 superstep</td><td>Agent 的 reason → act → observe 就是天然的 superstep 切分</td></tr>
+        <tr><td>步与步之间有同步屏障</td><td>每步结束<em>统一更新 State 一次</em>，多个 agent 并行写不会互相覆盖</td></tr>
+        <tr><td>每步结束可 checkpoint</td><td>Agent 跑挂了能从最近一步恢复，不用从头</td></tr>
+        <tr><td>步与步之间可中断</td><td>HITL 想暂停就在步之间停，框架天然支持</td></tr>
+        <tr><td>消息传递（vertex-to-vertex）</td><td>多 agent 之间用 Channel 传消息，不共享内存，并发安全</td></tr>
+      </tbody>
+    </table>
+    <p>—— 简单说，Pregel 模型把"<em>循环 + 状态 + 持久化 + 中断恢复 + 并发</em>" 这 5 件事打成了一个包，而这 5 件事<em>正好是 Agent runtime 的全部需求</em>。LangChain 团队没有自己发明轮子，直接抄了 2010 年的论文。源码里 <code>CompiledStateGraph(Pregel)</code> 这一行继承关系就是证据（<code>libs/langgraph/langgraph/pregel/main.py:448</code>）。</p>
+    <p class="callout ok"><b>启示</b>：做 Agent runtime 不需要发明新理论。<em>把已有的并行计算 / 分布式状态机模型借过来就是了</em>。这是 LangGraph 设计上最聪明的一招——不是创新，是<em>选了一个已经被验证 15 年的模型</em>。</p>
+  </div></details>
+
+  <h4>没解决的问题 → 起爆点</h4>
+  <p>新 runtime 出来了，但<em>旧 LangChain 抽象债没消失</em>——社区仍会把"<em>LangChain 抽象重</em>" 的旧印象投射到新路线上。这种<em>认知滞后</em> 直接催生<em>阶段 6 推荐路径迁移期</em>——Harrison 必须亲自下场反复说"<em>新的不是老的那个</em>"，并把 LangGraph 升为 v0.2 推荐路径。</p>
+</section>
+
+<hr class="sec-divider">
+
+<!-- ============ 阶段 6 ============ -->
+<section id="s6">
+  <h2 class="sec"><span class="n">8</span>阶段 6 · 推荐路径迁移期 · 旧 LangChain 与新 LangGraph 并存 · 2024-05~2024-11</h2>
+
+  <figure class="figure" style="margin:20px 0">
+    <img src="images/lc-fig-6.png" alt="图 8 · 阶段 6 · 推荐路径迁移期双轨图。新旧两条路并行（v0.2 推荐 LangGraph vs AgentExecutor 维护态）+ prebuilt 迁移桥；右侧 Octomind HN 480 分热帖反向证明旧抽象债没消失。" style="width:100%; max-width:100%; height:auto; border-radius:6px" />
+    <figcaption style="margin-top:10px; font-size:13.5px; color:var(--text-muted); line-height:1.65; font-style:italic">图 8 · <b>阶段 6 · 推荐路径迁移期双轨图</b>。新旧两条路并行（v0.2 推荐 LangGraph vs AgentExecutor 维护态）+ prebuilt 迁移桥；右侧 Octomind HN 480 分热帖反向证明旧抽象债没消失。</figcaption>
+  </figure>
+
+  <h4>社区压力</h4>
+  <ul>
+    <li><b>Octomind 480 分热帖（2024-06-20，HN id=40739982）</b>《<em>Why we no longer use LangChain for building our AI agents</em>》：297 评论，<em>反向证明旧 LangChain 抽象债没消失</em>。原话："<em>Most LLM applications require nothing more than string handling, API calls, loops</em>" + "<em>death by abstraction</em>"。Harrison Chase 亲自下场承认 "<em>moving toward lower-level abstractions via LangGraph</em>"。</li>
+    <li>同期 LangGraph 逐步起量：累计 PyPI 下载向 323M 走、stars 向 32.8k 走，<em>新路线开始被真实采用</em>，但社区批评<em>仍指向老品牌</em>。</li>
+    <li>v0.2 把 <code>langchain</code> 与 <span class="g" tabindex="0" onclick="this.classList.toggle('o')"><code>langchain-community</code><span class="gb"><em>langchain-community</em> = 第三方集成（500+ LLM provider / vectorstore / document loader / tool）的集中仓库。v0.2 把它从 langchain 主包拆出来，主因之一是降 CVE 面（社区集成代码质量参差，<em>主包被牵连出 CVE 是个痛点</em>）。</span></span> 解耦的<em>重要工程理由之一</em>是降低 <span class="g" tabindex="0" onclick="this.classList.toggle('o')">CVE<span class="gb"><em>CVE</em>（Common Vulnerabilities and Exposures）= 公开记录的安全漏洞编号系统。开源项目被分配 CVE 编号意味着安全圈正式标记了问题，企业用户的安全团队会扫到并要求升级。LangChain 早期因为 community 集成代码质量参差，<em>主包跟着被打多个 CVE</em>，这是 v0.2 拆 community 的硬动机之一。</span></span> 面（"<em>occasionally vulnerable to CVEs</em>"），同时配套稳定性承诺 + <span class="g" tabindex="0" onclick="this.classList.toggle('o')">SemVer<span class="gb"><em>SemVer</em>（Semantic Versioning）= 语义化版本号规范：MAJOR.MINOR.PATCH，MAJOR 升级才允许 breaking change。LangChain 在 0.x 阶段经常 minor 版就有 breaking change，被批评 "<em>不敢上生产</em>"；v0.2 起承诺遵守 SemVer，是迈向企业级稳定承诺的关键。</span></span> + 集成解耦（<a href="https://blog.langchain.com/langchain-v02-leap-to-stability/" target="_blank">v0.2 博客</a>）。</li>
+  </ul>
+
+  <h4>LangChain 团队的设计回应</h4>
+  <ul>
+    <li><b>产出</b>：<span class="g" tabindex="0" onclick="this.classList.toggle('o')"><code>prebuilt</code><span class="gb"><em>prebuilt</em> = LangGraph 提供的开箱即用 Agent 模板包（<code>langgraph.prebuilt</code> 子模块）。最知名的是 <code>create_react_agent</code>——一行调用就起一个 ReAct loop。<em>给 0.2 时代不想从零写 StateGraph 的用户一个迁移缓冲</em>，让旧 AgentExecutor 用户能直接迁过来。</span></span> LangGraph agent · <code>create_react_agent</code>（旧 <span class="g" tabindex="0" onclick="this.classList.toggle('o')">ReAct<span class="gb"><em>ReAct</em> = 2022-10 Yao et al. 的论文 (arXiv:2210.03629)，提出 LLM 用 "Reasoning + Acting 交替" 完成任务的范式：模型先输出 Thought（思考）→ Action（调工具）→ Observation（看结果）→ 再 Thought… 直到给出 Final Answer。LangChain 早期的 Agent 默认就是 ReAct 实现，所以叫 <code>create_react_agent</code>。</span></span> 体验直接在新 runtime 上跑）· LangGraph docs / academy / studio 路线</li>
+    <li><b>版本</b>：2024-05 langchain v0.2 官方把 AgentExecutor 推向维护态，推荐 LangGraph；docs PR <a href="https://github.com/langchain-ai/langchain/issues/29277" target="_blank">#29277</a> "Replace initialize_agent with langgraph.prebuilt.create_react_agent" 是这个过渡的痕迹。</li>
+    <li>2024-09-16 v0.3 强制 Pydantic 2，<em>清理旧依赖</em>，为 1.0 铺路</li>
+  </ul>
+
+  <h4>核心抽象 + 工程价值</h4>
+  <p><code>prebuilt agent</code>：<em>旧体验跑在新 runtime 上</em>，工程价值：<em>迁移不必从零写图</em>，给社区一个缓冲坡。</p>
+
+  <h4>没解决的问题 → 起爆点</h4>
+  <p>Runtime 解决"<em>怎么跑</em>"，但生产还要回答"<em>怎么观测 / 评估 / 部署 / 回放</em>"。<em>LangServe 的轻量部署模型开始显得不够</em>——同期 LangSmith 观测需求高速增长，<em>但观测工具不能替代部署 / 调度 / <span class="g" tabindex="0" onclick="this.classList.toggle('o')">HITL<span class="gb"><em>HITL</em>（Human-in-the-Loop）= 人在回路。Agent 在高风险动作（封号、转账、公开发言）前停下来等人审，人确认后再继续。LangGraph 的 <code>interrupt()</code> + Checkpointer 是这一模式的标准实现。风控场景"先 Agent 自动定级 → 高风险走人工二审" 就是典型 HITL。</span></span> 平台能力</em>，直接进入<em>阶段 7 平台化取舍期</em>。</p>
+</section>
+
+<hr class="sec-divider">
+
+<!-- ============ 阶段 7 ============ -->
+<section id="s7">
+  <h2 class="sec"><span class="n">9</span>阶段 7 · 平台化取舍期 · LangServe 退场，LangSmith / Platform 上位 · 2024-11~2025-10</h2>
+
+  <figure class="figure" style="margin:20px 0">
+    <img src="images/lc-fig-7.png" alt="图 9 · 阶段 7 · 平台化取舍期三栏图。左栏 LangServe 边缘化（墓碑 + 2.3k vs 138k stars 柱状对比）+ 中栏需求转向治理面（Trace/Eval/Dataset/HITL 四件套）+ 右栏 LangSm" style="width:100%; max-width:100%; height:auto; border-radius:6px" />
+    <figcaption style="margin-top:10px; font-size:13.5px; color:var(--text-muted); line-height:1.65; font-style:italic">图 9 · <b>阶段 7 · 平台化取舍期三栏图</b>。左栏 LangServe 边缘化（墓碑 + 2.3k vs 138k stars 柱状对比）+ 中栏需求转向治理面（Trace/Eval/Dataset/HITL 四件套）+ 右栏 LangSmith 用户曲线（70k→80k→250k+，1B traces，12× YoY）。</figcaption>
+  </figure>
+
+  <h4>社区压力</h4>
+  <ul>
+    <li><b>LangServe 边缘化</b>：stars 仅 <b>2.3k</b>，对比 langchain 138k、langgraph 32.8k——<em>差几十倍</em>，已经是"<em>边缘资产</em>"，不是热门组件被砍。</li>
+    <li><b>LangSmith 用户数指数增长</b>：<em>70k beta（2023-07）→ 80k GA（2024-02）→ 250k+（2025-02）</em>；累计 1B traces；2025-10 Series B 披露 <em>monthly trace volume 12× YoY</em>。说明生产痛点已转向<em>观测 + 评估 + dataset + monitor</em>。</li>
+    <li><b>AutoGen v0.4 同期重写</b>（2025-01-14）event-driven 架构——微软自己也承认旧架构有 observability / scale 问题，<em>与 LangChain 平行回应同一类压力</em>。</li>
+  </ul>
+
+  <h4>LangChain 团队的设计回应</h4>
+  <ul>
+    <li><b>产出</b>：① <em><span class="g" tabindex="0" onclick="this.classList.toggle('o')">LangServe<span class="gb"><em>LangServe</em> = 2023 年发布的工具，把 LangChain Runnable 自动包装成 FastAPI 服务（带 OpenAPI 文档、流式响应、Playground UI）。<em>2024-11-18 标 deprecated</em>，2026-05 仓库 archived。原因：① 部署不止是"包 FastAPI"，还要调度 / cron / HITL / 持久化，LangServe 太薄 ② LangGraph Platform 商业化后承接了完整需求 ③ stars 仅 2.3k vs langchain 138k，社区从未真正采纳。</span></span> deprecated</em>（2024-11-18 公告，2026-05-05 仓库 archived）② <span class="g" tabindex="0" onclick="this.classList.toggle('o')">LangSmith<span class="gb"><em>LangSmith</em> = LangChain Inc 的<em>商业</em>观测平台：trace（run tree）+ dataset（黄金集）+ evaluation（LLM-as-judge + 人工标注）+ prompt versioning + experiment comparison。SDK（<code>langsmith</code>）MIT 开源；server / Self-hosted / Platform 闭源付费。商业化现金牛——250k+ 用户、1B+ traces。</span></span> 强化 trace / eval / dataset / monitor / prompt versioning ③ <em><span class="g" tabindex="0" onclick="this.classList.toggle('o')">LangGraph Platform<span class="gb"><em>LangGraph Platform</em> = LangChain Inc 2024-11 推出的商业部署平台。提供 durable execution（图状态持久化）+ scheduling（定时触发）+ cron + webhook + HITL UI + background task。<em>承接了 LangServe 留下的部署空白</em>，且把 HITL 做成产品级能力。闭源付费，对应 Self-hosted Enterprise 套餐。</span></span></em> 商业化（durable execution + scheduling + cron + webhook + HITL + background task）</li>
+    <li><b>版本</b>：2024-11-18 LangServe deprecation 公告；后续 LangGraph Platform 正式上线</li>
+    <li>关键引证：<a href="https://github.com/langchain-ai/langserve/issues/791" target="_blank">langserve issue #791</a> "Recommending LangGraph Platform for new projects"</li>
+  </ul>
+
+  <h4>核心抽象 + 工程价值</h4>
+  <p><em>Trace / Eval / Platform 三件套</em>：让 agent 上线后<em>能被治理</em>。工程价值：<em>把"开发 agent" 和"运行 agent" 拆成两个产品</em>——开源 runtime（LangGraph）+ 商业平台（LangSmith / Platform）。</p>
+
+  <h4>没解决的问题 → 起爆点</h4>
+  <p>开源 runtime 和商业平台边界清楚了，但<em>生态心智仍分裂</em>：LangChain / LangGraph / LangSmith / Platform 谁是主角？企业采购需要一个<em>稳定品牌承诺</em>——直接催生<em>阶段 8 1.0 收敛期</em>。</p>
+</section>
+
+<hr class="sec-divider">
+
+<!-- ============ 阶段 8 ============ -->
+<section id="s8">
+  <h2 class="sec"><span class="n">10</span>阶段 8 · 1.0 收敛期 · LangChain 变薄，LangGraph 成为底座 · 2025-10~至今</h2>
+
+  <figure class="figure" style="margin:20px 0">
+    <img src="images/lc-fig-8.png" alt="图 10 · 阶段 8 · 1.0 收敛期三层架构图。LangChain v1 主包（薄） + LangGraph Runtime（厚 · 占 60%+ 下载） + LangSmith 旁支 + langchain-classic 归档底层" style="width:100%; max-width:100%; height:auto; border-radius:6px" />
+    <figcaption style="margin-top:10px; font-size:13.5px; color:var(--text-muted); line-height:1.65; font-style:italic">图 10 · <b>阶段 8 · 1.0 收敛期三层架构图</b>。LangChain v1 主包（薄） + LangGraph Runtime（厚 · 占 60%+ 下载） + LangSmith 旁支 + langchain-classic 归档底层。右上角 B 轮独角兽印章。</figcaption>
+  </figure>
+
+  <h4>社区压力</h4>
+  <ul>
+    <li><b>Series B $125M @ $1.25B 估值（2025-10-20）</b>，独角兽身份——商业上必须给企业<em>稳定架构承诺</em>，不能继续 0.x 频繁 breaking change。</li>
+    <li><b>LangGraph v1.x 发布 7 个月内占 langgraph 下载 60%+</b>（pepy 实测，2026-05-24）——说明用户确实在迁移到新范式，范式切换不是口号。</li>
+    <li>Harrison Chase 三周年反省（2025-10-20，<a href="https://www.langchain.com/blog/three-years-langchain" target="_blank">官方博客</a>）："<em>we traded power for ease of use</em>" ... "<em>the same high-level interfaces ... were now getting in the way when people tried to customize them to go to production</em>" —— <em>是最重的一段</em>，承认老 LangChain "<em>用易用性换了表达力</em>"，生产场景下反而挡路。</li>
+  </ul>
+
+  <h4>LangChain 团队的设计回应</h4>
+  <ul>
+    <li><b>产出</b>：① <em>LangChain 1.0 + LangGraph 1.0 GA</em>（2025-10-22）② <code>create_agent()</code> 成为<em>新的推荐高层入口</em>（supersede 旧 AgentExecutor；<code>create_react_agent</code> 仍作为 prebuilt 兼容路径保留），底层完全跑在 LangGraph 上（<code>langchain/agents/factory.py</code> 直接 <code>import langgraph</code>）③ 旧 Chain / AgentExecutor / memory / vectorstores 全部迁入 <code>langchain-classic</code> 隔离归档 ④ 主包瘦身到只剩 6 个模块</li>
+    <li><b>版本</b>：2025-10-22 双 GA；同期 changelog 明确写 "<em>The older ways of defining agents — through Agent and AgentExecutor — are officially deprecated.</em>"</li>
+  </ul>
+
+  <h4>核心抽象 + 工程价值</h4>
+  <p><code>create_agent</code>：<em>薄入口 + 图 runtime</em>。工程价值：<em>默认把 agent 跑在可靠运行时上</em>，用户不需要先理解 StateGraph 也能起步。</p>
+
+  <h4>没解决的问题 → 起爆点</h4>
+  <p>LangChain 已从"<em>大而全框架</em>" 收敛为<em>入口和协议层</em>；下一轮问题会变成：<em>开源 runtime / 商业平台 / 用户自建治理系统</em> 之间如何分工？多 Agent 真生产部署的边界在哪？这是<em>第 12 章对未来的判断</em>。</p>
+</section>
+
+<hr class="sec-divider">
+
+<!-- ============ 演进规律 ============ -->
+<section id="rule">
+  <h2 class="sec"><span class="n">11</span>演进规律 · 三条主线</h2>
+
+  <figure class="figure" style="margin:20px 0">
+    <img src="images/lc-fig-9.png" alt="图 11 · 三条演进规律。规律 1 预制组件→用户描述协议（淡蓝） · 规律 2 线性 DAG→状态机 runtime（淡黄） · 规律 3 开发框架→运行平台（淡绿）—— 任何想做生产级 Agent Runtime 的团队都会撞上同样的" style="width:100%; max-width:100%; height:auto; border-radius:6px" />
+    <figcaption style="margin-top:10px; font-size:13.5px; color:var(--text-muted); line-height:1.65; font-style:italic">图 11 · <b>三条演进规律</b>。规律 1 预制组件→用户描述协议（淡蓝） · 规律 2 线性 DAG→状态机 runtime（淡黄） · 规律 3 开发框架→运行平台（淡绿）—— 任何想做生产级 Agent Runtime 的团队都会撞上同样的三条路径。</figcaption>
+  </figure>
+  <div class="tldr"><b>这一章想干什么</b><br>把 8 个阶段的"<em>外部压力 → 内部回应</em>" 循环，抽出 3 条可迁移的规律。这 3 条不是 LangChain 独有的——<em>任何想做生产级 Agent Runtime 的团队都会撞上同样的演进路径</em>。</div>
+
+  <h3 class="sub"><span class="n">11.1</span>规律 1 · 从"<em>预制组件</em>" 到"<em>用户描述协议</em>"</h3>
+  <p>阶段 1-2 LangChain 靠子类化预制 Chain（SequentialChain / LLMChain / ConversationChain）解决"<em>从 0 到 1</em>"，但 Chain 越多越成黑盒。阶段 3 LCEL 用 <code>Runnable + |</code> 把"<em>预制</em>" 翻成"<em>用户描述</em>"——这是<em>所有框架成熟必经的转折</em>。</p>
+  <p class="callout ok"><b>可迁移结论</b>：<em>当你的 Agent 框架里"必须读源码才知道这个组件干啥" 的子类超过 30 个，就该考虑做协议化重构</em>。这条规律不只 LangChain 撞上——Spring 早期 XML 配置爆炸、React class component → hooks，都是同一类演进。</p>
+
+  <h3 class="sub"><span class="n">11.2</span>规律 2 · 从"<em>线性 DAG</em>" 到"<em>状态机 runtime</em>"</h3>
+  <p>阶段 3 LCEL 解决了"<em>串得优雅</em>"，但<em>设计上就是 DAG，画不出 Agent 循环</em>。阶段 4-5 LangGraph 借 Google Pregel 的 BSP 模型，把"<em>循环 + 状态 + 分支 + 中断恢复</em>" 抽成一等公民。</p>
+  <p class="callout ok"><b>可迁移结论</b>：<em>Agent 的本质是循环（think → act → observe → think），任何只支持 DAG 的框架（包括 LCEL / Airflow / Dagster）都不适合做 Agent runtime</em>。如果你在 Java / Go 做 Agent 框架，从第一天就要考虑 state graph + checkpoint + interrupt，不要先做 DAG 再补循环。</p>
+
+  <h3 class="sub"><span class="n">11.3</span>规律 3 · 从"<em>开发框架</em>" 到"<em>运行平台</em>"（开源 runtime + 商业 platform 分层）</h3>
+  <p>阶段 6-7 LangChain 把"<em>开发 agent</em>" 和"<em>运行 agent</em>" 拆开：开源 runtime（LangGraph）解决<em>怎么跑</em>，商业平台（LangSmith / LangGraph Platform）解决<em>怎么观测 / 评估 / 部署 / HITL</em>。LangServe 死、LangSmith 活，是这条规律的<em>选择题</em>——把<em>部署当成 FastAPI 包装</em> 没价值，把<em>部署当成 trace + eval + dataset + 调度</em> 才有商业空间。</p>
+  <p class="callout ok"><b>可迁移结论</b>：<em>Agent 框架的商业化 ≠ "更好的部署工具"，而 = "更好的治理 + 观测 + 评估闭环"</em>。任何想商业化 Agent 框架的团队，把精力放在 trace/eval/dataset/HITL，比放在 deployment 价值大 10×。</p>
+</section>
+
+<hr class="sec-divider">
+
+<!-- ============ 未来判断 ============ -->
+<section id="future">
+  <h2 class="sec"><span class="n">12</span>对 Agent Runtime 未来的判断</h2>
+
+  <figure class="figure" style="margin:20px 0">
+    <img src="images/lc-fig-10.png" alt="图 12 · 对 Agent Runtime 未来的判断。2×2 网格：① 协议层独立（淡蓝） · ② 商业化主战场 = 治理平面（淡黄） · ③ 多 Agent 协作退回状态机化（淡绿） · ④ JVM 端会出现 LangGraph 级替" style="width:100%; max-width:100%; height:auto; border-radius:6px" />
+    <figcaption style="margin-top:10px; font-size:13.5px; color:var(--text-muted); line-height:1.65; font-style:italic">图 12 · <b>对 Agent Runtime 未来的判断</b>。2×2 网格：① 协议层独立（淡蓝） · ② 商业化主战场 = 治理平面（淡黄） · ③ 多 Agent 协作退回状态机化（淡绿） · ④ JVM 端会出现 LangGraph 级替代（淡紫）。</figcaption>
+  </figure>
+  <div class="tldr"><b>这一章想说什么</b><br>把 LangChain 演进规律往前推：未来 12-24 个月，Agent Runtime 会沿什么方向走？给 4 条<em>有数据支撑的预测</em>。</div>
+
+  <h3 class="sub"><span class="n">12.1</span>预测 1 · 协议层会进一步独立，框架层会"瘦身竞争"</h3>
+  <p><em>langchain-core 累计 1.30B 下载</em> 已是事实标准，连 LangChain 的竞品也在依赖它。<em>未来 12-24 个月，Runnable / Tool / Message 等协议更可能被事实标准化、或被多个 runtime 互相兼容</em>（不一定走到 OpenTelemetry 那样的中立治理，但会形成"<em>实际无法绕开</em>" 的局面）。<em>谁能定义协议，谁就赢了一半生态</em>。</p>
+
+  <h3 class="sub"><span class="n">12.2</span>预测 2 · 商业化主战场是"<em>治理平面</em>"，不是 runtime</h3>
+  <p>LangSmith 用户 250k+、1B traces、12× YoY——这是 Agent 商业化的<em>真实需求量级</em>。开源 runtime（LangGraph、AutoGen、LlamaIndex Workflows）会持续免费竞争，<em>真正的赚钱位置是"trace / eval / dataset / HITL / cost monitor"这套治理面</em>。Datadog / New Relic 类公司会被迫进场，反过来 LangSmith 们也会向通用 APM 靠拢。</p>
+
+  <h3 class="sub"><span class="n">12.3</span>预测 3 · "<em>多 Agent 协作</em>" 会从模板化退回到状态机化</h3>
+  <p>CrewAI / supervisor / swarm 这类"<em>角色 + 任务</em>" 模板包<em>单靠模板不足以承载生产 runtime</em>——生产会回到<em>显式状态、持久化、治理</em>，被还原为<em>大状态图 + 子状态图嵌套 + 显式 Channel 通信</em>。"<em>Agent 套 Agent</em>" 的口号会让位给"<em>大 StateGraph 调度小 StateGraph</em>"——这与微服务从早期 Service Mesh 概念退回到<em>显式 RPC + 服务网格控制面</em> 是同一类回归。</p>
+
+  <h3 class="sub"><span class="n">12.4</span>预测 4 · JVM / Java 生态会出现"<em>LangGraph for JVM</em>" 级别替代</h3>
+  <p>LangChain 系虽有 LangChain.js / LangGraph JS，但<em>主叙事与最成熟 runtime 主要集中在 Python</em>；企业生产线（特别是<em>金融 / 风控 / 电商核心</em>）大量是 JVM，核心链路仍需要原生替代。LangGraph4j 已在跑，Spring AI 1.x 也在补 ChatClient + ChatMemory + VectorStore。未来 12-24 个月，<em>JVM 端会出现至少一个能与 LangGraph 对标的 Agent runtime</em>——可能由 Spring AI 团队直接做，也可能是社区项目（如 LangGraph4j 升级）。<em>不会有人在 Java 生产链路里跨语言调 Python 的 LangGraph</em>。</p>
+
+  <p class="callout warn"><b>风险提示</b>：这 4 条预测不是水晶球，是<em>把当前数据曲线外推</em>。如果 OpenAI / Anthropic 推出更激进的<em>原生 Agent API</em>（比 Assistants v2 / Responses API 更深），可能把 runtime 层挤压到极薄——届时 LangChain 的位置可能更像"<em>多模型 + 多协议适配器</em>"，而不是"<em>runtime 提供者</em>"。</p>
+</section>
+
+<hr class="sec-divider">
+
+<!-- ============ 参考来源 ============ -->
+<section id="ref">
+  <h2 class="sec"><span class="n">A</span>参考来源（社区数据 + 官方原话）</h2>
+  <p>本文每个数据点都对应一个可溯源链接。下面按类别组织，全部抓取日期 <b>2026-05-24</b>（除单独标注）。</p>
+
+  <h3 class="sub"><span class="n">A.1</span>PyPI 下载量</h3>
+  <ul class="ref">
+    <li><a href="https://pepy.tech/project/langchain" target="_blank">pepy.tech/project/langchain</a> · <a href="https://pepy.tech/project/langchain-core" target="_blank">langchain-core</a> · <a href="https://pepy.tech/project/langgraph" target="_blank">langgraph</a> · <a href="https://pepy.tech/project/langsmith" target="_blank">langsmith</a></li>
+    <li><a href="https://pypistats.org/packages/langchain" target="_blank">pypistats.org/packages/langchain</a>（按月聚合 JSON：/api/packages/langchain/overall）</li>
+    <li><a href="https://pypistats.org/packages/langchain-community" target="_blank">pypistats.org/packages/langchain-community</a></li>
+  </ul>
+
+  <h3 class="sub"><span class="n">A.2</span>GitHub 仓库 / Stars / Issues</h3>
+  <ul class="ref">
+    <li><a href="https://github.com/langchain-ai/langchain" target="_blank">langchain-ai/langchain</a>（138k stars）· <a href="https://github.com/langchain-ai/langgraph" target="_blank">langgraph</a>（32.8k）· <a href="https://github.com/langchain-ai/langserve" target="_blank">langserve</a>（2.3k · archived 2026-05-05）</li>
+    <li>AgentExecutor 痛点 issue 样本：<a href="https://github.com/langchain-ai/langchain/issues/6025" target="_blank">#6025</a> · <a href="https://github.com/langchain-ai/langchain/issues/13897" target="_blank">#13897</a> · <a href="https://github.com/langchain-ai/langchain/issues/16263" target="_blank">#16263</a> · <a href="https://github.com/langchain-ai/langchain/issues/29277" target="_blank">#29277</a>（官方迁移呼吁）· <a href="https://github.com/langchain-ai/langchain/issues/30608" target="_blank">#30608</a> · <a href="https://github.com/langchain-ai/langchain/issues/31485" target="_blank">#31485</a> · <a href="https://github.com/langchain-ai/langchain/issues/32675" target="_blank">#32675</a> · <a href="https://github.com/langchain-ai/langchain/issues/36139" target="_blank">#36139</a> · <a href="https://github.com/langchain-ai/langchain/issues/36764" target="_blank">#36764</a></li>
+    <li><a href="https://github.com/langchain-ai/langgraph/issues/265" target="_blank">langgraph #265</a>（day 1 要求 polyfill AgentExecutor）· <a href="https://github.com/langchain-ai/langserve/issues/791" target="_blank">langserve #791</a>（官方建议改用 LangGraph Platform）· <a href="https://github.com/langchain-ai/langchainjs/issues/4876" target="_blank">langchainjs #4876</a>（跨语言同病）</li>
+    <li>竞品：<a href="https://github.com/microsoft/autogen" target="_blank">microsoft/autogen</a>（58.3k）· <a href="https://github.com/crewAIInc/crewAI" target="_blank">crewAIInc/crewAI</a>（52.1k）· <a href="https://github.com/run-llama/llama_index" target="_blank">run-llama/llama_index</a>（49.6k）</li>
+  </ul>
+
+  <h3 class="sub"><span class="n">A.3</span>LangChain 官方博客 / changelog</h3>
+  <ul class="ref">
+    <li><a href="https://www.langchain.com/blog/three-years-langchain" target="_blank">三周年总结（2025-10-20）</a> · <a href="https://www.langchain.com/blog/series-b" target="_blank">Series B 公告</a> · <a href="https://www.langchain.com/blog/langsmith-ga" target="_blank">LangSmith GA</a></li>
+    <li><a href="https://www.langchain.com/blog/langchain-expression-language" target="_blank">LCEL 官方博客</a>（5 个旧 Chain 痛点）· <a href="https://www.langchain.com/blog/langgraph" target="_blank">LangGraph 发布博客</a>（"directed acyclic graphs (DAGs)... lacked cycles"）· <a href="https://www.langchain.com/blog/is-langgraph-used-in-production" target="_blank">is-langgraph-used-in-production</a></li>
+    <li><a href="https://blog.langchain.com/langchain-v0-1-0/" target="_blank">v0.1.0 博客</a>（"AgentExecutor is still just one way of running a loop"）· <a href="https://blog.langchain.com/langchain-v02-leap-to-stability/" target="_blank">v0.2 博客</a>（CVE 解耦理由）· <a href="https://blog.langchain.com/announcing-langchain-v0-3/" target="_blank">v0.3 博客</a>（Pydantic 2）· <a href="https://blog.langchain.com/langchain-langgraph-1dot0/" target="_blank">1.0 双 GA 公告</a></li>
+    <li><a href="https://docs.langchain.com/oss/python/migrate/langchain-v1" target="_blank">v1 迁移官方文档</a>（"Agent and AgentExecutor officially deprecated"）· <a href="https://changelog.langchain.com/" target="_blank">changelog</a></li>
+  </ul>
+
+  <h3 class="sub"><span class="n">A.4</span>HackerNews 批评原帖（直接 ID 链接）</h3>
+  <ul class="ref">
+    <li><a href="https://news.ycombinator.com/item?id=36097439" target="_blank">id=36097439</a>（2023-05 "bloated abstraction"）· <a href="https://news.ycombinator.com/item?id=36442231" target="_blank">id=36442231</a>（2023-06 "cruft and abstraction"）· <a href="https://news.ycombinator.com/item?id=36645575" target="_blank">id=36645575</a>（2023-07 "Langchain Is Pointless"）</li>
+    <li><a href="https://news.ycombinator.com/item?id=36647964" target="_blank">id=36647964</a>（2023-07 "chains 'composable' not really"）· <a href="https://news.ycombinator.com/item?id=36648272" target="_blank">id=36648272</a>（2023-07 "abstractions inherently flawed"）· <a href="https://news.ycombinator.com/item?id=36725982" target="_blank">id=36725982</a>（2023-07 "The Problem with LangChain"）</li>
+    <li><a href="https://news.ycombinator.com/item?id=40739982" target="_blank">id=40739982</a>（2024-06-20 Octomind "<em>Why we no longer use LangChain</em>" · <b>480 分 / 297 评论</b> · Harrison 亲自下场）</li>
+    <li>其他批评：<a href="https://shashankguda.medium.com/challenges-criticisms-of-langchain-b26afcef94e7" target="_blank">Shashank Guda Medium</a>（"over-engineered for simple tasks ... fragile for complex ones"）· <a href="https://analyticsindiamag.com/ai-origins-evolution/langchain-is-garbage-software/" target="_blank">AIM "LangChain is garbage software"</a> · <a href="https://x.com/HamelHusain/status/1755406853566247242" target="_blank">Hamel Husain 推文（2024-02-08）</a></li>
+  </ul>
+
+  <h3 class="sub"><span class="n">A.5</span>商业 / 融资</h3>
+  <ul class="ref">
+    <li>Seed $10M（2023-04 Benchmark）· Series A $25M @ $200M（2024-02-15 Sequoia）· Series B $125M @ $1.25B（2025-10-20 IVP）</li>
+    <li><a href="https://fortune.com/2025/10/20/exclusive-early-ai-darling-langchain-is-now-a-unicorn-with-a-fresh-125-million-in-funding/" target="_blank">Fortune Series B 报道</a> · <a href="https://techcrunch.com/2025/10/21/open-source-agentic-startup-langchain-hits-1-25b-valuation/" target="_blank">TechCrunch Series B</a> · <a href="https://research.contrary.com/company/langchain" target="_blank">Contrary Research 公司分析</a> · <a href="https://sacra.com/c/langchain/" target="_blank">Sacra</a> · <a href="https://www.fundz.net/fundings/langchain-funding-round-series-a-d50653" target="_blank">Fundz Series A 记录</a></li>
+  </ul>
+
+  <h3 class="sub"><span class="n">A.6</span>竞品 / 同类对照</h3>
+  <ul class="ref">
+    <li><a href="https://devblogs.microsoft.com/autogen/autogen-reimagined-launching-autogen-0-4/" target="_blank">AutoGen v0.4 发布博客（2025-01-14 event-driven 重写）</a> · <a href="https://www.microsoft.com/en-us/research/blog/autogen-v0-4-reimagining-the-foundation-of-agentic-ai-for-scale-extensibility-and-robustness/" target="_blank">Microsoft Research 同期博客</a> · <a href="https://www.getpanto.ai/blog/crewai-platform-statistics" target="_blank">CrewAI platform statistics</a></li>
+  </ul>
+
+  <h3 class="sub"><span class="n">A.7</span>历史 stars 排行</h3>
+  <ul class="ref">
+    <li><a href="https://www.star-history.com/blog/best-of-2023" target="_blank">star-history best-of-2023</a> · <a href="https://vstorm.co/glossary/langchain-history/" target="_blank">vstorm.co LangChain history</a> · <a href="https://runacap.com/ross-index/q2_2023/" target="_blank">Runa Capital ROSS Index Q2 2023</a> · <a href="https://runacap.com/ross-index/q3-23/" target="_blank">ROSS Q3 2023</a></li>
+  </ul>
+
+  <h3 class="sub"><span class="n">A.8</span>姊妹文档</h3>
+  <ul class="ref">
+    <li><b>《Agent 3 层理念架构》</b> · <a href="agent-3-layer-architecture.html">agent-3-layer-architecture.html</a> · 信息/运行/保证三层 + 12 组件矩阵</li>
+    <li><b>《风控场景迁移落地 + LangChain 生态演进》</b> · <a href="agent-migration-and-langchain.html">agent-migration-and-langchain.html</a> · 风控视角 12 组件 A/B 分类</li>
+    <li><b>《Agent 生态认知地图》</b> · <a href="agent-ecosystem-map.html">agent-ecosystem-map.html</a> · 7 层生态部件栈视角</li>
+  </ul>
+</section>
+
+</div>
+<script>
+(function(){
+  const toc = document.getElementById('toc');
+  const wrap = document.querySelector('.wrap');
+  const toggleBtn = document.getElementById('tocToggle');
+  const tocItems = Array.from(document.querySelectorAll('#toc li[data-target]'));
+  const sections = tocItems.map(li => document.getElementById(li.dataset.target)).filter(Boolean);
+
+  function applyCollapsed(collapsed){
+    toc.classList.toggle('collapsed', collapsed);
+    wrap.classList.toggle('toc-collapsed', collapsed);
+    toggleBtn.setAttribute('aria-expanded', String(!collapsed));
+    toggleBtn.title = collapsed ? '展开目录' : '收起目录';
+  }
+  const stored = localStorage.getItem('tocCollapsed') === '1';
+  applyCollapsed(stored);
+  toggleBtn.addEventListener('click', () => {
+    const now = !toc.classList.contains('collapsed');
+    applyCollapsed(now);
+    localStorage.setItem('tocCollapsed', now ? '1' : '0');
+  });
+
+  if (!sections.length) return;
+
+  function setActive(id){
+    let changed = false;
+    tocItems.forEach(li => {
+      const isActive = li.dataset.target === id;
+      if (isActive !== li.classList.contains('active')) changed = true;
+      li.classList.toggle('active', isActive);
+    });
+    if (changed && !toc.classList.contains('collapsed')){
+      const active = toc.querySelector('li.active');
+      if (active){
+        const r = active.getBoundingClientRect();
+        const tr = toc.getBoundingClientRect();
+        if (r.top < tr.top + 40 || r.bottom > tr.bottom - 40){
+          active.scrollIntoView({block:'center',behavior:'smooth'});
+        }
+      }
+    }
+  }
+
+  let raf = 0;
+  function update(){
+    raf = 0;
+    const marker = window.innerHeight * 0.25;
+    let current = sections[0].id;
+    for (const sec of sections){
+      const r = sec.getBoundingClientRect();
+      if (r.top - marker <= 0) current = sec.id;
+      else break;
+    }
+    setActive(current);
+  }
+  function onScroll(){ if (!raf) raf = requestAnimationFrame(update); }
+  window.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('resize', onScroll);
+  update();
+
+  document.querySelectorAll('#toc a[href^="#"]').forEach(a => {
+    a.addEventListener('click', e => {
+      const id = a.getAttribute('href').slice(1);
+      const t = document.getElementById(id);
+      if (t) { e.preventDefault(); t.scrollIntoView({behavior:'smooth',block:'start'}); history.replaceState(null,'','#'+id); }
+    });
+  });
+})();
+</script>
+</body>
+</html>

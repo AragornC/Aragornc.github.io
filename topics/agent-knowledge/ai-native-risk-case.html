@@ -1,0 +1,1951 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Native 风控 · 业务线实验立项论证（快手语境）</title>
+<style>
+  :root {
+    --bg:#fbfcfd; --paper:#fff; --ink:#0f1820; --ink-2:#26333f;
+    --muted:#5e6b78; --muted-2:#8997a5; --line:#dde4ec;
+    --blue:#0c5d80; --blue-soft:#e6f1f6;
+    --green:#1f6f4f; --green-soft:#e6f3ec;
+    --red:#a3373a; --red-soft:#fbeceb;
+    --amber:#8a5d1f; --amber-soft:#fbf2dc;
+    --code-bg:#f1f4f8;
+    --mono: ui-monospace,"SF Mono",SFMono-Regular,Menlo,Monaco,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth;scroll-padding-top:20px}
+  body{margin:0;color:var(--ink);background:var(--bg);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    line-height:1.72;font-size:15px}
+  .shell{display:grid;grid-template-columns:240px minmax(0,1fr);gap:32px;max-width:1280px;margin:0 auto;padding:32px 32px 96px}
+
+  aside.toc{position:sticky;top:20px;align-self:start;max-height:calc(100vh - 40px);overflow-y:auto;
+    padding:16px;border:1px solid var(--line);border-radius:8px;background:var(--paper);font-size:13px}
+  aside.toc .toc-title{margin:0 0 10px;color:var(--blue);font-size:10.5px;font-weight:850;letter-spacing:0.12em}
+  aside.toc ol{list-style:none;margin:0;padding:0}
+  aside.toc > ol > li{margin:3px 0}
+  aside.toc a{display:block;padding:3px 6px;border-radius:4px;color:var(--ink-2);text-decoration:none}
+  aside.toc a:hover{background:var(--blue-soft);color:var(--blue)}
+  aside.toc .toc-num{display:inline-block;min-width:22px;color:var(--muted-2);font-variant-numeric:tabular-nums;font-weight:700}
+  aside.toc .part-hd{margin-top:8px;color:var(--blue);font-size:11px;font-weight:850;letter-spacing:0.08em;padding:0 6px}
+
+  main{min-width:0}
+  .doc-meta{margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid var(--line)}
+  .doc-meta .eyebrow{display:inline-block;margin-bottom:8px;color:var(--blue);font-size:11px;font-weight:850;letter-spacing:0.1em}
+  .doc-meta h1{margin:0 0 6px;font-size:30px;line-height:1.25;letter-spacing:-0.01em}
+  .doc-meta .subtitle{margin:0;color:var(--ink-2);font-size:15.5px;font-weight:500}
+  .doc-meta .meta-line{margin-top:8px;color:var(--muted);font-size:12.5px}
+
+  section{margin:44px 0 0;scroll-margin-top:20px}
+  section.lead{margin-top:0}
+  h2.sec{display:flex;align-items:baseline;gap:12px;margin:0 0 12px;padding-bottom:10px;border-bottom:2px solid var(--line);
+    font-size:22px;line-height:1.3;letter-spacing:-0.005em}
+  h2.sec .n{color:var(--blue);font-variant-numeric:tabular-nums;font-weight:850;font-size:17px}
+  h3.sub{margin:24px 0 8px;font-size:16.5px}
+  h3.sub .n{color:var(--muted-2);font-variant-numeric:tabular-nums;font-weight:700;margin-right:6px}
+
+  p{margin:8px 0}
+  strong{color:var(--ink)}
+  em{font-style:normal;color:var(--blue);font-weight:600}
+  code{padding:1px 5px;background:var(--code-bg);border-radius:3px;font-family:var(--mono);font-size:0.88em}
+
+  .verdict{margin:14px 0 18px;padding:18px 22px;border-radius:8px;
+    background:linear-gradient(135deg,var(--blue) 0%,#0a4a68 100%);color:white}
+  .verdict .label{display:inline-block;margin-bottom:8px;padding:2px 10px;background:rgba(255,255,255,0.18);
+    border-radius:99px;font-size:11px;font-weight:850;letter-spacing:0.12em}
+  .verdict h2{margin:0 0 4px;font-size:24px;line-height:1.3;color:white}
+  .verdict .sub{margin:6px 0 0;font-size:14px;opacity:0.92;line-height:1.6}
+
+  .tldr{margin:12px 0 16px;padding:11px 14px;border-left:4px solid var(--blue);
+    background:var(--blue-soft);border-radius:0 4px 4px 0;color:var(--ink-2);font-size:14px}
+  .tldr b{color:var(--blue);font-size:11px;letter-spacing:0.1em}
+
+  table.tab{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px}
+  table.tab th, table.tab td{padding:9px 11px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+  table.tab th{background:#eef3f8;color:var(--ink);font-weight:700;font-size:12.5px}
+  table.tab tr:last-child td{border-bottom:0}
+  table.tab.bordered td, table.tab.bordered th{border:1px solid var(--line)}
+  table.tab .em{color:var(--red);font-weight:700}
+  table.tab .ok{color:var(--green);font-weight:700}
+
+  pre.diagram{margin:14px 0;padding:18px;background:#0d141b;color:#c4d0dd;border-radius:6px;
+    overflow-x:auto;font-family:var(--mono);font-size:12.5px;line-height:1.55}
+  pre.diagram .c1{color:#7ec5e6}
+  pre.diagram .c2{color:#86d4a1}
+  pre.diagram .c3{color:#e8c47a}
+  pre.diagram .c4{color:#dd8a90}
+  pre.diagram .cm{color:#7c8a9b;font-style:italic}
+
+  .callout{margin:12px 0;padding:11px 14px;border-radius:0 4px 4px 0;font-size:13.5px}
+  .callout.choice{border-left:4px solid var(--green);background:var(--green-soft);color:var(--ink-2)}
+  .callout.choice b{color:var(--green);font-size:11px;letter-spacing:0.08em}
+  .callout.warn{border-left:4px solid var(--amber);background:var(--amber-soft);color:var(--ink-2)}
+  .callout.warn b{color:var(--amber);font-size:11px;letter-spacing:0.08em}
+  .callout.risk{border-left:4px solid var(--red);background:var(--red-soft);color:var(--ink-2)}
+  .callout.risk b{color:var(--red);font-size:11px;letter-spacing:0.08em}
+
+  details.expand{margin:10px 0;border-left:4px solid var(--muted-2);background:#f5f8fb;border-radius:0 4px 4px 0;overflow:hidden}
+  details.expand summary{list-style:none;cursor:pointer;padding:10px 14px;color:var(--ink-2);font-weight:700;font-size:13.5px;user-select:none}
+  details.expand summary::-webkit-details-marker{display:none}
+  details.expand summary::before{content:"▸";display:inline-block;margin-right:8px;color:var(--blue);font-size:10px;transition:transform 0.15s}
+  details.expand[open] summary::before{transform:rotate(90deg)}
+  details.expand .body{padding:0 14px 12px 32px;color:var(--ink-2);font-size:13.5px;line-height:1.7}
+  details.expand .body p{margin:5px 0}
+  details.expand .body table{margin:6px 0}
+
+  details.qa{margin:10px 0;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+  details.qa summary{list-style:none;cursor:pointer;padding:11px 16px;background:#f5f8fb;font-weight:700;color:var(--ink);font-size:14px;user-select:none}
+  details.qa summary::-webkit-details-marker{display:none}
+  details.qa summary::before{content:"▸";margin-right:8px;color:var(--blue);font-size:10px;display:inline-block;transition:transform 0.15s}
+  details.qa[open] summary::before{transform:rotate(90deg)}
+  details.qa .qa-body{padding:12px 16px}
+  details.qa .qa-q{color:var(--red);font-weight:700;margin:10px 0 4px;font-size:14px}
+  details.qa .qa-a{color:var(--ink-2);margin:4px 0 8px;font-size:13.5px;line-height:1.7}
+  details.qa .qa-meta{margin-top:10px;padding:8px 12px;background:var(--blue-soft);border-radius:4px;color:var(--ink-2);font-size:13px}
+  details.qa .qa-meta b{color:var(--blue)}
+
+  .pillars{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:18px 0}
+  .pillar{padding:16px 18px;border:1px solid var(--line);border-top:4px solid var(--blue);
+    border-radius:6px;background:var(--paper)}
+  .pillar .ord{display:inline-block;margin-bottom:8px;padding:2px 8px;background:var(--blue);color:white;
+    border-radius:99px;font-size:10.5px;font-weight:850;letter-spacing:0.08em}
+  .pillar h3{margin:6px 0 8px;font-size:16px;color:var(--ink)}
+  .pillar .core{font-size:13.5px;color:var(--ink-2);line-height:1.65}
+
+  .conditions{counter-reset:c;margin:14px 0}
+  .condition{counter-increment:c;display:grid;grid-template-columns:32px 1fr;gap:10px;margin:8px 0;
+    padding:11px 14px;border:1px solid var(--line);border-radius:6px;background:var(--paper)}
+  .condition::before{content:counter(c);display:flex;align-items:center;justify-content:center;
+    background:var(--blue);color:white;border-radius:6px;font-weight:850;font-size:13px;font-family:var(--mono)}
+  .condition .title{font-weight:700;color:var(--ink);font-size:14px}
+  .condition .desc{margin-top:3px;color:var(--ink-2);font-size:13px}
+  .condition .owner{margin-top:4px;color:var(--blue);font-size:12px;font-weight:600}
+
+  .red-line{margin-top:40px;padding:16px 20px;border-left:5px solid var(--red);background:var(--red-soft);
+    color:#5a2526;font-weight:700;border-radius:0 6px 6px 0}
+
+  @media (max-width: 900px){
+    .shell{grid-template-columns:1fr;padding:18px}
+    aside.toc{position:static;max-height:none}
+    .pillars{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+
+<aside class="toc">
+  <div class="toc-title">目录 · TOC</div>
+  <ol>
+    <li><a href="#p0"><span class="toc-num">0</span>开篇</a></li>
+    <li class="part-hd">现状与冲突</li>
+    <li><a href="#p1"><span class="toc-num">1</span>现状 (Situation)</a></li>
+    <li><a href="#p2"><span class="toc-num">2</span>冲突 (Complication)</a></li>
+    <li class="part-hd">三个支柱</li>
+    <li><a href="#p3"><span class="toc-num">3</span>三个支柱</a></li>
+    <li class="part-hd">代价与窗口</li>
+    <li><a href="#p4"><span class="toc-num">4</span>不做的代价 (CoI)</a></li>
+    <li><a href="#p5"><span class="toc-num">5</span>窗口期与头部非对称</a></li>
+    <li class="part-hd">新世界与立项</li>
+    <li><a href="#p6"><span class="toc-num">6</span>Before-After</a></li>
+    <li><a href="#p7"><span class="toc-num">7</span>立项 8 条硬条件</a></li>
+    <li class="part-hd">终态架构</li>
+    <li><a href="#p8"><span class="toc-num">8</span>AI Native 终态架构</a>
+      <ol>
+        <li><a href="#p8-1"><span class="toc-num">8.1</span>顶层 framing</a></li>
+        <li><a href="#p8-2"><span class="toc-num">8.2</span>架构图</a></li>
+        <li><a href="#p8-3"><span class="toc-num">8.3</span>4 个结构性差别</a></li>
+        <li><a href="#p8-4"><span class="toc-num">8.4</span>v1→v5 演进</a></li>
+        <li><a href="#p8-5"><span class="toc-num">8.5</span>建设优先级</a></li>
+        <li><a href="#p8-6"><span class="toc-num">8.6</span>数据飞轮 + 自进化</a></li>
+        <li><a href="#p8-7"><span class="toc-num">8.7</span>case 流转对比</a></li>
+        <li><a href="#p8-8"><span class="toc-num">8.8</span>组织变革约束</a></li>
+      </ol>
+    </li>
+    <li class="part-hd">附录</li>
+    <li><a href="#app-a"><span class="toc-num">A</span>快手 COO 推演实录</a></li>
+    <li><a href="#app-b"><span class="toc-num">B</span>反对意见 + 标准回应</a></li>
+    <li><a href="#app-c"><span class="toc-num">C</span>快手 CTO 终态架构推演</a></li>
+    <li><a href="#app-d"><span class="toc-num">D</span>📘 术语速查</a></li>
+  </ol>
+</aside>
+</aside>
+
+<main>
+
+<div class="doc-meta">
+  <span class="eyebrow">AI Native Risk Control · 业务线实验立项</span>
+  <h1>AI Native 风控：批一次业务线实验，不批集团战略项目</h1>
+  <p class="subtitle">¥1500 万 / 6-12 周 / 1 个业务线 shadow，验证 AI 能否在快手风控提升风险控制能力 + 监管解释能力。跑出来，再谈集团级基础设施。</p>
+  <div class="meta-line">面向：CTO / VP Risk Control / 立项委员会 · 公司：快手（DAU 4 亿+） · 配套技术方案见 agent-architecture-design.html</div>
+</div>
+
+<!-- ============ Part 0 顶层断言 ============ -->
+
+<!-- ============ Part 0 开篇（极简） ============ -->
+<section id="p0" class="lead">
+  <div class="verdict">
+    <span class="label">本文档结论</span>
+    <h2>批业务线实验，不批集团战略项目。</h2>
+    <p class="sub">
+      用一个内容安全子场景（营销号 / 低质内容）验证快手能不能<br>
+      把 AI Agent 变成「可审计、可隔离、可控风险」的风控能力。<br>
+      跑出来，再谈集团级基础设施。
+    </p>
+  </div>
+
+  <h3 class="sub" style="margin-top:24px;"><span class="n">0.1</span>立项的核心抽象</h3>
+  <div class="tldr">
+    <b>断言</b><br>
+    风控正在经历一次性质上的范式转移：从「靠人扩张能力」到「靠系统扩张能力」。在快手这种头部公司，这不是效率话题，是<em>对竞品的相对位置 + 对监管的解释能力 + 对黑产的对抗 ROI</em> 三件事的同时位移。
+  </div>
+  <p>本立项的 ask：<b>¥1500 万 / 6-12 周 / 1 个内容安全子场景 shadow 实验</b>。</p>
+
+  <h4 style="margin-top:18px;">立项决策三角 · 认知框架</h4>
+  <p>Part 1-7 不是 7 个孤立判断，是<b>一个"立项三角"的三个支撑角</b>。每个角立得起来 → 三角稳定 → 立项；任一角塌 → 立项垮。</p>
+  <p style="color:var(--muted);font-size:13px;">这是一个 mental model：把"要不要做"压成一个有形状的认知图——三角形稳定 / 不稳定一目了然。可套用任何战略级立项判断。</p>
+
+  <svg viewBox="0 0 920 720" xmlns="http://www.w3.org/2000/svg"
+       style="width:100%;max-width:920px;display:block;margin:14px auto;background:#fbfcfd;border-radius:8px;border:1px solid #dde4ec;
+              font-family:-apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif;">
+    <defs>
+      <linearGradient id="triBg" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stop-color="#fbf2dc" stop-opacity="0.6"/>
+        <stop offset="100%" stop-color="#fbf2dc" stop-opacity="0.2"/>
+      </linearGradient>
+    </defs>
+
+    <!-- 三角形主体 -->
+    <polygon points="460,90 110,600 810,600" fill="url(#triBg)" stroke="#8a5d1f" stroke-width="2.5"/>
+
+    <!-- 三角形内侧标注 -->
+    <text x="460" y="370" text-anchor="middle" font-size="13" font-weight="700" fill="#8a5d1f" letter-spacing="0.04em">三角稳定 = 立项</text>
+    <text x="460" y="392" text-anchor="middle" font-size="11" fill="#5e6b78">任一角塌 = 不立 / 推迟 / 收窄范围</text>
+
+    <!-- 中心立项徽章 -->
+    <circle cx="460" cy="440" r="56" fill="#1f6f4f" opacity="0.95"/>
+    <text x="460" y="436" text-anchor="middle" font-size="14" font-weight="800" fill="white">立项</text>
+    <text x="460" y="456" text-anchor="middle" font-size="11" fill="white">决策</text>
+    <text x="460" y="472" text-anchor="middle" font-size="10" fill="white" opacity="0.9">✓ 三角稳定</text>
+
+    <!-- ① 顶角：必然性 NECESSITY -->
+    <circle cx="460" cy="90" r="10" fill="#8a5d1f"/>
+    <rect x="270" y="14" width="380" height="62" rx="8" fill="#fbf2dc" stroke="#8a5d1f" stroke-width="2"/>
+    <text x="460" y="36" text-anchor="middle" font-size="15" font-weight="800" fill="#8a5d1f">① 必然性 · NECESSITY</text>
+    <text x="460" y="56" text-anchor="middle" font-size="11.5" fill="#26333f">不做会发生不可逆崩坏 + 新方法物理上不同</text>
+    <text x="460" y="71" text-anchor="middle" font-size="10.5" fill="#5e6b78">⤷ Part 1 现状 · Part 2 冲突 · Part 3 三支柱</text>
+
+    <!-- ② 左下角：窗口性 TIMING -->
+    <circle cx="110" cy="600" r="10" fill="#8a5d1f"/>
+    <rect x="20" y="618" width="280" height="76" rx="8" fill="#fbf2dc" stroke="#8a5d1f" stroke-width="2"/>
+    <text x="160" y="642" text-anchor="middle" font-size="15" font-weight="800" fill="#8a5d1f">② 窗口性 · TIMING</text>
+    <text x="160" y="662" text-anchor="middle" font-size="11.5" fill="#26333f">CoI 量化 + 非对称失位</text>
+    <text x="160" y="678" text-anchor="middle" font-size="10.5" fill="#5e6b78">现在做的紧迫性 + 晚 N 个月</text>
+    <text x="160" y="691" text-anchor="middle" font-size="10.5" fill="#5e6b78">⤷ Part 4 CoI · Part 5 窗口</text>
+
+    <!-- ③ 右下角：可控性 CONTAINMENT -->
+    <circle cx="810" cy="600" r="10" fill="#8a5d1f"/>
+    <rect x="620" y="618" width="280" height="76" rx="8" fill="#fbf2dc" stroke="#8a5d1f" stroke-width="2"/>
+    <text x="760" y="642" text-anchor="middle" font-size="15" font-weight="800" fill="#8a5d1f">③ 可控性 · CONTAINMENT</text>
+    <text x="760" y="662" text-anchor="middle" font-size="11.5" fill="#26333f">边界 + Kill Criteria + 责任人</text>
+    <text x="760" y="678" text-anchor="middle" font-size="10.5" fill="#5e6b78">出事兜底 + 可退出</text>
+    <text x="760" y="691" text-anchor="middle" font-size="10.5" fill="#5e6b78">⤷ Part 7 立项硬条件</text>
+
+    <!-- 三个角"塌掉"的后果（斜向标注） -->
+    <text x="690" y="120" font-size="10.5" font-style="italic" fill="#a3373a">↖ 必然性塌：</text>
+    <text x="700" y="135" font-size="10.5" font-style="italic" fill="#a3373a">是周期性问题 / 用旧方法</text>
+
+    <text x="38" y="490" font-size="10.5" font-style="italic" fill="#a3373a">↙ 窗口性塌：</text>
+    <text x="38" y="505" font-size="10.5" font-style="italic" fill="#a3373a">可推迟 / ROI 不清</text>
+
+    <text x="700" y="490" font-size="10.5" font-style="italic" fill="#a3373a">↘ 可控性塌：</text>
+    <text x="700" y="505" font-size="10.5" font-style="italic" fill="#a3373a">风险太大 / 范围漂移</text>
+
+    <!-- 本文档评估 -->
+    <rect x="160" y="510" width="600" height="62" rx="8" fill="#e6f3ec" stroke="#1f6f4f" stroke-width="1.5"/>
+    <text x="460" y="532" text-anchor="middle" font-size="12" font-weight="700" fill="#1f6f4f">本文档三角形评估</text>
+    <text x="460" y="549" text-anchor="middle" font-size="10.5" fill="#26333f">必然性 ✓ (年化 ¥20-50 亿 · open-form 质变)  ·  窗口性 ✓ (4 个非对称失位)  ·  可控性 ✓ (8 条硬条件 + 5 Kill)</text>
+    <text x="460" y="565" text-anchor="middle" font-size="11" font-weight="700" fill="#1f6f4f">⇒ 三角稳定 ⇒ 建议立项</text>
+
+    <!-- Part 6 辅助标注（不在判定里） -->
+    <text x="460" y="700" text-anchor="middle" font-size="10" font-style="italic" fill="#5e6b78">
+      Part 6 Before-After 不在三角判定内 · 是"新世界画面"的辅助强化，不替代三角任一角的论证
+    </text>
+  </svg>
+
+  <p style="color:var(--muted);font-size:13px;margin-top:10px;">
+    <b>认知框架的可复用性</b>：这个"立项三角"是<em style="font-style:normal;color:var(--blue);font-weight:600;">看待立项的形状</em>——必然性是顶角（为什么必须做），窗口性 + 可控性是底角（为什么现在 + 不出事兜底）。三角是"最少能立住的形状"——用三角而不是四边五边，是因为<em style="font-style:normal;color:var(--blue);font-weight:600;">立项判断本质就这三件事</em>，不能少也不必多。<br>套用任何战略级"要不要做 X"判断：站到三角形外面看，三个角都立得起来吗？</p>
+
+  <h3 class="sub"><span class="n">0.2</span>终态架构高度总览</h3>
+  <p>5-8 年后快手风控的终局形态（点 SVG 下方折叠卡片看术语解释）：</p>
+
+  <svg viewBox="0 0 820 540" xmlns="http://www.w3.org/2000/svg"
+       style="width:100%;max-width:820px;display:block;margin:14px auto;background:#fbfcfd;border-radius:8px;border:1px solid #dde4ec;
+              font-family:-apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif;">
+    <defs>
+      <marker id="arrow0" viewBox="0 0 10 10" refX="9" refY="5"
+              markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="#5e6b78"/>
+      </marker>
+    </defs>
+    <rect x="70" y="20" width="680" height="72" rx="8" fill="#e6f1f6" stroke="#0c5d80" stroke-width="2"/>
+    <text x="410" y="48" text-anchor="middle" font-size="15" font-weight="700" fill="#0c5d80">① 独立治理层（人为最终权威 · KPI 与产品互斥）</text>
+    <text x="410" y="74" text-anchor="middle" font-size="12" fill="#26333f">Policy Steward · Trace Auditor · Memory Curator · Incident Commander · 外部审计</text>
+    <line x1="410" y1="92" x2="410" y2="135" stroke="#5e6b78" stroke-width="1.5" marker-end="url(#arrow0)"/>
+    <text x="515" y="118" font-size="11" fill="#5e6b78">设红线 · 签 token · 抽审 · 切档</text>
+    <rect x="70" y="148" width="680" height="82" rx="8" fill="#fbf2dc" stroke="#8a5d1f" stroke-width="2.5"/>
+    <text x="410" y="176" text-anchor="middle" font-size="15" font-weight="700" fill="#8a5d1f">② 控制平面 The Gate（架构承重墙 · 唯一写入口）</text>
+    <text x="410" y="198" text-anchor="middle" font-size="12" fill="#26333f">Action Adapter · Policy-as-Code · Trace / Replay / Audit · Rollback</text>
+    <text x="410" y="218" text-anchor="middle" font-size="11" font-style="italic" fill="#8a5d1f">所有"写到生产"的动作必须经此过门</text>
+    <line x1="410" y1="232" x2="410" y2="272" stroke="#5e6b78" stroke-width="1.5" marker-end="url(#arrow0)"/>
+    <rect x="70" y="285" width="320" height="105" rx="8" fill="#e6f3ec" stroke="#1f6f4f" stroke-width="2"/>
+    <text x="230" y="313" text-anchor="middle" font-size="14" font-weight="700" fill="#1f6f4f">实时机审引擎</text>
+    <text x="230" y="336" text-anchor="middle" font-size="12" fill="#26333f">1500 万 QPS · 规则 + 模型</text>
+    <text x="230" y="357" text-anchor="middle" font-size="11" fill="#5e6b78">毫秒级 · 永远保留</text>
+    <text x="230" y="380" text-anchor="middle" font-size="12" font-weight="700" fill="#a3373a">Agent 不进</text>
+    <rect x="430" y="285" width="320" height="105" rx="8" fill="#e6f3ec" stroke="#1f6f4f" stroke-width="2"/>
+    <text x="590" y="313" text-anchor="middle" font-size="14" font-weight="700" fill="#1f6f4f">Risk Agent Society</text>
+    <text x="590" y="336" text-anchor="middle" font-size="12" fill="#26333f">多域 Agent 群 · 秒-分钟级</text>
+    <text x="590" y="357" text-anchor="middle" font-size="11" fill="#5e6b78">可替换 · 可扩展 · 可下线</text>
+    <text x="590" y="380" text-anchor="middle" font-size="12" font-weight="700" fill="#1f6f4f">数据飞轮 + 自演进</text>
+    <text x="410" y="343" text-anchor="middle" font-size="11" font-weight="700" fill="#a3373a">↔ 物理隔离 ↔</text>
+    <line x1="230" y1="390" x2="230" y2="418" stroke="#5e6b78" stroke-width="1.5"/>
+    <line x1="590" y1="390" x2="590" y2="418" stroke="#5e6b78" stroke-width="1.5"/>
+    <line x1="230" y1="418" x2="590" y2="418" stroke="#5e6b78" stroke-width="1.5"/>
+    <line x1="410" y1="418" x2="410" y2="452" stroke="#5e6b78" stroke-width="1.5" marker-end="url(#arrow0)"/>
+    <rect x="70" y="465" width="680" height="65" rx="8" fill="#e6f3ec" stroke="#1f6f4f" stroke-width="2.5"/>
+    <text x="410" y="492" text-anchor="middle" font-size="14" font-weight="700" fill="#1f6f4f">③ 共享事实底座 URG (Unified Risk Graph)</text>
+    <text x="410" y="514" text-anchor="middle" font-size="11" fill="#26333f">Case · Action · EvidenceRef · TraceRef · Memory · 事件总线 Kafka · 向量库 · 关系库</text>
+  </svg>
+  <p style="font-weight:600;color:var(--blue);margin-top:10px;">
+    一句话：<em>架构主体是 The Gate + URG（控制平面），不是 Agent</em>。Agent 是控制平面上的智能执行单元，可以替换、可以扩展、可以下线。完整推演见 <a href="#p8">Part 8</a>。
+  </p>
+
+  <p style="margin-top:14px;color:var(--muted);font-size:13px;">📘 不熟悉以下术语？点开看：</p>
+
+  <details class="expand">
+    <summary>URG (Unified Risk Graph 统一风险图) 是啥</summary>
+    <div class="body">
+      <p><b>一句话</b>：风控所有事实的<b>统一数据底座</b>。所有人 / Agent / 系统读同一份事实。</p>
+      <p><b>类比</b>：现状像散在不同 Word 文档里的数据——档案中心一份、case 一份、判罚一份；Alice 调查 case 要切 5 个系统拼数据。URG 像把所有文档合并到一个 Notion workspace：所有人编辑同一份，互相能看到。</p>
+      <p><b>MVP 期只 4 个核心实体</b>（CTO 警告"不要一上来全做"）：Case / Action / EvidenceRef / TraceRef。其他实体逐步并入。</p>
+      <p><b>关键约束</b>：Agent 永远不直接写 URG，必须经 Action Adapter 过门。所有写入带元数据（谁 / 何时 / 依据 / trace_id）。事件溯源（append-only）。</p>
+      <p>完整解释见 <a href="#app-d">附录 D 术语速查</a>。</p>
+    </div>
+  </details>
+
+  <details class="expand">
+    <summary>The Gate（控制平面 / 架构承重墙）是啥</summary>
+    <div class="body">
+      <p><b>一句话</b>：所有"写到生产"的动作必须经过的<b>唯一入口</b>，是 AI Native 风控架构的承重墙。</p>
+      <p><b>包含 4 个组件</b>：Action Adapter（唯一写动作入口）+ Policy-as-Code（红线代码化）+ Trace / Replay / Audit（全链路可追溯）+ Rollback（git-style 可回滚）。</p>
+      <p><b>类比</b>：像机场安检——每个想登机（写生产数据）的人必须过同一道门 / 同一套检查。机场可以扩建航站楼（加 Agent），但安检不变。</p>
+      <p><b>v2-v3 期最大工程</b>：把现有所有风控写动作入口（判罚 / 策略 / 运营后台 / 工单 / 应急通道）收编到 The Gate 或封禁。否则 The Gate 只是 Agent 的门，不是生产动作的唯一门。</p>
+    </div>
+  </details>
+
+  <details class="expand">
+    <summary>Risk Agent Society（多 Agent 协作运行时）是啥</summary>
+    <div class="body">
+      <p><b>一句话</b>：多个域内 Agent 协同跑的<b>运行时层</b>，跑在 The Gate + URG 之上。</p>
+      <p><b>终态包含</b>：内容安全 Agent 群 / 反欺诈 Agent 群 / 商家电商 Agent 群 / 合规审查 Agent 群 / 跨域 Arbiter Agent（仲裁冲突）。</p>
+      <p><b>"Society" 这个词刻意选用</b>——多 Agent 不是"线性流水线"，是"协作社会"：有冲突、有仲裁、有专长分工，但仍受控制平面 + 治理层约束。</p>
+      <p><b>建设优先级倒数第 2</b>：必须先立 The Gate 才能建 Agent Society，否则做出一堆 Agent 没控制平面承接 = 愿景项目。</p>
+    </div>
+  </details>
+
+  <details class="expand">
+    <summary>Action Adapter / Policy-as-Code / Trace / Rollback 是啥</summary>
+    <div class="body">
+      <p><b>Action Adapter</b>：The Gate 的写入组件。Agent 想做任何动作（建 case / 改优先级 / 路由人审 / 提议判罚）必须调它。像银行柜台——核身份 / 查规定 / 查幂等 / 执行 / 记账。</p>
+      <p><b>Policy-as-Code</b>：把"规则 / 红线 / 权限"<b>写成代码</b>由统一引擎运行时强制。不写在文档 / PPT / 某人脑子里。例如"实时机审禁调 LLM"这条红线写成 Rego 代码，每次请求自动检查。</p>
+      <p><b>Trace / Replay / Audit</b>：每次 Agent 动作的完整"过程录像"——结构化、可关联、可原样回放。监管 inquiry 时可秒级溯源"为什么这个动作"。</p>
+      <p><b>Rollback</b>：每次策略变更是 git-style commit，一键回到上一稳定版本。守门指标越界自动回滚。</p>
+    </div>
+  </details>
+</section>
+
+
+<!-- ============ Part 1 现状 ============ -->
+<section id="p1">
+  <h2 class="sec"><span class="n">1</span>现状 (Situation)</h2>
+  <div class="tldr"><b>TL;DR</b><br>快手风控今天靠"加规则、加模型、加策略平台、加审核员（含 BPO）"扩张能力。在过去 5 年这套打法可行，今天三条曲线即将交叉，方法不再可行。</div>
+
+  <h3 class="sub"><span class="n">1.1</span>快手风控的真实尺寸</h3>
+  <table class="tab bordered">
+    <thead><tr><th style="width:25%">维度</th><th>数字</th></tr></thead>
+    <tbody>
+      <tr><td>业务覆盖</td><td>短视频 + 直播 + 电商 + 本地生活 + 海外 Kwai</td></tr>
+      <tr><td>DAU</td><td>4 亿+ / MAU 7 亿+</td></tr>
+      <tr><td>公司员工</td><td>3-4 万正式 + 大量外包</td></tr>
+      <tr><td>风控中台研发</td><td>50-60 人</td></tr>
+      <tr><td>广义风控生态（含算法 / 策略 / 产品 / 审核运营 / 法务）</td><td>估 5000-10000 人</td></tr>
+      <tr><td>一线审核员（含外包 BPO）</td><td>估 1-3 万人</td></tr>
+      <tr><td>机审 QPS</td><td><b>1500 万</b></td></tr>
+      <tr><td>日均机审事件</td><td>千亿级</td></tr>
+      <tr><td>日均转人审 case</td><td>估 100-500 万</td></tr>
+      <tr><td>审核线</td><td>几百条</td></tr>
+      <tr><td>策略数</td><td>40000+</td></tr>
+      <tr><td>特征数</td><td>100000+</td></tr>
+    </tbody>
+  </table>
+
+  <details class="expand">
+    <summary>展开：一个一线审核员的真实一天</summary>
+    <div class="body">
+      <p>早 9 点打开队列：100-200 个待审 case（视审核线和优先级）。</p>
+      <p>一个 case 的工作内容：</p>
+      <ul style="margin:6px 0 6px 22px;">
+        <li>拼数据：跨档案 / 关联账号 / 行为路径 / 历史处罚 / 命中策略 / 相似 case —— 4-6 分钟</li>
+        <li>判断：评估证据强度，给出处置 —— 1-2 分钟</li>
+        <li>写理由 + 操作 —— 1-2 分钟</li>
+      </ul>
+      <p>平均 7-10 分钟一个。一天处理 50-80 个。其中 5-10 个让她不确定，要翻群历史 / 问 leader / 查相似 case。</p>
+      <p>她真正"做判断"的时间占 10-15%，剩下 85%+ 在"拼数据"。</p>
+      <p>这是平日。大促 / 监管突发 / 重大舆情时翻倍，队列可能积压到次日。</p>
+    </div>
+  </details>
+
+  <h3 class="sub"><span class="n">1.2</span>过去 5 年这个方式可行，因为</h3>
+  <ul style="margin:6px 0 6px 22px;color:var(--ink-2);">
+    <li>业务扩张速度 ≈ 风控人力扩张速度（BPO 弹性招聘）</li>
+    <li>对抗演化速度 ≈ 团队学习速度</li>
+    <li>规则 / 模型 / 策略平台持续有边际收益</li>
+    <li>合规要求相对稳定，解释能力够用</li>
+  </ul>
+
+  <h3 class="sub"><span class="n">1.3</span>这些前提正在同时失效</h3>
+  <p>下一章详细论证。</p>
+</section>
+
+<!-- ============ Part 2 冲突 ============ -->
+<section id="p2">
+  <h2 class="sec"><span class="n">2</span>冲突 (Complication)：三条曲线即将交叉</h2>
+  <div class="tldr"><b>TL;DR</b><br>业务扩张 O(场景×对抗)、风控人力 O(headcount)、对抗演化 O(power-law)。在快手这种头部公司，三条曲线脱钩比中型公司更早、更猛。<br><span style="font-size:12.5px;color:var(--muted);">（看不懂 O(...) 是什么？跳到 <a href="#p0" style="color:var(--blue);">0.4 术语速查</a>）</span></div>
+
+  <h3 class="sub"><span class="n">2.1</span>三条曲线</h3>
+
+  <svg viewBox="0 0 820 420" xmlns="http://www.w3.org/2000/svg"
+       style="width:100%;max-width:820px;display:block;margin:14px auto;background:#fbfcfd;border-radius:8px;border:1px solid #dde4ec;
+              font-family:-apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif;">
+    <!-- 标题 -->
+    <text x="410" y="24" text-anchor="middle" font-size="13" font-weight="700" fill="#26333f">快手语境下的三条曲线（示意）</text>
+
+    <!-- 坐标轴 -->
+    <line x1="80" y1="360" x2="760" y2="360" stroke="#5e6b78" stroke-width="2"/>
+    <line x1="80" y1="60" x2="80" y2="360" stroke="#5e6b78" stroke-width="2"/>
+    <text x="35" y="55" font-size="12" font-weight="700" fill="#5e6b78">扩张速度</text>
+    <text x="770" y="375" font-size="12" font-weight="700" fill="#5e6b78">时间</text>
+
+    <!-- 三条曲线 -->
+    <!-- 对抗演化（power-law，急加速）红色 -->
+    <path d="M 80,335 Q 280,325 420,290 T 730,90" stroke="#a3373a" stroke-width="3" fill="none"/>
+    <text x="555" y="180" font-size="13" font-weight="700" fill="#a3373a">对抗演化</text>
+    <text x="500" y="198" font-size="11" fill="#a3373a">O(power-law) · 黑产 AI 化</text>
+    <text x="500" y="214" font-size="11" fill="#a3373a">头部 ROI 最高，攻击最猛</text>
+
+    <!-- 业务扩张（O 场景×对抗）橙色 -->
+    <path d="M 80,328 Q 280,295 460,225 T 730,160" stroke="#8a5d1f" stroke-width="3" fill="none"/>
+    <text x="610" y="245" font-size="13" font-weight="700" fill="#8a5d1f">业务扩张</text>
+    <text x="555" y="263" font-size="11" fill="#8a5d1f">O(场景 × 对抗)</text>
+    <text x="555" y="279" font-size="11" fill="#8a5d1f">短视频+直播+电商+海外</text>
+
+    <!-- 审核员扩张（线性，缓）绿色 -->
+    <path d="M 80,332 Q 280,310 460,290 T 730,265" stroke="#1f6f4f" stroke-width="3" fill="none"/>
+    <text x="610" y="300" font-size="13" font-weight="700" fill="#1f6f4f">审核员扩张</text>
+    <text x="555" y="318" font-size="11" fill="#1f6f4f">O(headcount) · 线性</text>
+    <text x="555" y="334" font-size="11" fill="#1f6f4f">受 HR / BPO 容量限制</text>
+
+    <!-- 交叉点标记（对抗演化 vs 审核员扩张交叉） -->
+    <circle cx="455" cy="263" r="6" fill="#a3373a" stroke="white" stroke-width="2"/>
+    <text x="468" y="252" font-size="11" font-weight="700" fill="#a3373a">交叉点</text>
+    <text x="358" y="248" font-size="10" fill="#a3373a">头部公司更早到</text>
+
+    <!-- 时间标注 -->
+    <line x1="155" y1="360" x2="155" y2="365" stroke="#5e6b78" stroke-width="1"/>
+    <text x="155" y="385" text-anchor="middle" font-size="11" fill="#5e6b78">过去 5 年</text>
+    <line x1="410" y1="360" x2="410" y2="365" stroke="#5e6b78" stroke-width="1"/>
+    <text x="410" y="385" text-anchor="middle" font-size="11" font-weight="700" fill="#26333f">现在</text>
+    <line x1="640" y1="360" x2="640" y2="365" stroke="#5e6b78" stroke-width="1"/>
+    <text x="640" y="385" text-anchor="middle" font-size="11" fill="#5e6b78">12-18 个月内</text>
+
+    <!-- 关键洞察 -->
+    <text x="410" y="408" text-anchor="middle" font-size="11" font-style="italic" fill="#26333f">
+      关键：对抗演化先跑赢审核员扩张 → 头部公司比中型公司更早到交叉点
+    </text>
+  </svg>
+
+  <h3 class="sub"><span class="n">2.2</span>每条曲线的快手语境驱动力</h3>
+  <table class="tab bordered">
+    <thead><tr><th style="width:22%">曲线</th><th>快手语境驱动</th></tr></thead>
+    <tbody>
+      <tr><td><b>业务扩张</b></td><td>电商 GMV 加速增长 + 海外 Kwai + 本地生活拓展。日 case 量年增 25-35%</td></tr>
+      <tr><td><b>对抗演化</b></td><td>头部公司是黑产 ROI 最高目标。AI 化工具市场化（AI 钓鱼 / AI 仿冒 / AI 内容规避）攻击成本骤降</td></tr>
+      <tr><td><b>审核员扩张</b></td><td>BPO 容量有上限（培训周期 + 人才市场），年增不超过 10-15%</td></tr>
+      <tr><td><b>合规要求</b></td><td>跳跃式：未成年 / 广告法 / AI 治理 / 内容真实性。监管对头部公司加码（"表率压力"）</td></tr>
+    </tbody>
+  </table>
+
+  <details class="expand">
+    <summary>展开：12 个月后的具体场景（无 AI 介入）</summary>
+    <div class="body">
+      <table class="tab" style="margin:6px 0;">
+        <thead><tr><th>维度</th><th>当前</th><th>12 个月后</th></tr></thead>
+        <tbody>
+          <tr><td>日均人审 case</td><td>~200 万</td><td>~280 万</td></tr>
+          <tr><td>审核员（含 BPO）</td><td>2 万</td><td>2.2 万（招聘瓶颈）</td></tr>
+          <tr><td>单审核员日处理</td><td>~80</td><td>需要 ~110-130（不可能）</td></tr>
+          <tr><td>积压队列</td><td>低</td><td>高峰持续积压，监管 / 大促延迟 4-12h</td></tr>
+          <tr><td>新对抗发现到上线拦截</td><td>5-15 天</td><td>10-25 天（对抗变快，人审跟不上）</td></tr>
+          <tr><td>合规可解释能力</td><td>勉强</td><td>新规要求"每个判罚可解释"，靠人写报告完全跟不上</td></tr>
+        </tbody>
+      </table>
+      <p>结论：12 个月内单纯靠"加 BPO + 加规则 + 加模型"维持 status quo 已不可能。</p>
+    </div>
+  </details>
+
+  <h3 class="sub"><span class="n">2.3</span>关键判断：这次脱钩对头部公司是结构性的</h3>
+  <ul style="margin:6px 0 6px 22px;color:var(--ink-2);">
+    <li>对抗演化第一次跑赢学习速度（黑产 AI 化 + 头部 ROI 高）</li>
+    <li>合规要求第一次跳跃式（监管对头部公司加码）</li>
+    <li>业务扩张第一次是"短视频 + 直播 + 电商 + 海外"复合（不是单一品类）</li>
+    <li>海外 Kwai 直接对抗 TikTok（TikTok 内容审核 AI 化是公开的）</li>
+  </ul>
+</section>
+
+<!-- ============ Part 3 三支柱 ============ -->
+<section id="p3">
+  <h2 class="sec"><span class="n">3</span>三个支柱</h2>
+  <div class="tldr"><b>TL;DR</b><br>结构性失效（传统加法都到顶）+ 性质不同的解法（open-form 推理）+ 窗口期有限（头部公司非对称压力）。</div>
+
+  <div class="pillars">
+    <div class="pillar">
+      <span class="ord">支柱 1</span>
+      <h3>结构性失效</h3>
+      <p class="core">在头部公司体量下，加规则 / 加模型 / 加审核员 / 加平台四种传统加法已到顶。黑产对头部 ROI 高，对抗演化最猛。</p>
+    </div>
+    <div class="pillar">
+      <span class="ord">支柱 2</span>
+      <h3>性质不同的解法</h3>
+      <p class="core">AI Agent 解决的是规则 / 模型物理上做不到的开放推理问题。在快手 case 复杂度（跨域 + 多步证据）下，价值放大。</p>
+    </div>
+    <div class="pillar">
+      <span class="ord">支柱 3</span>
+      <h3>窗口期有限</h3>
+      <p class="core">模型能力到位 + 工程范式可用 + 头部公司监管压力 + 海外业务 + AI 人才战四重压力同时到位。</p>
+    </div>
+  </div>
+
+  <h3 class="sub"><span class="n">3.1</span>支柱 1 · 结构性失效</h3>
+
+  <details class="expand">
+    <summary>展开：加规则 / 加模型 / 加审核员 / 加平台 在头部公司语境下为什么都到顶</summary>
+    <div class="body">
+      <p><b>加规则到顶</b>：</p>
+      <ul style="margin:4px 0 6px 22px;">
+        <li>策略数已 40000+，新规则跟旧规则冲突 / 覆盖度饱和</li>
+        <li>维护成本（review / 灰度 / 监测）超过新增价值</li>
+        <li>规则只能解决"已经见过"的对抗模式</li>
+      </ul>
+      <p><b>加模型到顶</b>：</p>
+      <ul style="margin:4px 0 6px 22px;">
+        <li>单点模型对抗鲁棒性边际收益递减（黑产专攻模型盲点）</li>
+        <li>模型迭代周期（2-6 周）落后于对抗演化周期（&lt; 2-3 个月）</li>
+        <li>跨场景泛化弱（短视频模型用不到电商）</li>
+      </ul>
+      <p><b>加审核员（含 BPO）到顶</b>：</p>
+      <ul style="margin:4px 0 6px 22px;">
+        <li>BPO 弹性招聘也有上限（培训周期 3-6 个月 + 人才市场容量）</li>
+        <li>外包能力天花板（不能做跨域综合 / 对抗发现 / 合规解释）</li>
+        <li>劳动力成本 8-12%/年上涨</li>
+        <li>24/7 排班 + 倦怠管理边际成本增加</li>
+      </ul>
+      <p><b>加策略平台到顶</b>：</p>
+      <ul style="margin:4px 0 6px 22px;">
+        <li>再多平台还是 O(人头)，没解决"判断本身"是瓶颈</li>
+        <li>跨业务线平台整合复杂度爆炸</li>
+        <li>新业务上线要重做平台适配</li>
+      </ul>
+    </div>
+  </details>
+
+  <h3 class="sub"><span class="n">3.2</span>支柱 2 · 性质不同的解法</h3>
+  <p>AI Agent 解决的是规则 / 模型物理上<em>做不到</em>的事——不是它们的延伸。</p>
+
+  <table class="tab bordered">
+    <thead><tr><th></th><th>规则</th><th>模型</th><th>Agent</th></tr></thead>
+    <tbody>
+      <tr><td>解决问题</td><td>closed-form 高速过滤</td><td>closed-form 分类 / 评分</td><td><em>open-form 开放推理</em></td></tr>
+      <tr><td>新对抗上线</td><td>3-7 天</td><td>2-6 周</td><td>当时即可（喂证据推理）</td></tr>
+      <tr><td>多步综合</td><td class="em">不能</td><td class="em">不能</td><td class="ok">可以</td></tr>
+      <tr><td>跨域综合</td><td class="em">不能</td><td class="em">不能</td><td class="ok">可以</td></tr>
+      <tr><td>对话解释</td><td class="em">不能</td><td class="em">不能</td><td class="ok">可以</td></tr>
+    </tbody>
+  </table>
+
+  <p>关键概念：<em>工作单元级的接管</em>。规则 / 模型替代"单步判断"，Agent 第一次能替代"调查 → 综合 → 提议 → 解释"整条工作链路。</p>
+
+  <details class="expand">
+    <summary>展开：快手语境的 open-form 例子</summary>
+    <div class="body">
+      <p>电商商家 M5678 被多个用户举报售假。一个真实的 open-form 工作流：</p>
+      <ol>
+        <li>查商家近 90 天交易（SKU 维度找异常）</li>
+        <li>查用户退款 + 评价（情绪 + 关键词）</li>
+        <li>查相似商家历史处罚（哪些被永久封禁，哪些是误判）</li>
+        <li>查商家关联账号（同设备 / 同 IP / 同收款）</li>
+        <li>查物流（虚假物流？）</li>
+        <li>综合 5 条线索：是真售假、是争议性产品、还是被恶意举报？</li>
+        <li>给处置建议（删品 / 限流 / 封店）+ 引用相似 case 处置先例</li>
+      </ol>
+      <p>规则做不到——不是 if-then 能描述的。</p>
+      <p>模型做不到——不是分类任务。</p>
+      <p>人能做，但 10-15 分钟一个 case。在快手日均几十万这类 case 量下，人审产能根本不够。</p>
+      <p>Agent 5 分钟一个，并行 N 个。</p>
+    </div>
+  </details>
+
+  <h3 class="sub"><span class="n">3.3</span>支柱 3 · 窗口期有限（头部公司四重压力）</h3>
+
+  <table class="tab bordered">
+    <thead><tr><th style="width:22%">压力</th><th>头部公司特有</th></tr></thead>
+    <tbody>
+      <tr><td><b>① 监管表率</b></td><td>央网信办 / 公安部对头部公司"做表率"，AI 治理新规快手必受要求</td></tr>
+      <tr><td><b>② 海外业务</b></td><td>海外 Kwai 直接对抗 TikTok，对手已公开内容审核 AI 化（Transparency Report）</td></tr>
+      <tr><td><b>③ AI 人才战</b></td><td>字节 / 阿里 / 腾讯都在抢 LLM 工程人才，快手不做 AI 项目 = 人才流失</td></tr>
+      <tr><td><b>④ 估值故事</b></td><td>上市公司 AI 战略叙事直接影响估值，资本市场对头部公司期望明确</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ============ Part 4 CoI ============ -->
+<section id="p4">
+  <h2 class="sec"><span class="n">4</span>不做的代价 (Cost of Inaction)</h2>
+  <div class="tldr"><b>TL;DR</b><br>不是"未来可能损失"，是"当下已经在烧"。快手量级保守估算年化 ¥30-80 亿损失。但本立项不靠"省这些钱"立项——立项靠"控风险 + 监管表率"。</div>
+
+  <div class="callout warn">
+    <b>重要 framing 转换</b><br>
+    本节给出的损失数字不是"立项后能省下来"的钱。v1 阶段 Agent 是"辅助 + 提速"，不是"替代审核员"。这些数字证明的是<em>问题真实存在</em>，不是承诺 ROI。立项的 ROI 看 Part 7 的指标。
+  </div>
+
+  <h3 class="sub"><span class="n">4.1</span>快手量级保守估算的年化损失</h3>
+  <table class="tab bordered">
+    <thead><tr><th>类目</th><th>年化损失</th><th>算法（点开看）</th></tr></thead>
+    <tbody>
+      <tr><td>人审 OpEx</td><td>¥10-20 亿</td><td>见下方展开</td></tr>
+      <tr><td>新对抗窗口损失</td><td>¥5-20 亿</td><td>见下方展开</td></tr>
+      <tr><td>误杀申诉 + 商家流失</td><td>¥2-5 亿</td><td>见下方展开</td></tr>
+      <tr><td>合规罚款 + 业务受限</td><td>¥0.5-3 亿</td><td>见下方展开</td></tr>
+      <tr><td>跨域级联事故</td><td>¥1-5 亿</td><td>见下方展开</td></tr>
+      <tr><td><b>合计</b></td><td><b>保守 ¥20-50 亿/年量级</b></td><td>—</td></tr>
+    </tbody>
+  </table>
+
+  <details class="expand">
+    <summary>展开：每项算法依据（快手语境）</summary>
+    <div class="body">
+      <p><b>人审 OpEx ¥10-20 亿</b>：</p>
+      <p>2 万审核员（含 BPO）× 加权工资 ¥15/h（内部 30% × ¥30 + BPO 70% × ¥12）× 8h × 22d × 12mo ≈ ¥9.5 亿/年。<br>含 leader / 算法 / 策略 / 治理团队人力另算约 ¥3-5 亿/年。</p>
+
+      <p><b>新对抗窗口损失 ¥5-20 亿</b>：</p>
+      <p>头部互联网公司年损失约 0.3-1% GMV。快手电商 GMV 估算几千亿，按 0.3-1% = ¥几亿到几十亿。<br>+ 短视频 / 直播业务的黑产薅羊毛、虚假流量、虚假账号损失。</p>
+
+      <p><b>误杀申诉 + 商家流失 ¥2-5 亿</b>：</p>
+      <p>误杀率 1% × 日 case 200 万 = 2 万/天误杀 × 30% 申诉 × 处理成本 ¥30 ≈ ¥6500 万/年<br>+ 流失商家年价值 ¥几亿（商家流失影响 GMV）<br>+ 用户 NPS 损伤的非货币成本</p>
+
+      <p><b>合规罚款 + 业务受限 ¥0.5-3 亿</b>：</p>
+      <p>头部公司合规罚款历史可查（公开案例）<br>+ 业务受限的间接损失（如某些业务线被暂停整改）<br>+ 监管 inquiry 响应成本 5-15 人天/次 × 几十次/年</p>
+
+      <p><b>跨域级联事故 ¥1-5 亿</b>：</p>
+      <p>月均 5-15 次跨域事故<br>每次直接处理成本 ¥100 万-1000 万（视严重程度）<br>年化 ¥1-5 亿</p>
+    </div>
+  </details>
+
+  <h3 class="sub"><span class="n">4.2</span>今年不做的具体死法</h3>
+  <table class="tab bordered">
+    <thead><tr><th style="width:28%">死法</th><th>触发时间</th><th>具体后果</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>大促人审积压</td>
+        <td>下次双 11 / 618</td>
+        <td>流量翻倍 → 审核员物理上限 → 漏放率 +30% → 黑产薅羊毛集中爆发 + 商家投诉</td>
+      </tr>
+      <tr>
+        <td>监管新规无法响应</td>
+        <td>AI 治理 / 未成年人新规继续落地</td>
+        <td>"每个判罚可解释"要求 → 人写报告完全跟不上百万级 case → 监管约谈 + 业务受限</td>
+      </tr>
+      <tr>
+        <td>黑产 AI 化 ROI 翻倍</td>
+        <td>已在发生</td>
+        <td>AI 钓鱼 / AI 仿冒 / AI 内容规避工具市场化 → 规则模式 ROI 下降 → 被迫加 BPO 补足，恶性循环</td>
+      </tr>
+      <tr>
+        <td>海外 Kwai 对抗 TikTok 失利</td>
+        <td>持续</td>
+        <td>TikTok 内容审核 AI 化已公开。Kwai 海外人审成本 + 质量双输</td>
+      </tr>
+      <tr>
+        <td>AI 人才流向竞品</td>
+        <td>持续</td>
+        <td>字节 / 阿里 / 腾讯都在抢 LLM 工程人才，快手没有 AI 项目 = 招不到 + 留不住</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ============ Part 5 窗口期 ============ -->
+<section id="p5">
+  <h2 class="sec"><span class="n">5</span>窗口期与头部非对称</h2>
+  <div class="tldr"><b>TL;DR</b><br>"等行业先验证再跟" 是最大陷阱。头部公司面临四重非对称：信息不对称 / 对抗者不等 / 数据飞轮 / 合规市场。"晚 6 个月"在快手不是省钱，是失位。</div>
+
+  <h3 class="sub"><span class="n">5.1</span>四个非对称</h3>
+  <table class="tab bordered">
+    <thead><tr><th style="width:22%">非对称</th><th>头部公司语境</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><b>① 信息不对称</b></td>
+        <td>风控核心 case 不公开。字节 / 阿里内部做 AI 风控不会公布。等公开案例 = 落后 18-24 个月</td>
+      </tr>
+      <tr>
+        <td><b>② 对抗者不等</b></td>
+        <td>黑产专攻头部公司（ROI 高）。他们今天练的 AI 攻击手法 6-12 个月用到我们身上。我们等行业，对手不等</td>
+      </tr>
+      <tr>
+        <td><b>③ 数据飞轮</b></td>
+        <td>先做的人攒 case 库 / prompt 资产 / trace 经验。快手量级下这些资产 6 个月就能积累出明显防守优势</td>
+      </tr>
+      <tr>
+        <td><b>④ 合规市场</b></td>
+        <td>监管对头部公司 AI 治理的期望明确。先建"可解释 AI 风控"声誉 = 拿到 license 优势（金融 / 未成年 / 广告 / 海外）</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <details class="expand">
+    <summary>展开：现在投 vs 6 个月后投（快手量级）</summary>
+    <div class="body">
+      <table class="tab" style="margin:6px 0;">
+        <thead><tr><th></th><th>现在投</th><th>6 个月后投</th></tr></thead>
+        <tbody>
+          <tr><td>业务线实验投入</td><td>¥1500 万 + 6-12 周</td><td>同样 ¥1500 万</td></tr>
+          <tr><td>6 个月对抗 / 合规损失</td><td>—</td><td>¥3-10 亿</td></tr>
+          <tr><td>海外 Kwai 失位风险</td><td>—</td><td>难量化但显著</td></tr>
+          <tr><td>AI 人才招募</td><td>会做 LLM 工程的人还能招到</td><td>头部全部挖走</td></tr>
+          <tr><td>合计差值</td><td><b>低</b></td><td><b>¥3-10 亿 + 不可逆失位</b></td></tr>
+        </tbody>
+      </table>
+      <p><b>等 6 个月不省钱，反而多花 200-500 倍 + 失去先发优势。</b></p>
+    </div>
+  </details>
+
+  <h3 class="sub"><span class="n">5.2</span>但这不是说"All in"</h3>
+  <p>窗口期论证只支持<em>立即立项业务线实验</em>，不支持<em>立即立项集团级基础设施</em>。</p>
+  <p>¥1500 万 / 6-12 周的业务线实验，跟"6 个月后投同样钱但失去先发"对比，决策应该明显。</p>
+</section>
+
+<!-- ============ Part 6 Before-After ============ -->
+<section id="p6">
+  <h2 class="sec"><span class="n">6</span>Before-After（新世界的 Shape）</h2>
+  <div class="tldr"><b>TL;DR</b><br>不展开方案，只描绘新世界长什么样。让决策者看见"做成"的画面，但不锁死实现路径。</div>
+
+  <h3 class="sub"><span class="n">6.1</span>v1 业务线实验跑成功后的变化</h3>
+  <table class="tab bordered">
+    <thead><tr><th></th><th>今天</th><th>v1 跑通的新世界（1 个业务线）</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><b>风控能力扩张</b></td>
+        <td>O(人头)：业务多一个场景所有链路加人</td>
+        <td>O(系统)：新业务加配置 + AI 调研</td>
+      </tr>
+      <tr>
+        <td><b>审核员角色</b></td>
+        <td>85% 时间拼数据，10-15% 时间判断</td>
+        <td>20% 时间核 AI 调研，80% 时间做边界 / 对抗 / 标注</td>
+      </tr>
+      <tr>
+        <td><b>新对抗响应</b></td>
+        <td>5-15 天</td>
+        <td>2-3 天</td>
+      </tr>
+      <tr>
+        <td><b>监管解释能力</b></td>
+        <td>人写报告，5-10 人天/次</td>
+        <td>自动证据链 + trace 回放，分钟级响应</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <details class="expand">
+    <summary>展开：审核员的新一天（不讲技术）</summary>
+    <div class="body">
+      <p>早 9 点打开队列：100-200 个 case。</p>
+      <p>但每个 case 已经被 AI 调研过：证据链 5-10 条都摆好、相似 case 3-5 个标出、反例点都列出、推荐处置带置信度，完整 trace 可点开。</p>
+      <p>她的工作变成：</p>
+      <ul style="margin:6px 0 6px 22px;">
+        <li>看 AI 整理好的材料（30s-1min）</li>
+        <li>对不放心的 case 跟 AI 聊："这商家的关联账号你帮我深挖一下"</li>
+        <li>做最终判断（1-2min）</li>
+      </ul>
+      <p>单 case 时间从 8-10 分钟降到 2-3 分钟。</p>
+      <p>她终于有时间做"边界标注"和"对抗发现"这种真正高价值的工作——而不是 v1 阶段就要被裁。</p>
+    </div>
+  </details>
+
+  <h3 class="sub"><span class="n">6.2</span>注意：本文不展开方案</h3>
+  <p>方案讨论（怎么建、多少人、什么里程碑）见配套文档 <code>agent-architecture-design.html</code>。本文只回答："要不要批业务线实验"。</p>
+</section>
+
+<!-- ============ Part 7 8 条硬条件 ============ -->
+<section id="p7">
+  <h2 class="sec"><span class="n">7</span>立项 8 条硬条件</h2>
+  <div class="tldr"><b>TL;DR</b><br>8 条硬条件每条带责任人。缺一不可。任意一条不满足或被打破 = 业务线实验终止。</div>
+
+  <div class="conditions">
+    <div class="condition">
+      <div>
+        <div class="title">① 业务线必须选电商反欺诈 或 商家风控</div>
+        <div class="desc">不许中途扩到内容政治 / 重大监管场景。任何扩场景必须重新过高管 review。</div>
+        <div class="owner">责任人：风控业务 owner + 法务 owner</div>
+      </div>
+    </div>
+    <div class="condition">
+      <div>
+        <div class="title">② Shadow-only，不进入真实处置链路</div>
+        <div class="desc">Agent 只产建议、证据链、解释材料；不能自动改判罚、改名单、改策略、拦截交易。</div>
+        <div class="owner">责任人：技术 owner + 风控中台 owner</div>
+      </div>
+    </div>
+    <div class="condition">
+      <div>
+        <div class="title">③ 实时链路物理隔离必须先验收再开工</div>
+        <div class="desc">机审实时引擎不得调用 Agent。CI、依赖白名单、网络隔离、Policy-as-Code 都要有硬拦截。架构红线 + 治理红线 + 责任红线三层保证。</div>
+        <div class="owner">责任人：实时风控 owner + 架构治理 owner</div>
+      </div>
+    </div>
+    <div class="condition">
+      <div>
+        <div class="title">④ 实验验收指标前置写死</div>
+        <div class="desc">至少包括：新风险命中率、误判变化、调查时间压缩、证据链完整率、监管解释材料可用率。不能只汇报"模型效果不错"。具体指标值见下文。</div>
+        <div class="owner">责任人：业务 owner + 数据分析 owner</div>
+      </div>
+    </div>
+    <div class="condition">
+      <div>
+        <div class="title">⑤ 合规审批前置，不许先接真实数据再补手续</div>
+        <div class="desc">外部模型能不能用、哪些字段可出域、prompt / trace 保存多久、谁能看、如何脱敏，开工前定完。</div>
+        <div class="owner">责任人：法务 + 数据安全 owner</div>
+      </div>
+    </div>
+    <div class="condition">
+      <div>
+        <div class="title">⑥ 组织影响预案必须同步启动</div>
+        <div class="desc">明确 v1 十二个月不以裁员为目标。审核员定位是 AI 辅助后的复杂 case 处理和质检标注。BPO 合同方向、工会沟通、内部口径同步推进。</div>
+        <div class="owner">责任人：HRBP + 审核运营 owner + BPO 管理 owner</div>
+      </div>
+    </div>
+    <div class="condition">
+      <div>
+        <div class="title">⑦ ¥1500 万预算封顶，失败可停</div>
+        <div class="desc">6-12 周后如果控风险指标不达标，停止扩张，不允许用"还需要更多数据"自动续命。</div>
+        <div class="owner">责任人：项目 sponsor</div>
+      </div>
+    </div>
+    <div class="condition">
+      <div>
+        <div class="title">⑧ 实验结束交一页高管复盘</div>
+        <div class="desc">内容只看四件事：风险控制提升多少、监管解释能力提升多少、事故风险是否上升、是否值得进入 v1。不要写技术炫技报告。</div>
+        <div class="owner">责任人：业务 owner</div>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="sub"><span class="n">7.1</span>验收指标（Kill Criteria）</h3>
+  <table class="tab bordered">
+    <thead><tr><th>指标</th><th>目标</th><th>不达标后果</th></tr></thead>
+    <tbody>
+      <tr><td>判准率（Agent 建议 vs 人审实际判罚一致率）</td><td>≥ 70%</td><td>实验终止</td></tr>
+      <tr><td>单 case 调查时间压缩</td><td>≥ 40%</td><td>实验终止</td></tr>
+      <tr><td>新异常命中有效率</td><td>≥ 30%</td><td>实验终止</td></tr>
+      <tr><td>看 AI 组错误率 vs 不看 AI 组</td><td>不得上升（automation bias 控制）</td><td>实验终止</td></tr>
+      <tr><td>事故风险（误杀 / 漏放）</td><td>不得高于 baseline</td><td>实验终止</td></tr>
+    </tbody>
+  </table>
+  <p>任意 2 项未达标 → 实验终止。</p>
+
+  <h3 class="sub"><span class="n">7.2</span>实验失败也有价值</h3>
+  <p>即使实验跑不出预期，¥1500 万仍换到 3 个价值产出：</p>
+  <ul style="margin:6px 0 6px 22px;color:var(--ink-2);">
+    <li>一份基于快手真实数据的"AI 在我们业务到底能做什么"的硬报告（拒绝再被外部 PPT 忽悠）</li>
+    <li>团队 6-12 周的 LLM 工程能力建设（对其他 AI 应用也有用）</li>
+    <li>合规边界明确化（监管对 AI 的接受度先摸清，为后续项目铺路）</li>
+  </ul>
+</section>
+
+<!-- ============ Appendix A ============ -->
+
+<!-- ============ Part 8 AI Native 终态架构 ============ -->
+<section id="p8">
+  <h2 class="sec"><span class="n">8</span>AI Native 终态架构（5-8 年视野）</h2>
+  <div class="tldr">
+    <b>架构断言（CTO 视角）</b><br>
+    AI Native 风控的终态<em>不是"Agent 群重构风控"</em>，是 <strong>以 The Gate 和 URG 为核心的"AI Native 风控控制平面"，Agent 是其上的智能执行单元</strong>。控制平面成立，Agent 才能规模化；控制平面不立，Agent 写得再聪明也是愿景项目。
+  </div>
+
+  <h3 class="sub" id="p8-1"><span class="n">8.1</span>顶层 framing：架构主体不是 Agent</h3>
+  <p>很多人讲 AI Native 风控时把 Agent 摆在 C 位。这是错的。Agent 是"可替换的智能执行单元"，控制平面才是"5-8 年内不能动摇的承重墙"。</p>
+  <p>正确的优先级 framing：</p>
+  <table class="tab bordered">
+    <thead><tr><th>层</th><th>角色</th><th>变化频率</th></tr></thead>
+    <tbody>
+      <tr><td><b>独立治理层</b></td><td>最终权威（人为）</td><td>5-8 年内组织角色基本稳定</td></tr>
+      <tr><td><b>控制平面 The Gate</b></td><td>架构核心（机器）</td><td>承重墙，一旦立住不能动</td></tr>
+      <tr><td><b>共享事实层 URG</b></td><td>底座（机器）</td><td>承重墙</td></tr>
+      <tr><td><b>实时机审引擎</b></td><td>毫秒级决策</td><td>永远保留</td></tr>
+      <tr><td><b>Risk Agent Society</b></td><td>智能执行单元</td><td>可以年度迭代、可以替换、可以下线</td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="sub" id="p8-2"><span class="n">8.2</span>终态架构图</h3>
+  <p style="color:var(--muted);font-size:13px;">跟 0.2 的高度总览是同一架构，这里展开每层组件 + Agent Society 内部分工。</p>
+
+  <svg viewBox="0 0 920 760" xmlns="http://www.w3.org/2000/svg"
+       style="width:100%;max-width:920px;display:block;margin:14px auto;background:#fbfcfd;border-radius:8px;border:1px solid #dde4ec;
+              font-family:-apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif;">
+    <defs>
+      <marker id="arrow82" viewBox="0 0 10 10" refX="9" refY="5"
+              markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="#5e6b78"/>
+      </marker>
+    </defs>
+
+    <!-- ① 独立治理层 -->
+    <rect x="50" y="20" width="820" height="100" rx="8" fill="#e6f1f6" stroke="#0c5d80" stroke-width="2"/>
+    <text x="460" y="48" text-anchor="middle" font-size="16" font-weight="700" fill="#0c5d80">① 独立治理层（人为最终权威 · KPI 与产品互斥 · 独立汇报线）</text>
+    <!-- 治理层内部 5 个角色 -->
+    <rect x="70" y="60" width="155" height="46" rx="4" fill="#fff" stroke="#a8cfdc" stroke-width="1"/>
+    <text x="147" y="80" text-anchor="middle" font-size="11.5" font-weight="700" fill="#0c5d80">Policy Steward</text>
+    <text x="147" y="97" text-anchor="middle" font-size="10" fill="#5e6b78">设红线 / 签发版本</text>
+    <rect x="235" y="60" width="155" height="46" rx="4" fill="#fff" stroke="#a8cfdc" stroke-width="1"/>
+    <text x="312" y="80" text-anchor="middle" font-size="11.5" font-weight="700" fill="#0c5d80">Trace Auditor</text>
+    <text x="312" y="97" text-anchor="middle" font-size="10" fill="#5e6b78">抽审 trace</text>
+    <rect x="400" y="60" width="155" height="46" rx="4" fill="#fff" stroke="#a8cfdc" stroke-width="1"/>
+    <text x="477" y="80" text-anchor="middle" font-size="11.5" font-weight="700" fill="#0c5d80">Memory Curator</text>
+    <text x="477" y="97" text-anchor="middle" font-size="10" fill="#5e6b78">Memory 质量分级</text>
+    <rect x="565" y="60" width="155" height="46" rx="4" fill="#fff" stroke="#a8cfdc" stroke-width="1"/>
+    <text x="642" y="80" text-anchor="middle" font-size="11.5" font-weight="700" fill="#0c5d80">Incident Commander</text>
+    <text x="642" y="97" text-anchor="middle" font-size="10" fill="#5e6b78">切档 / 应急</text>
+    <rect x="730" y="60" width="140" height="46" rx="4" fill="#fff" stroke="#a8cfdc" stroke-width="1"/>
+    <text x="800" y="80" text-anchor="middle" font-size="11.5" font-weight="700" fill="#0c5d80">外部审计</text>
+    <text x="800" y="97" text-anchor="middle" font-size="10" fill="#5e6b78">季度 / 监管对接</text>
+
+    <line x1="460" y1="120" x2="460" y2="158" stroke="#5e6b78" stroke-width="1.5" marker-end="url(#arrow82)"/>
+    <text x="565" y="143" font-size="11" fill="#5e6b78">设红线 · 签 token · 抽审 · 切档</text>
+
+    <!-- ② 控制平面 The Gate -->
+    <rect x="50" y="170" width="820" height="110" rx="8" fill="#fbf2dc" stroke="#8a5d1f" stroke-width="2.5"/>
+    <text x="460" y="198" text-anchor="middle" font-size="16" font-weight="700" fill="#8a5d1f">② 控制平面 The Gate（架构承重墙 · 所有"写到生产"的动作必经此过门）</text>
+    <!-- The Gate 内部 4 组件 -->
+    <rect x="70" y="212" width="195" height="56" rx="4" fill="#fff" stroke="#d4b988" stroke-width="1"/>
+    <text x="167" y="232" text-anchor="middle" font-size="12" font-weight="700" fill="#8a5d1f">Action Adapter</text>
+    <text x="167" y="250" text-anchor="middle" font-size="10" fill="#5e6b78">唯一写动作入口</text>
+    <text x="167" y="264" text-anchor="middle" font-size="10" fill="#5e6b78">鉴权 / 幂等 / 派发</text>
+    <rect x="275" y="212" width="195" height="56" rx="4" fill="#fff" stroke="#d4b988" stroke-width="1"/>
+    <text x="372" y="232" text-anchor="middle" font-size="12" font-weight="700" fill="#8a5d1f">Policy-as-Code</text>
+    <text x="372" y="250" text-anchor="middle" font-size="10" fill="#5e6b78">红线代码化</text>
+    <text x="372" y="264" text-anchor="middle" font-size="10" fill="#5e6b78">运行时强制</text>
+    <rect x="480" y="212" width="195" height="56" rx="4" fill="#fff" stroke="#d4b988" stroke-width="1"/>
+    <text x="577" y="232" text-anchor="middle" font-size="12" font-weight="700" fill="#8a5d1f">Trace / Replay / Audit</text>
+    <text x="577" y="250" text-anchor="middle" font-size="10" fill="#5e6b78">全链路可追溯</text>
+    <text x="577" y="264" text-anchor="middle" font-size="10" fill="#5e6b78">监管秒级溯源</text>
+    <rect x="685" y="212" width="185" height="56" rx="4" fill="#fff" stroke="#d4b988" stroke-width="1"/>
+    <text x="777" y="232" text-anchor="middle" font-size="12" font-weight="700" fill="#8a5d1f">Rollback</text>
+    <text x="777" y="250" text-anchor="middle" font-size="10" fill="#5e6b78">git-style 可回滚</text>
+    <text x="777" y="264" text-anchor="middle" font-size="10" fill="#5e6b78">守门指标自动触发</text>
+
+    <line x1="460" y1="280" x2="460" y2="320" stroke="#5e6b78" stroke-width="1.5" marker-end="url(#arrow82)"/>
+
+    <!-- ③ 执行层：双轨 -->
+    <!-- 左：实时机审 -->
+    <rect x="50" y="333" width="400" height="220" rx="8" fill="#e6f3ec" stroke="#1f6f4f" stroke-width="2"/>
+    <text x="250" y="360" text-anchor="middle" font-size="15" font-weight="700" fill="#1f6f4f">实时机审引擎</text>
+    <text x="250" y="383" text-anchor="middle" font-size="12" fill="#26333f">1500 万 QPS · 规则 + 模型 · 毫秒级</text>
+    <text x="250" y="404" text-anchor="middle" font-size="11" font-weight="700" fill="#a3373a">Agent 不进 · 永远保留</text>
+    <line x1="80" y1="420" x2="420" y2="420" stroke="#a8cfdc" stroke-dasharray="3,3"/>
+    <text x="250" y="442" text-anchor="middle" font-size="11" fill="#5e6b78">职责：显然违规高速过滤</text>
+    <text x="250" y="462" text-anchor="middle" font-size="11" fill="#5e6b78">输出：放行 / 转 Agent 调查 / 直接判罚</text>
+    <text x="250" y="492" text-anchor="middle" font-size="10" fill="#5e6b78">机审 → Agent 是单向 Kafka 异步</text>
+    <text x="250" y="510" text-anchor="middle" font-size="10" fill="#5e6b78">机审从不读 Agent 输出</text>
+    <text x="250" y="535" text-anchor="middle" font-size="11" font-weight="700" fill="#1f6f4f">规则 / 模型团队主守</text>
+
+    <!-- 物理隔离 -->
+    <text x="460" y="445" text-anchor="middle" font-size="11" font-weight="700" fill="#a3373a">↔</text>
+    <text x="460" y="463" text-anchor="middle" font-size="10" font-weight="700" fill="#a3373a">物理</text>
+    <text x="460" y="478" text-anchor="middle" font-size="10" font-weight="700" fill="#a3373a">隔离</text>
+
+    <!-- 右：Risk Agent Society -->
+    <rect x="470" y="333" width="400" height="220" rx="8" fill="#e6f3ec" stroke="#1f6f4f" stroke-width="2"/>
+    <text x="670" y="360" text-anchor="middle" font-size="15" font-weight="700" fill="#1f6f4f">Risk Agent Society</text>
+    <text x="670" y="383" text-anchor="middle" font-size="11" fill="#26333f">多域 Agent 群协作 · 秒-分钟级 · 数据飞轮自演进</text>
+    <!-- Agent 群细分 -->
+    <rect x="485" y="395" width="120" height="32" rx="3" fill="#fff" stroke="#86d4a1" stroke-width="1"/>
+    <text x="545" y="415" text-anchor="middle" font-size="10.5" fill="#1f6f4f">内容安全 Agent 群</text>
+    <rect x="615" y="395" width="120" height="32" rx="3" fill="#fff" stroke="#86d4a1" stroke-width="1"/>
+    <text x="675" y="415" text-anchor="middle" font-size="10.5" fill="#1f6f4f">反欺诈 Agent 群</text>
+    <rect x="745" y="395" width="120" height="32" rx="3" fill="#fff" stroke="#86d4a1" stroke-width="1"/>
+    <text x="805" y="415" text-anchor="middle" font-size="10.5" fill="#1f6f4f">商家电商 Agent</text>
+    <rect x="485" y="432" width="120" height="32" rx="3" fill="#fff" stroke="#86d4a1" stroke-width="1"/>
+    <text x="545" y="452" text-anchor="middle" font-size="10.5" fill="#1f6f4f">合规审查 Agent</text>
+    <rect x="615" y="432" width="120" height="32" rx="3" fill="#fff" stroke="#86d4a1" stroke-width="1"/>
+    <text x="675" y="452" text-anchor="middle" font-size="10.5" fill="#1f6f4f">跨域 Arbiter</text>
+    <rect x="745" y="432" width="120" height="32" rx="3" fill="#fff" stroke="#86d4a1" stroke-width="1"/>
+    <text x="805" y="452" text-anchor="middle" font-size="10.5" fill="#1f6f4f">未来扩展...</text>
+
+    <text x="670" y="485" text-anchor="middle" font-size="10" fill="#5e6b78">职责：case 调查 / 跨域综合 / 知识沉淀 / 自动评估</text>
+    <text x="670" y="502" text-anchor="middle" font-size="10" fill="#5e6b78">输出：建议 / 证据链 / Memory 候选（不直接处置）</text>
+    <text x="670" y="535" text-anchor="middle" font-size="11" font-weight="700" fill="#1f6f4f">可替换 · 可扩展 · 可下线</text>
+
+    <!-- 汇聚到 URG -->
+    <line x1="250" y1="553" x2="250" y2="585" stroke="#5e6b78" stroke-width="1.5"/>
+    <line x1="670" y1="553" x2="670" y2="585" stroke="#5e6b78" stroke-width="1.5"/>
+    <line x1="250" y1="585" x2="670" y2="585" stroke="#5e6b78" stroke-width="1.5"/>
+    <line x1="460" y1="585" x2="460" y2="618" stroke="#5e6b78" stroke-width="1.5" marker-end="url(#arrow82)"/>
+
+    <!-- ④ URG 共享事实底座 -->
+    <rect x="50" y="630" width="820" height="115" rx="8" fill="#e6f3ec" stroke="#1f6f4f" stroke-width="2.5"/>
+    <text x="460" y="657" text-anchor="middle" font-size="15" font-weight="700" fill="#1f6f4f">③ 共享事实底座 URG (Unified Risk Graph)</text>
+    <!-- URG 实体 -->
+    <rect x="70" y="670" width="115" height="30" rx="3" fill="#fff" stroke="#86d4a1" stroke-width="1"/>
+    <text x="127" y="690" text-anchor="middle" font-size="11" fill="#1f6f4f">Case</text>
+    <rect x="195" y="670" width="115" height="30" rx="3" fill="#fff" stroke="#86d4a1" stroke-width="1"/>
+    <text x="252" y="690" text-anchor="middle" font-size="11" fill="#1f6f4f">Action</text>
+    <rect x="320" y="670" width="115" height="30" rx="3" fill="#fff" stroke="#86d4a1" stroke-width="1"/>
+    <text x="377" y="690" text-anchor="middle" font-size="11" fill="#1f6f4f">EvidenceRef</text>
+    <rect x="445" y="670" width="115" height="30" rx="3" fill="#fff" stroke="#86d4a1" stroke-width="1"/>
+    <text x="502" y="690" text-anchor="middle" font-size="11" fill="#1f6f4f">TraceRef</text>
+    <rect x="570" y="670" width="115" height="30" rx="3" fill="#fff" stroke="#86d4a1" stroke-width="1"/>
+    <text x="627" y="690" text-anchor="middle" font-size="11" fill="#1f6f4f">Memory</text>
+    <rect x="695" y="670" width="160" height="30" rx="3" fill="#fff8e0" stroke="#d4b988" stroke-width="1" stroke-dasharray="3,3"/>
+    <text x="775" y="690" text-anchor="middle" font-size="10" fill="#8a5d1f">User/Content/Device</text>
+    <text x="775" y="705" text-anchor="middle" font-size="9" fill="#8a5d1f">逐步并入</text>
+    <text x="460" y="730" text-anchor="middle" font-size="11" fill="#5e6b78">物理实现：事件总线 Kafka（append-only）+ 向量库（语义检索）+ 关系库（结构化查询）</text>
+  </svg>
+
+  <h3 class="sub" id="p8-3"><span class="n">8.3</span>4 个跟现状的结构性差别（不是包装词）</h3>
+  <table class="tab bordered">
+    <thead><tr><th style="width:16%">差别</th><th>现状</th><th>终态</th><th>可测量</th></tr></thead>
+    <tbody>
+      <tr><td><b>决策流</b></td><td>机审 → 人审 → 判罚<br>串行排队</td><td>机审 → 多 Agent 并发调查 → 综合给人审 → 判罚</td><td>单 case 调查时间 8 min → 2-3 min</td></tr>
+      <tr><td><b>反馈回路</b></td><td>事故 → 复盘会 → 下次靠人记得</td><td>每 case 闭环自动沉淀 Memory + 治理层实时抽审 trace</td><td>新对抗发现到拦截 10 天 → 2-3 天</td></tr>
+      <tr><td><b>跨域综合</b></td><td>群通报 + 复盘</td><td>URG 共享事实 + 跨域 Arbiter Agent</td><td>跨域级联事故 月均 3-5 次 → 1-2 次</td></tr>
+      <tr><td><b>人的角色</b></td><td>85% 时间拼数据 + 写理由</td><td>20% 核 AI 调研，80% 标边界 / 发现对抗 / 训练 Agent</td><td>审核员处理 case 复杂度分布</td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="sub" id="p8-4"><span class="n">8.4</span>v1 → v5 演进路径（不要跳级）</h3>
+  <table class="tab bordered">
+    <thead><tr><th style="width:18%">阶段</th><th>时间</th><th>范围 / 触发</th><th>退出标准</th></tr></thead>
+    <tbody>
+      <tr><td><b>v1 业务线实验</b></td><td>6-12 周</td><td>1 个内容安全子场景 shadow / 立项通过即启动</td><td>Kill Criteria 任 2 项不达标 → 止；达标 → v2</td></tr>
+      <tr><td><b>v2 业务线 GA</b></td><td>1 年内</td><td>实验业务线正式上线 + Risk Case / Memory / Trace 基础设施</td><td>业务线 KPI 达标 + 事故率 ≤ baseline</td></tr>
+      <tr><td><b>v3 域内多业务线 + 判罚 Review</b></td><td>2-3 年</td><td>内容安全域扩 3-5 子场景 + 判罚 Review Agent (fail-close)</td><td>跨业务线协同顺畅 + Review 0 重大事故</td></tr>
+      <tr><td><b>v4 跨域协同 + 多域 GA</b></td><td>4-5 年</td><td>扩到电商 / 反欺诈 / 商家风控 + CDIG 跨域影响图</td><td>多域稳态 + 治理体系外审通过</td></tr>
+      <tr><td><b>v5 完全 AI Native 终态</b></td><td>5-8 年</td><td>除政治内容外全量 AI Native + 治理 Agent 引入（仅"建议"）</td><td>终态 KPI 达成 + 持续治理稳定</td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="sub" id="p8-5"><span class="n">8.5</span>控制平面建设优先级（CTO 给的 7 项顺序，不可乱序）</h3>
+  <ol style="margin:6px 0 12px 22px;color:var(--ink-2);">
+    <li><b>The Gate</b>（最重要）—— 收编所有风控写动作入口，老入口下线节奏。v2-v3 期核心工程</li>
+    <li><b>Trace / Replay / Audit</b> —— 没有 trace 不能做后面的</li>
+    <li><b>Risk Case Service</b> —— case 作为统一资产</li>
+    <li><b>URG MVP</b> —— 只统一 Case / Action / EvidenceRef / TraceRef，<em>不要一开始统一 User / Content / Device</em></li>
+    <li><b>Agent Contract</b> —— 定义 Agent 间交换的标准对象：proposal / evidence / risk_score / confidence / policy_conflict / required_escalation</li>
+    <li><b>Agent Society</b> —— 在 Contract 基础上才能跑多 Agent 协作</li>
+    <li><b>治理 Agent</b>（最晚，v4 之后）—— <em>只能"抽样推荐"不能"治理决策"</em>，外审前置，人工最终权威不可替代</li>
+  </ol>
+  <div class="callout warn">
+    <b>关键警告</b><br>
+    顺序反了一定失败：上来就讲 Agent Society 不立 The Gate = 团队做出一堆 Agent 没有控制平面承接 = 愿景项目。<b>先把 The Gate 立住，Agent 才有意义</b>。
+  </div>
+
+  <h3 class="sub" id="p8-6"><span class="n">8.6</span>数据飞轮 + Agent 自进化（核心新内容）</h3>
+  <div class="tldr">
+    <b>飞轮成立的关键</b><br>
+    不是"AI 自己改自己"，是<em>系统按结构化方式沉淀 6 类资产 + 受控自动化 + 严格的不可自改红线</em>。CTO 反复强调：自进化的边界比能力更重要。
+  </div>
+
+  <h4>8.6.1 数据飞轮的 6 个资产层（不是 5 个，CTO 加了第 6 个）</h4>
+  <table class="tab bordered">
+    <thead><tr><th style="width:18%">资产层</th><th>每次 case 产生</th><th>用途</th></tr></thead>
+    <tbody>
+      <tr><td><b>① Trace</b></td><td>Agent 完整调查链路 + 引用 + 决策依据</td><td>监管解释 / 事故复盘 / Agent 回归测试</td></tr>
+      <tr><td><b>② 采纳信号</b></td><td>审核员"采纳 / 修改 / 驳回" + <em>时延</em>（多久决策）</td><td>分层 ground truth（见 8.6.3）</td></tr>
+      <tr><td><b>③ Memory 候选</b></td><td>成功闭环的 case 经状态机升级</td><td>下次相似 case 检索引用</td></tr>
+      <tr><td><b>④ Skill 模板</b></td><td>重复模式归纳的调查 / 处置 template</td><td>新版 Agent prompt / tool 选择优化</td></tr>
+      <tr><td><b>⑤ 对抗样本库</b></td><td>红队主动找 + 漏报 / 误杀 case 自动入库</td><td>eval set + 对抗鲁棒性训练</td></tr>
+      <tr><td><b>⑥ Failure Taxonomy</b><br><span style="color:var(--red);font-size:11px;">关键新增</span></td><td>失败原因结构化标签：证据缺失 / 工具错 / prompt 错 / 模型错 / Memory 污染 / 人审错 / 策略口径变了</td><td><b>让飞轮知道改 Agent / 改工具 / 改策略 / 改审核培训</b>，否则只是堆数据</td></tr>
+    </tbody>
+  </table>
+  <p><b>关键设计</b>：6 类资产<em>各有独立状态机和升级流程</em>，不混在一起。没有 Failure Taxonomy 飞轮就只能堆数据不能进化。</p>
+
+  <h4>8.6.2 自进化的 4 个层次（边界严格，L4 是架构红线永远关）</h4>
+  <table class="tab bordered">
+    <thead><tr><th style="width:10%">层</th><th>类型</th><th>允许范围</th><th>边界</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><b class="ok">L1</b></td>
+        <td>自动</td>
+        <td>每日用 gold set 跑 eval，监控漂移</td>
+        <td>仅产报告，人看</td>
+      </tr>
+      <tr>
+        <td><b class="warn">L2</b></td>
+        <td>半自动 + 严格 guardrail</td>
+        <td>Prompt / Tool 变更先 A/B，达统计显著且无回归 → 自动 promote</td>
+        <td>必须 6 道 guardrail（见下方）</td>
+      </tr>
+      <tr>
+        <td><b class="warn">L3</b></td>
+        <td>半自动</td>
+        <td>Memory 候选经状态机自动升级 tier；失败的自动 deprecate</td>
+        <td>高 tier 必须人签</td>
+      </tr>
+      <tr>
+        <td><b class="em">L4</b></td>
+        <td><b>架构红线永远关</b></td>
+        <td>Agent 不能改自己的 prompt / tool / policy / eval 集 / Memory 准入规则，不能合并自己的 PR</td>
+        <td>最多生成 proposal，由人或独立治理系统批准</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout risk">
+    <b>L2 自动 promote 的 6 道 guardrail（缺一不可）</b><br>
+    ① 最小样本量 ≥ 阈值<br>
+    ② 分桶无回归（按业务线 / case 类型 / 时间段分桶都不能负向）<br>
+    ③ 核心红线指标（误杀率 / 漏放率）零回退<br>
+    ④ 冷启动观察期（promote 后 N 天监控）<br>
+    ⑤ 人工 veto 窗口（自动 promote 公告期内人可否决）<br>
+    ⑥ 自动回滚条件（出指标越界立即回滚）<br><br>
+    没这 6 道，"统计显著"会变成"自动上线事故"。
+  </div>
+
+  <h4>8.6.3 采纳信号必须分层（不能直接当 ground truth）</h4>
+  <p>审核员采纳不等于 Agent 对，驳回也不等于 Agent 错。人审本身有误判、赶时间、业务压力、口径漂移。<b>哪些采纳信号能进训练，哪些必须等更长时间，必须明确</b>：</p>
+  <table class="tab bordered">
+    <thead><tr><th>信号类型</th><th>等待时间</th><th>能否进训练</th></tr></thead>
+    <tbody>
+      <tr><td>审核员当时决策（采纳 / 驳回）</td><td>实时</td><td>仅 evaluation 信号，不进训练</td></tr>
+      <tr><td>+ 商家 / 用户申诉结果</td><td>3-7 天</td><td>弱 ground truth，进 holdout</td></tr>
+      <tr><td>+ 二审 / 复核结果</td><td>1-2 周</td><td>较强 ground truth</td></tr>
+      <tr><td>+ 判罚生效 + 业务 outcome（GMV / NPS 影响）</td><td>30-60 天</td><td>强 ground truth，可进训练集</td></tr>
+      <tr><td>+ 长期观察（复发 / 同类 case 验证）</td><td>3-6 个月</td><td>最强 ground truth，进 gold set</td></tr>
+    </tbody>
+  </table>
+
+  <h4>8.6.4 Memory 状态机（代码级，CTO 要求）</h4>
+
+  <svg viewBox="0 0 820 280" xmlns="http://www.w3.org/2000/svg"
+       style="width:100%;max-width:820px;display:block;margin:10px auto;background:#fbfcfd;border-radius:8px;border:1px solid #dde4ec;
+              font-family:-apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif;">
+    <defs>
+      <marker id="mems-arrow" viewBox="0 0 10 10" refX="9" refY="5"
+              markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="#5e6b78"/>
+      </marker>
+      <marker id="mems-arrow-red" viewBox="0 0 10 10" refX="9" refY="5"
+              markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="#a3373a"/>
+      </marker>
+    </defs>
+
+    <!-- Row 1: 主流程 4 状态 -->
+    <!-- DRAFT -->
+    <rect x="30" y="50" width="160" height="70" rx="6" fill="#fbf2dc" stroke="#8a5d1f" stroke-width="2"/>
+    <text x="110" y="78" text-anchor="middle" font-size="14" font-weight="700" fill="#8a5d1f">DRAFT</text>
+    <text x="110" y="98" text-anchor="middle" font-size="10.5" fill="#5e6b78">Agent 写入 / 未验证</text>
+    <text x="110" y="113" text-anchor="middle" font-size="10" fill="#5e6b78">不进检索</text>
+
+    <line x1="195" y1="85" x2="225" y2="85" stroke="#5e6b78" stroke-width="1.5" marker-end="url(#mems-arrow)"/>
+
+    <!-- QUARANTINED -->
+    <rect x="230" y="50" width="160" height="70" rx="6" fill="#fbeceb" stroke="#a3373a" stroke-width="2"/>
+    <text x="310" y="78" text-anchor="middle" font-size="14" font-weight="700" fill="#a3373a">QUARANTINED</text>
+    <text x="310" y="98" text-anchor="middle" font-size="10.5" fill="#5e6b78">隔离待审</text>
+    <text x="310" y="113" text-anchor="middle" font-size="10" fill="#5e6b78">高风险 / 低置信 / 高争议</text>
+
+    <line x1="395" y1="85" x2="425" y2="85" stroke="#5e6b78" stroke-width="1.5" marker-end="url(#mems-arrow)"/>
+
+    <!-- VERIFIED -->
+    <rect x="430" y="50" width="160" height="70" rx="6" fill="#e6f1f6" stroke="#0c5d80" stroke-width="2"/>
+    <text x="510" y="78" text-anchor="middle" font-size="14" font-weight="700" fill="#0c5d80">VERIFIED</text>
+    <text x="510" y="98" text-anchor="middle" font-size="10.5" fill="#5e6b78">Curator / 人审通过</text>
+    <text x="510" y="113" text-anchor="middle" font-size="10" fill="#5e6b78">可被部分 Agent 引用</text>
+
+    <line x1="595" y1="85" x2="625" y2="85" stroke="#5e6b78" stroke-width="1.5" marker-end="url(#mems-arrow)"/>
+
+    <!-- PROMOTED -->
+    <rect x="630" y="50" width="160" height="70" rx="6" fill="#e6f3ec" stroke="#1f6f4f" stroke-width="2.5"/>
+    <text x="710" y="78" text-anchor="middle" font-size="14" font-weight="700" fill="#1f6f4f">PROMOTED</text>
+    <text x="710" y="98" text-anchor="middle" font-size="10.5" fill="#5e6b78">高 tier · 可被所有 Agent 引用</text>
+    <text x="710" y="113" text-anchor="middle" font-size="10" fill="#5e6b78">高 tier 必须人签</text>
+
+    <!-- 90 天未引用 -->
+    <line x1="710" y1="125" x2="710" y2="170" stroke="#5e6b78" stroke-width="1.5" marker-end="url(#mems-arrow)"/>
+    <text x="725" y="155" font-size="10.5" fill="#5e6b78">90 天未引用</text>
+
+    <!-- Row 2: DEPRECATED -->
+    <rect x="630" y="175" width="160" height="70" rx="6" fill="#f5f5f5" stroke="#5e6b78" stroke-width="2"/>
+    <text x="710" y="203" text-anchor="middle" font-size="14" font-weight="700" fill="#5e6b78">DEPRECATED</text>
+    <text x="710" y="223" text-anchor="middle" font-size="10.5" fill="#5e6b78">软弃用 · 保留历史</text>
+    <text x="710" y="238" text-anchor="middle" font-size="10" fill="#5e6b78">不进新检索</text>
+
+    <line x1="625" y1="210" x2="595" y2="210" stroke="#5e6b78" stroke-width="1.5" marker-end="url(#mems-arrow)"/>
+
+    <!-- REVOKED -->
+    <rect x="430" y="175" width="160" height="70" rx="6" fill="#fbeceb" stroke="#a3373a" stroke-width="2.5"/>
+    <text x="510" y="203" text-anchor="middle" font-size="14" font-weight="700" fill="#a3373a">REVOKED</text>
+    <text x="510" y="223" text-anchor="middle" font-size="10.5" fill="#5e6b78">硬撤回（事故）</text>
+    <text x="510" y="238" text-anchor="middle" font-size="10" fill="#5e6b78">影响历史 trace（标记不删）</text>
+
+    <!-- 紧急撤回箭头：PROMOTED 直接到 REVOKED -->
+    <path d="M 630,120 Q 580,150 510,170" stroke="#a3373a" stroke-width="1.5" stroke-dasharray="4,4" fill="none" marker-end="url(#mems-arrow-red)"/>
+    <text x="510" y="148" text-anchor="middle" font-size="10" font-weight="700" fill="#a3373a">事故时</text>
+    <text x="510" y="162" text-anchor="middle" font-size="10" font-weight="700" fill="#a3373a">紧急撤回</text>
+  </svg>
+
+  <p style="color:var(--muted);font-size:12.5px;margin-top:6px;">每个状态明确：谁能写 / 谁能读 / 哪些 Agent 可引用 / 过期时间 / 撤回后如何影响历史 trace。</p>
+  • 撤回（REVOKED）后如何影响历史 trace（标记，不删）
+  </pre>
+
+  <h4>8.6.5 跨域知识迁移：默认禁止，需 applicability_contract</h4>
+  <p>内容营销号的模式不能直接迁移到电商商家。反欺诈设备关联不能直接迁移到未成年保护。<b>跨域迁移默认禁止</b>，需明确契约：</p>
+  <pre class="code">{
+  "memory_id": "M-12345",
+  "domain_scope": ["content-safety:marketing-account"],   <span class="com">// 适用业务线</span>
+  "subject_type": ["video"],                               <span class="com">// 主体类型</span>
+  "evidence_prerequisites": ["account_age", "post_count"], <span class="com">// 证据前提</span>
+  "forbidden_scenarios": ["minor-user", "celebrity"],      <span class="com">// 禁用场景</span>
+  "migration_audit": [                                     <span class="com">// 跨域迁移审批记录</span>
+    {"from": "content-safety", "to": "ecommerce-fraud",
+     "approved_by": "curator_id", "approved_at": "...",
+     "holdout_test_passed": true}
+  ]
+}</pre>
+  <p>没有 applicability_contract 的 Memory，跨域 Agent 不能引用。否则 URG 会变成跨域污染源。</p>
+
+  <h4>8.6.6 Memory Curator 工程化分层（百万 case/day 不靠人撑）</h4>
+  <p>百万 case/day 下，Curator 不可能人工审所有 memory。必须分层采样：</p>
+  <ol style="margin:6px 0 6px 22px;">
+    <li><b>机器分层</b>：按 4 维评估每个 memory 候选 —— 风险等级 / 影响面 / 置信度 / 争议度</li>
+    <li><b>低风险 + 高置信 + 低争议</b> → 自动进 DRAFT，进入低 tier，不需要人审</li>
+    <li><b>高风险 OR 低置信 OR 高争议</b> → 进 QUARANTINED，强制等 Curator 审</li>
+    <li><b>高 tier（B/A）升级</b> → 必须人签</li>
+    <li><b>Curator 团队规模</b>：5-10 人足够（不是几千人审核团队）。机器筛 + 人审高价值样本</li>
+  </ol>
+
+  <h4>8.6.7 Adversary Red Team Agent：物理隔离 + 独立 quarantine</h4>
+  <p>红队 Agent 不能跟生产 Agent 串谋（否则就是"自我证明"）。三层隔离：</p>
+  <ul style="margin:4px 0 6px 22px;">
+    <li>不共享生产 Agent 的 prompt repo / Memory promote 权限 / 评估口径</li>
+    <li>不同 LLM endpoint（甚至不同 provider）/ 不同 owner / 不同汇报线</li>
+    <li>红队产出的攻击样本进<b>独立 quarantine</b>，经人或独立 eval pipeline 验证后才能影响主系统</li>
+  </ul>
+
+  <h4>8.6.8 飞轮转速指标（怎么知道飞轮真的在转）</h4>
+  <table class="tab">
+    <tbody>
+      <tr><td>Memory 新增 + 升级数 / 月</td><td>飞轮"产出"</td></tr>
+      <tr><td>Eval gold set 增长率</td><td>评估能力 vs 业务复杂度赛跑</td></tr>
+      <tr><td>新对抗发现 → 入对抗样本库的中位时间</td><td>对抗响应速度</td></tr>
+      <tr><td>Cross-domain memory reuse 率</td><td>飞轮的复用价值（不是越高越好，要在 applicability_contract 约束内）</td></tr>
+      <tr><td>Agent 版本回滚率</td><td>L2 自动 promote 健康度（&gt;10% = guardrail 不严）</td></tr>
+      <tr><td>Failure Taxonomy 覆盖率</td><td>失败有没有被结构化（覆盖率低 = 飞轮在堆数据不在进化）</td></tr>
+      <tr><td>人审采纳率随时间变化</td><td>Agent 信任度演化</td></tr>
+    </tbody>
+  </table>
+
+  <details class="expand">
+    <summary>📺 展开：现状 vs 终态的同一个 case 完整流转对比</summary>
+    <div class="body">
+      <p><b>场景</b>：一个用户发布疑似营销号的短视频。</p>
+
+      <h4 style="color:var(--red);margin-top:14px;">现状（今天的流转）</h4>
+      <ol>
+        <li><b>视频上传</b> → 机审实时引擎评分（5ms）：规则命中"高营销词" + 模型给营销号概率 0.78</li>
+        <li><b>转人审</b> → 进入审核队列（积压数小时到次日）</li>
+        <li><b>审核员 Alice 打开 case</b>：
+          <ul style="margin:4px 0 4px 22px;">
+            <li>① 看视频本身（30s）</li>
+            <li>② 切到档案中心查商家近 30 天发布（2 min）</li>
+            <li>③ 切到关联系统查同设备 / 同 IP 账号（1-2 min）</li>
+            <li>④ 切到判罚历史查相似商家被处罚记录（1-2 min）</li>
+            <li>⑤ 翻群历史 / 问 leader 不确定的（5+ min，部分 case）</li>
+            <li>⑥ 综合判断（1-2 min）</li>
+            <li>⑦ 写处罚理由 + 操作（1-2 min）</li>
+          </ul>
+        </li>
+        <li><b>判罚策略</b>验证 → 执行</li>
+        <li><b>跨域影响</b>没人主动检查</li>
+        <li><b>经验留在 Alice 脑子里</b>。下次类似 case 来如果是 Bob 审，可能判得不一样</li>
+      </ol>
+      <p><b>总耗时</b>：单 case 8-10 分钟（85% 在拼数据）。</p>
+
+      <h4 style="color:var(--green);margin-top:14px;">终态（v5 完全 AI Native）</h4>
+      <ol>
+        <li><b>视频上传</b> → 机审实时引擎评分（5ms，<em>规则 + 模型不变</em>）→ 转 Agent 调查队列</li>
+        <li><b>Kafka emit</b> → Risk Agent Society 自动接管</li>
+        <li><b>多 Agent 并发调查（10-30 秒）</b>：
+          <ul style="margin:4px 0 4px 22px;">
+            <li>① 内容安全 Agent：查商家档案 / 30 天发布 / 相似营销号 / 关联账号（并发）</li>
+            <li>② 跨域协同 Agent：触达未成年用户吗？是否电商业务线？</li>
+            <li>③ 合规审查 Agent：广告法合规？冷静期？</li>
+            <li>④ 综合 Agent：输出 Recommendation（证据 + 反例 + 置信 + 引用 Memory）</li>
+            <li>⑤ 全程进 Trace（经 The Gate）</li>
+            <li>⑥ 多 Agent 冲突 → 跨域 Arbiter Agent 分析根因</li>
+          </ul>
+        </li>
+        <li><b>Alice 打开 case</b>：看完整调研材料 1-2 分钟核完</li>
+        <li><b>Alice 决策</b>（仍是人最终决定）→ 经 The Gate Action Adapter → 判罚策略 → 执行</li>
+        <li><b>处置结果回填 Memory</b>（采纳 / 改判 / 驳回）+ 失败时进 Failure Taxonomy</li>
+        <li><b>跨域影响自动检查</b>（持续）：同类视频爆发？对抗升级？</li>
+        <li><b>治理层抽审</b>：Trace Auditor 抽 5-10% trace 检查 Agent 偏差</li>
+        <li><b>飞轮转动</b>：本 case 进入 Memory 候选 → QUARANTINED → 经 Curator 升级 → 下次相似 case 自动引用</li>
+      </ol>
+
+      <p style="font-weight:600;color:var(--blue);margin-top:14px;">
+        关键差别：现状 Alice 自己跑全程 85% 时间拼数据。终态 Agent 并发跑全程，Alice 看 AI 整理好的做最终决策。Trace 自动留，Memory 自动沉淀（受状态机约束），跨域自动检查（受 applicability_contract 约束），治理自动抽审。
+      </p>
+    </div>
+  </details>
+
+  <details class="expand">
+    <summary>🎭 展开：组织变革的现实约束（5-8 年的真正瓶颈）</summary>
+    <div class="body">
+      <p>CTO 反复指出：3-5 年达不到终态，真正瓶颈不是技术，是<b>组织 + 监管 + BPO 合同 + 责任体系</b>。本节实事求是承认。</p>
+
+      <h4>人员演化</h4>
+      <table class="tab" style="margin:6px 0;">
+        <thead><tr><th>阶段</th><th>一线审核员</th><th>策略</th></tr></thead>
+        <tbody>
+          <tr><td>v1 实验</td><td>1-3 万（不变）</td><td>KPI 红线：不裁员</td></tr>
+          <tr><td>v2 GA</td><td>1-3 万（不变）</td><td>单 case 效率 +50-100%，业务扩张吸收效能</td></tr>
+          <tr><td>v3 多业务线</td><td>每年 -5-10% 自然流失 / 转岗</td><td>BPO 合同从"按 case 数"过渡到"按复杂度"</td></tr>
+          <tr><td>v4 多域</td><td>累积减员 20-40%</td><td>BPO 转质量审核 + 边界标注</td></tr>
+          <tr><td>v5 终态</td><td>5-8 千（保守）或 1-3 千（激进）</td><td>取决于监管 / 业务扩张 / 工会接受度</td></tr>
+        </tbody>
+      </table>
+      <p><b>实事求是承认</b>：终态可能只到 5-8 千，不是 1-3 千。取决于：</p>
+      <ul style="margin:4px 0 0 22px;">
+        <li>监管对 AI 审核比例限制（人工保留政治 / 价值观 / 涉黄涉暴）</li>
+        <li>BPO 合同灵活度</li>
+        <li>业务扩张速度</li>
+        <li>工会和地方就业责任</li>
+      </ul>
+
+      <h4>关键约束</h4>
+      <ul style="margin:4px 0 0 22px;">
+        <li>v1-v2 阶段对外口径："AI 辅助审核员"，不讲替代</li>
+        <li>不强制裁员，靠自然流失 + 内转</li>
+        <li>HR / 法务 / 工会 / 公关 day 0 介入</li>
+        <li>新增高单价岗位（边界标注师 / 对抗发现师 / AI Trainer）吸收转岗</li>
+      </ul>
+    </div>
+  </details>
+
+  <p style="margin-top:20px;">CTO 在终态架构和数据飞轮两轮推演中给出的全部反问 + 答辩，见 <a href="#app-c">附录 C 快手 CTO 推演实录</a>。</p>
+</section>
+
+<a id="p8-7"></a><a id="p8-8"></a>
+<section id="app-a">
+  <h2 class="sec"><span class="n">A</span>快手 COO 推演实录</h2>
+  <div class="tldr"><b>说明</b><br>本文档基于跟"快手 COO"角色的多轮硬挑战推演而成。下面是关键问答。</div>
+
+  <details class="qa">
+    <summary>Round 1 · COO 6 个反问 + 答辩</summary>
+    <div class="qa-body">
+      <div class="qa-q">Q1. ¥1500 万 / 6-12 周的验证，在快手不是"小试一下"——它牵动算法、审核、法务、BPO、基础架构和数据合规。这还能叫 POC 吗？</div>
+      <div class="qa-a">A：接受。在快手语境，¥800-2000 万应该叫"业务线实验"，不是 POC。三类区分：业务线实验（本立项）/ 集团级基础设施（v2）/ AI 战略项目（不在本立项）。审批层级、预算口径、失败容忍度都不同。</div>
+
+      <div class="qa-q">Q2. 抖音 / TikTok 到底做到哪一步，我们有情报吗？</div>
+      <div class="qa-a">A：诚实，没 confirmed 内部情报。公开信号：字节火山引擎卖 AI 风控（公开）/ TikTok Transparency Report 提到内容审核 AI 化（公开）/ 字节 2024 AI 战略部成立。立项主理由不靠竞品压力，靠监管表率 + 海外业务。</div>
+
+      <div class="qa-q">Q3. 核心战略收益锁哪一个？降本、提效、控风险、监管表率、人才卡位都要等于都不要。</div>
+      <div class="qa-a">A：v1 锁定两个：<b>控风险 + 监管表率</b>。其他是副产品。降本不主推（快手不缺钱，且引发 HR 风险）。提效是手段不是目的。这两个 framing 跟"降本"完全不同——组织阻力小一个量级。</div>
+
+      <div class="qa-q">Q4. 快手内容风控里大量政治 / 监管 / 价值观定性，AI 能碰吗？</div>
+      <div class="qa-a">A：<b>v1 不碰</b>。是边界不是天花板。AI 限定电商反欺诈 / 商家风控 / 广告合规 / 内容质量；政治 / 涉黄涉暴 / 重大社会事件 / 名人涉外 永远人主导。Policy-as-Code 物理隔离。</div>
+
+      <div class="qa-q">Q5. 1-3 万审核员组织变革，BPO / 工会 / 岗位安全感冲击，最大风险是不是这个？</div>
+      <div class="qa-a">A：承认这是项目最大非技术风险。应对：v1 是"提速器"不是"替代"，业务扩张吸收效能；BPO 合同从"按 case 数"过渡到"按 case 复杂度"计费；审核员转岗"AI 边界标注师 / 对抗发现师 / 高复杂度审核员"工资上浮 30-50%；HRBP + 法务 + 工会 + 公关 day 0 介入。明确 KPI 红线：v1 12 月内审核员总数不下降。</div>
+
+      <div class="qa-q">Q6. 1500 万 QPS 边界怎么保证永远不被打穿？</div>
+      <div class="qa-a">A：三层红线——<b>架构 + 治理 + 责任</b>。架构：物理隔离 + Maven 依赖白名单 + CI 自动拒。治理：Policy-as-Code 实时链路禁 LLM。责任：实时 owner ≠ AI owner，KPI 互斥。业务压力不会自动打穿，任何突破必须结构化审批。</div>
+    </div>
+  </details>
+
+  <details class="qa">
+    <summary>COO 最终裁决</summary>
+    <div class="qa-body">
+      <div class="qa-meta">
+        <b>裁决</b><br>
+        <i>"我同意立这个业务线实验，但不同意把它包装成集团级 AI Native 风控战略项目。<br><br>
+        你已经把最大风险边界收住了——不碰政治内容、不接实时链路、不讲裁员降本、只做 1 个业务线 shadow、HR/法务/公关 day 0 介入，这些条件成立后，¥1500 万买一次快手级真实验证是可以批的。<br><br>
+        但这是有条件批准。"</i>
+      </div>
+      <p>COO 给出的 8 条硬条件即为 Part 7 内容。</p>
+    </div>
+  </details>
+</section>
+
+<!-- ============ Appendix B ============ -->
+<section id="app-b">
+  <h2 class="sec"><span class="n">B</span>反对意见 + 标准回应（决策弹药库）</h2>
+
+  <details class="qa">
+    <summary>"快手 R&D 预算百亿级，¥1500 万这点钱不用走那么严的审批吧？"</summary>
+    <div class="qa-body">
+      <p>反驳：</p>
+      <ol>
+        <li>不是钱的问题，是"项目分类正确性"的问题。¥1500 万走集团战略项目审批 = 浪费高管时间；走部门预算 = 越权</li>
+        <li>"业务线实验"分类是为了给项目正确的失败容忍度。集团级失败有 PR 风险，业务线实验失败是正常学习</li>
+        <li>规模虽小，但牵动 HR / 法务 / 合规 / BPO 多方，仍需 cross-functional 立项 review</li>
+      </ol>
+    </div>
+  </details>
+
+  <details class="qa">
+    <summary>"为什么不直接做集团级 AI 风控？分阶段拖延不浪费时间吗？"</summary>
+    <div class="qa-body">
+      <p>反驳：</p>
+      <ol>
+        <li>集团级直接上 = 风险线性放大。一次失败可能让"AI 风控"在快手内部 3 年不能再提</li>
+        <li>业务线实验是"用快手量级真实数据验证可行性"的最快路径。6-12 周的 ROI 比 12-24 个月的大项目高 5-10 倍</li>
+        <li>实验通过后再启动 v1（¥几千万-亿级），上限会比直接立项更高</li>
+      </ol>
+    </div>
+  </details>
+
+  <details class="qa">
+    <summary>"政治内容不碰，那 AI 风控在快手价值还剩多少？快手最大风险就是政治内容啊。"</summary>
+    <div class="qa-body">
+      <p>反驳：</p>
+      <ol>
+        <li>政治内容不是快手风控总盘的主要 case 量。电商 + 反欺诈 + 商家风控 + 内容质量加起来占 case 总量的 70-85%</li>
+        <li>v1 不碰政治 = 实验避开最高风险场景。政治内容审核出错 = 公司级公关 + 监管事故。AI 在这种场景不能轻易碰</li>
+        <li>"AI 不碰政治内容"反而是项目的优势 framing——证明边界设计稳健，监管反而更容易批</li>
+        <li>未来如果业务线实验 + v1 + v2 全跑通后，最早可能也要 2-3 年后才考虑触碰政治内容，且必然是"辅助资深审核员"而非"替代"</li>
+      </ol>
+    </div>
+  </details>
+
+  <details class="qa">
+    <summary>"不讲降本怎么给资本市场讲 AI 故事？"</summary>
+    <div class="qa-body">
+      <p>反驳：</p>
+      <ol>
+        <li>资本市场对 AI 故事的关注点不止"省了多少钱"。"控风险能力提升 + 监管解释 + 海外对抗 TikTok" 这些战略叙事一样有效</li>
+        <li>v1 阶段就讲降本 = 内部 HR / 工会舆论压力扩大，最终落地难度反而高</li>
+        <li>v2 阶段（业务扩张吸收完效能后）可以讲"AI 让风控成本曲线变缓"，这跟"裁员降本"完全不同</li>
+        <li>Steve Jobs / Tim Cook 的 AI 叙事核心也不是降本，是能力跃迁</li>
+      </ol>
+    </div>
+  </details>
+
+  <details class="qa">
+    <summary>"AI 出错谁负责？审核员还是研发？还是要 COO 担？"</summary>
+    <div class="qa-body">
+      <p>清晰责任划分：</p>
+      <ol>
+        <li>v1 阶段 Agent 只给建议，<em>人是最终决策</em> → 决策错责任在人</li>
+        <li>Agent 给的建议本身不合理 → 责任在 Agent owner（研发 + 算法 + 治理）</li>
+        <li>所有动作有 trace，事后能精确追溯</li>
+        <li>项目级 sponsor 负责实验整体——但实验是"shadow + 不进生产决策"，出"AI 误判"事故的可能性结构上不存在</li>
+      </ol>
+      <p>核心：v1 阶段 Agent 永远在"辅助 + 闸门"角色，不在"决策者"角色。责任不能转移给 AI。</p>
+    </div>
+  </details>
+
+  <details class="qa">
+    <summary>"大模型幻觉怎么办？AI 给错建议把审核员误导怎么办？"</summary>
+    <div class="qa-body">
+      <p>多层防护：</p>
+      <ol>
+        <li>Prompt 严格要求："所有结论必须有 evidence 列表里的对应项支撑"</li>
+        <li>结构化输出 schema 校验：缺 evidence 字段 → 拒收</li>
+        <li>强制反例搜索 step：Agent 自己找反例</li>
+        <li>UI 显示反例点：审核员看到不确定性</li>
+        <li>定期 eval：用历史 case 跑回归，监控质量</li>
+        <li>事故快速降级：一键关闭 Agent，回归人审</li>
+      </ol>
+      <p>关键基线：今天人审误杀率 ~1-2%，shadow 模式必须证明 AI 辅助后 ≤ baseline 才扩。</p>
+    </div>
+  </details>
+
+  <details class="qa">
+    <summary>"用 Claude 数据出境合规吗？"</summary>
+    <div class="qa-body">
+      <p>必须前置签完合规审批（8 条硬条件第 5 条）。可选路径：</p>
+      <ol>
+        <li>POC 阶段：脱敏后调 Claude（user_id 哈希、PII scrub、敏感字段不出），具体由法务 + 数据安全审批</li>
+        <li>稳定后：迁移到公司自部署模型（Qwen / DeepSeek 自部署），数据完全不出域</li>
+        <li>监管严格业务线（金融 / 未成年人）：直接用自部署模型，不走外部 API</li>
+      </ol>
+    </div>
+  </details>
+
+  <details class="qa">
+    <summary>"实验失败怎么对外解释？快手会被嘲笑吗？"</summary>
+    <div class="qa-body">
+      <p>反驳：</p>
+      <ol>
+        <li>"业务线实验"分类的好处就是失败有 PR 弹性。没承诺过"集团级 AI 战略"</li>
+        <li>实验失败仍有 3 个价值产出（见 §7.2）：硬数据报告 + 团队能力 + 合规边界</li>
+        <li>事先约定的 Kill Criteria 让"停止"成为成熟决策的体现，不是失败</li>
+        <li>对外口径："我们做了一次业务线实验，验证 AI 在我们业务的实际效果，决定基于数据下一步路径"</li>
+      </ol>
+    </div>
+  </details>
+</section>
+
+
+<!-- ============ Appendix C 快手 CTO 推演实录 ============ -->
+<section id="app-c">
+  <h2 class="sec"><span class="n">C</span>快手 CTO 终态架构推演实录</h2>
+  <div class="tldr"><b>说明</b><br>终态架构 + 数据飞轮两轮跟"快手 CTO"角色的硬挑战推演。整套 Part 8 内容来自这两轮答辩 + 关键升级。</div>
+
+  <details class="qa">
+    <summary>Round 1 · CTO 7 个反问（终态架构）</summary>
+    <div class="qa-body">
+      <div class="qa-q">Q1. "3-5 年终态"凭什么？真正慢的不是技术，是组织 / 监管 / BPO 合同。</div>
+      <div class="qa-a">A：接受调整为 5-8 年。技术 2-3 年成熟，瓶颈在组织。修订时间表：v1 6-12 周 → v2 1 年 → v3 2-3 年 → v4 4-5 年 → v5 5-8 年。</div>
+
+      <div class="qa-q">Q2. "事件总线 + Agent 群" vs "机审-人审-判罚" 到底是结构性差别还是包装词？</div>
+      <div class="qa-a">A：4 个可测量的结构性差别：① 决策从串行变并发（单 case 8min → 2-3min）② 反馈从事后报表变实时治理（新对抗 10 天 → 2-3 天）③ 跨域综合从靠人记得变系统支持（跨域事故 月均 3-5 次 → 1-2 次）④ 人的角色从执行者变设计者+终审。</div>
+
+      <div class="qa-q">Q3. 一线审核员 1-3 万 → 1-3 千是组织地震，怎么过？</div>
+      <div class="qa-a">A：实事求是承认。v1 不变 / v2 不变（业务扩张吸收）/ v3 每年 -5-10% 自然流失 / v4-v5 累积到 5-8 千（保守）。BPO 合同从"按 case 数"到"按复杂度"。HR / 工会 day 0 介入。承认终态可能只到 5-8 千，不是 1-3 千。</div>
+
+      <div class="qa-q">Q4. Risk Agent Society 多 Agent 冲突谁说了算？</div>
+      <div class="qa-a">A：三层仲裁。① 优先级矩阵硬规则（合规 > 用户安全 > 反欺诈 > 业务增长）② 跨域 Arbiter Agent 不给结论给"分歧根因"③ 治理终审。URG 是基础：冲突是结论冲突不是数据冲突。</div>
+
+      <div class="qa-q">Q5. 规则模型在终态退到哪？AI Agent 边界在哪？</div>
+      <div class="qa-a">A：按决策速度分层。≤ 100ms：规则 + 模型主导，Agent 不进。1s-60s：模型 + Agent 协作。≥ 60s：Agent 主导。规则模型保留实时层永远，Agent 只在 case 调查 / 跨域 / 治理。</div>
+
+      <div class="qa-q">Q6. 治理层 3-5 年后跟得上 AI 决策速度吗？谁治理治理层？</div>
+      <div class="qa-a">A：人工治理一定跟不上百万级动作。三层治理：① 机器红线层（Policy-as-Code 自动）② 治理 Agent 层（受限 AI 抽审 5-10%）③ 人类治理委员会（T0/T1 + 红线）。谁治理治理层：① 治理 Agent 不能改自身 Policy ② 强制写 trace ③ 季度第三方外审。</div>
+
+      <div class="qa-q">Q7. v1 → 终态台阶 v2 / v3 / v4 怎么分？</div>
+      <div class="qa-a">A：见 Part 8.4 v1-v5 五阶段表格，每阶段含明确触发 / 范围 / 退出标准 / 可回滚 / 组织变革对应。</div>
+
+      <div class="qa-meta">
+        <b>CTO Round 1 关键裁决</b><br>
+        <i>"终态方向站得住，但不要把它写成 'Agent 群重构风控'。应该写成 '以 The Gate 和 URG 为核心的 AI Native 风控控制平面，Agent 是其上的智能执行单元'。"</i><br><br>
+        + 4 个硬点必须补：The Gate 唯一性 / URG MVP 范围 / Agent Contract 工程化 / 治理 Agent 必须最晚 + 边界严格。<br>
+        + 7 项建设优先级（不可乱序）：The Gate → Trace → Risk Case Service → URG MVP → Agent Contract → Agent Society → 治理 Agent
+      </div>
+    </div>
+  </details>
+
+  <details class="qa">
+    <summary>Round 2 · CTO 8 个反问（数据飞轮 + 自进化）</summary>
+    <div class="qa-body">
+      <div class="qa-q">Q1. 5 个资产层覆盖全了吗？少了什么？</div>
+      <div class="qa-a">A（CTO 直接指出）：缺最关键的<b>失败原因标签（Failure Taxonomy）</b>。没有它飞轮只堆数据不进化。失败要拆成可训练的根因：证据缺失 / 工具错 / prompt 错 / 模型错 / Memory 污染 / 人审错 / 策略口径变了。<b>升级为 6 个资产层</b>。</div>
+
+      <div class="qa-q">Q2. 采纳信号能直接当 ground truth 吗？</div>
+      <div class="qa-a">A：不能。审核员采纳 ≠ Agent 对，驳回 ≠ Agent 错。人审有误判、赶时间、业务压力、口径漂移。<b>必须分层</b>：实时采纳（仅 eval）→ 申诉结果 3-7 天（弱 GT）→ 二审 1-2 周 → 判罚生效 + outcome 30-60 天（强 GT）→ 长期观察 3-6 月（gold set 最强）。</div>
+
+      <div class="qa-q">Q3. Memory 自动升级 tier 的准入门槛太虚。</div>
+      <div class="qa-a">A：CTO 要求代码级状态机。<b>DRAFT → QUARANTINED → VERIFIED → PROMOTED → DEPRECATED → REVOKED</b>。每状态明确：谁能写 / 谁能读 / 哪些 Agent 可引用 / 过期时间 / 撤回后如何影响历史 trace。</div>
+
+      <div class="qa-q">Q4. L2 自动 promote 不能默认开放。</div>
+      <div class="qa-a">A：必须 6 道 guardrail：① 最小样本量 ② 分桶无回归 ③ 核心红线指标零回退 ④ 冷启动观察期 ⑤ 人工 veto 窗口 ⑥ 自动回滚条件。"统计显著"≠"安全 promote"。</div>
+
+      <div class="qa-q">Q5. L4 不应该叫 "v5 后讨论"，应该写成架构红线。</div>
+      <div class="qa-a">A：CTO 强制：<b>L4 永远关</b>。Agent 永远不能改自身 prompt / tool / policy / eval 集 / Memory 准入规则 / 合并自己的 PR。最多生成 proposal，由人或独立治理系统批准。如果不写死，3 年后一定被"提效"理由突破。</div>
+
+      <div class="qa-q">Q6. 跨域知识迁移必须默认禁止，不是默认共享。</div>
+      <div class="qa-a">A：必须有 <code>domain_scope</code> 和 <code>applicability_contract</code>：适用业务线 / 主体类型 / 证据前提 / 禁用场景 / 迁移审批记录 / holdout 测试。没契约的 memory 跨域不能引用，否则 URG 变跨域污染源。</div>
+
+      <div class="qa-q">Q7. Memory Curator 在百万 case/day 下不可能靠人撑。</div>
+      <div class="qa-a">A：必须分层采样。机器按 4 维评估（风险 / 影响面 / 置信度 / 争议度）→ 低风险 + 高置信 + 低争议自动进 DRAFT；高风险 / 低置信 / 高争议进 QUARANTINED 强制人审；高 tier 必须人签。5-10 人 Curator 团队足够，不是几千人审核团。</div>
+
+      <div class="qa-q">Q8. Adversary Red Team Agent 怎么不跟生产 Agent 串谋？</div>
+      <div class="qa-a">A：三层物理隔离。① 不共享生产 prompt repo / Memory promote 权限 / 评估口径 ② 不同 LLM endpoint / 不同 owner / 不同汇报线 ③ 产出攻击样本进独立 quarantine，经人或独立 eval pipeline 验证后才能影响主系统。否则两个 Agent 互相适配，表面指标好但真实对抗能力不一定提升。</div>
+
+      <div class="qa-meta">
+        <b>CTO Round 2 关键升级</b><br>
+        Round 2 的 8 个反问直接重塑了数据飞轮设计：<br>
+        + 5 资产层 → 6 资产层（加 Failure Taxonomy）<br>
+        + L4 从"v5 后讨论" → "架构红线永远关"<br>
+        + Memory 升级 → 代码级 6 状态机<br>
+        + L2 自动 promote → 6 道 guardrail<br>
+        + 采纳信号 → 5 层分层 ground truth<br>
+        + 跨域迁移 → 默认禁止 + applicability_contract<br>
+        + Curator → 4 维分层采样 + 5-10 人团队<br>
+        + Red Team → 三层物理隔离 + 独立 quarantine
+      </div>
+    </div>
+  </details>
+
+  <details class="qa">
+    <summary>CTO 综合裁决</summary>
+    <div class="qa-body">
+      <p><b>Round 1 + Round 2 之后 CTO 的综合判断</b>：</p>
+      <ul style="margin:6px 0 6px 22px;">
+        <li>终态方向站得住，可以作为 5-8 年北极星</li>
+        <li>不是"Agent 群重构风控"，是"以 The Gate 和 URG 为核心的控制平面"</li>
+        <li>建设优先级 7 项不可乱序：The Gate → Trace → Risk Case → URG MVP → Agent Contract → Agent Society → 治理 Agent</li>
+        <li>数据飞轮 6 资产层 + 自进化严格 4 层（L4 永远关）</li>
+        <li>每个失控点（自改 / Memory 污染 / 跨域乱迁移 / Red Team 串谋 / 假阳性 promote）都有工程化防御</li>
+      </ul>
+      <p style="font-weight:600;color:var(--blue);margin-top:10px;">
+        终态的可信度不取决于"Agent 写得多聪明"，取决于"The Gate / URG / 治理 / Failure Taxonomy / Memory 状态机 / Red Team 隔离这些控制平面工程化得多扎实"。
+      </p>
+    </div>
+  </details>
+</section>
+<section id="app-d">
+  <h2 class="sec"><span class="n">D</span>📘 术语速查</h2>
+  <div class="tldr"><b>说明</b><br>文档全篇出现的专业名词集中预解释。任何卡壳的术语都能在这里查到。点开看。</div>
+
+  <details class="expand">
+    <summary>O(...) 表示法 是什么 —— 大 O，描述"成本怎么随规模长"</summary>
+    <div class="body">
+      <p>来自计算机科学，描述<b>规模变大时，成本（或工作量）以什么速度增长</b>。不是精确数学，是数量级的语言。</p>
+      <table class="tab" style="margin:4px 0;">
+        <thead><tr><th>写法</th><th>含义</th><th>风控例子</th></tr></thead>
+        <tbody>
+          <tr><td>O(1)</td><td>不管规模多大成本固定</td><td>查一个 user_id 几亿用户也是几毫秒</td></tr>
+          <tr><td>O(n) / O(headcount)</td><td>规模翻倍成本翻倍（线性）</td><td>加 10% case 量就要加 10% 审核员</td></tr>
+          <tr><td>O(场景 × 对抗)</td><td>两个因素相乘增长</td><td>新增 1 个业务线要面对所有对抗，新增 1 种对抗所有业务线要应对</td></tr>
+          <tr><td>O(power-law)</td><td>幂律分布：少数事件主导且非线性放大</td><td>1% 最猛攻击造成 80% 损失；一个新 AI 工具流出 → 攻击规模 10 倍化</td></tr>
+        </tbody>
+      </table>
+      <p><b>文档里这么用</b>：</p>
+      <ul style="margin:4px 0 0 22px;">
+        <li>"业务扩张 O(场景×对抗)" = 业务越多，对抗越多，两者相乘</li>
+        <li>"风控人力 O(headcount)" = 加 case 必须加人，线性</li>
+        <li>"对抗演化 O(power-law)" = 不是平稳增长，会突然跳起来</li>
+      </ul>
+      <p>三条曲线脱钩的本质：人力线性追不上"相乘 + 突跳"的双重压力。</p>
+    </div>
+  </details>
+
+  <details class="expand">
+    <summary>closed-form vs open-form 推理 是啥</summary>
+    <div class="body">
+      <p><b>closed-form（封闭式）</b>：问题有清晰边界、有限选项、能写成 if-then 规则或分类标签。</p>
+      <p>例子：判断一笔订单是不是 ＞ 200 元、用户是不是新注册、设备指纹是不是黑名单——规则和模型擅长。</p>
+      <p><b>open-form（开放式）</b>：问题需要跨多个数据源综合、需要推理"如果……那么……"、答案不是预定标签。</p>
+      <p>例子："这商家是真的售假、还是争议产品、还是被恶意举报？" —— 要看交易、退款、评价、关联账号、物流、相似 case 历史处罚，综合给结论 + 解释为什么。</p>
+      <p><b>关键</b>：规则 / 模型物理上做不到 open-form——它们只能做"已知模式过滤"。Agent 第一次让 open-form 推理可批量化（5 分钟一个 case，并行 N 个）。</p>
+    </div>
+  </details>
+
+  <details class="expand">
+    <summary>shadow 模式 / shadow-only 是啥</summary>
+    <div class="body">
+      <p><b>shadow mode（影子模式）</b>：让新系统跟真实生产并行跑，但**新系统的输出不进入真实决策**，只用来对比 / 评估。</p>
+      <p>风控里：Agent 对 case 给出"建议处置"，但实际处置仍由人审决定。Agent 的建议只展示给审核员（或仅离线对比），不自动执行。</p>
+      <p><b>价值</b>：用真实数据验证 Agent 质量，没有生产风险——即使 Agent 错得离谱也不会真的误杀用户。</p>
+      <p>v1 实验阶段全程 shadow-only 是 codex（COO 角色）8 条硬条件之一。</p>
+    </div>
+  </details>
+
+  <details class="expand">
+    <summary>automation bias（自动化偏差）是啥</summary>
+    <div class="body">
+      <p>人面对一个"看起来很有道理的自动化建议"时，倾向于<b>少做独立思考、直接采纳</b>——即使建议本身有错。</p>
+      <p>风控场景：审核员看到 AI 给的"建议封禁 7 天 · 置信度 0.85"，可能不再认真核证据，直接点采纳。结果：AI 错了人也跟着错。</p>
+      <p><b>已被研究 5+ 年的真问题</b>（医学影像 AI 是重灾区）。防御机制成熟：</p>
+      <ul style="margin:4px 0 0 22px;">
+        <li>UI 不显示数字置信度</li>
+        <li>强制显示反例点</li>
+        <li>延迟揭示 AI 建议（审核员先独立判，再看 AI）</li>
+        <li>双盲 A/B 监控（看 AI 组 vs 不看 AI 组错误率）</li>
+        <li>审核员 KPI 从"处理量"转"申诉胜诉率"</li>
+      </ul>
+      <p>立项 8 条硬条件第 ④ 条包含 automation bias 验收指标。</p>
+    </div>
+  </details>
+
+  <details class="expand">
+    <summary>BPO 是啥</summary>
+    <div class="body">
+      <p>Business Process Outsourcing，<b>业务流程外包</b>。中文俗称"外包"。</p>
+      <p>风控语境：第三方外包公司（如某些大型 BPO 厂商）提供大量内容审核员，按 case 数或人天计费。快手一线内容审核员里很大比例是 BPO 而非自有员工。</p>
+      <p>典型成本结构：BPO 单价 ≈ 自有员工 50-70%，但管理 / 培训 / 质量稳定性比自有差。</p>
+    </div>
+  </details>
+
+  <details class="expand">
+    <summary>baseline 是啥</summary>
+    <div class="body">
+      <p>"基线"——做对比的起点。</p>
+      <p>风控里：当前人审的误杀率、漏放率、平均处理时间，就是"baseline"。Agent 上线后要证明新指标"≥ baseline"（不能比现在差）。</p>
+      <p><b>关键</b>：v1 不要求 AI 比人强多少，只要求"不比人差"。这是 shadow 模式 + Kill Criteria 的底线。</p>
+    </div>
+  </details>
+
+  <details class="expand">
+    <summary>Kill Criteria（实验终止标准）</summary>
+    <div class="body">
+      <p>实验<b>开始前</b>定好"什么数字不达到就立即停"。开始后不许讨价还价、不许"再给我点时间"。</p>
+      <p>本立项 5 条 Kill Criteria：</p>
+      <ul style="margin:4px 0 0 22px;">
+        <li>判准率 &lt; 70% → 停</li>
+        <li>单 case 调查时间压缩 &lt; 40% → 停</li>
+        <li>新异常命中有效率 &lt; 30% → 停</li>
+        <li>看 AI 组错误率 &gt; 不看 AI 组（automation bias 失控）→ 停</li>
+        <li>事故率 &gt; baseline → 停</li>
+      </ul>
+      <p>任意 2 条不达标 = 终止实验。¥1500 万止损。</p>
+    </div>
+  </details>
+
+  <details class="expand">
+    <summary>Policy-as-Code 是啥</summary>
+    <div class="body">
+      <p>把"规则 / 权限 / 红线"<b>写成代码或 DSL（领域专用语言）</b>，由统一引擎运行时强制。不写在文档、不写在 PPT、不写在某人脑子里。</p>
+      <p>风控里：例如"实时机审链路禁止调用 LLM"这条红线，不是口头约定，是写成 Rego 或类似 DSL 代码，每次请求自动检查。AI 不能改写，只有治理多签可以发版。</p>
+      <p>对比传统：业务代码里散落的 if-else 写在每个服务里、容易被绕过。Policy-as-Code 集中、可审计、可版本化。</p>
+    </div>
+  </details>
+
+  <details class="expand">
+    <summary>CoI / ROI 是啥</summary>
+    <div class="body">
+      <p><b>ROI</b> = Return on Investment，投资回报率。"花了 X 钱，得了 Y 收益"。</p>
+      <p><b>CoI</b> = Cost of Inaction，<b>不做的代价</b>。"如果不投这个项目，损失的钱"。</p>
+      <p>关键区别：ROI 算"做了能赚多少"；CoI 算"不做会亏多少"。立项时 CoI 经常比 ROI 更有说服力——"不做 = 损失 ¥30 亿" 比 "做了 = 赚 ¥10 亿" 更难反驳。</p>
+      <p>本文档 Part 4 就是 CoI 论证。</p>
+    </div>
+  </details>
+
+  <details class="expand">
+    <summary>A/B 测试 / 双盲 是啥</summary>
+    <div class="body">
+      <p><b>A/B 测试</b>：把用户（或 case）分两组，一组用新方案（A），一组用旧方案（B），对比效果。</p>
+      <p><b>双盲</b>：A 组和 B 组的人不知道自己在哪组，避免心理预期影响行为。</p>
+      <p>风控里：50% 审核员看 AI 建议（A 组）+ 50% 不看（B 组），对比两组的判罚错误率。如果 A 组错误率 ≥ B 组 = automation bias 失控，停止 AI 展示。</p>
+    </div>
+  </details>
+
+  <details class="expand">
+    <summary>DAU / MAU / GMV / NPS 业务指标</summary>
+    <div class="body">
+      <p><b>DAU</b> (Daily Active Users) = 日活跃用户数。快手 DAU 4 亿+。</p>
+      <p><b>MAU</b> (Monthly Active Users) = 月活跃用户数。快手 MAU 7 亿+。</p>
+      <p><b>GMV</b> (Gross Merchandise Value) = 商品交易总额，电商业务核心指标。快手电商 GMV 千亿级。</p>
+      <p><b>NPS</b> (Net Promoter Score) = 净推荐值，用户满意度指标。误杀 / 误判会让 NPS 下降，反过来影响 DAU 留存。</p>
+    </div>
+  </details>
+
+  <details class="expand">
+    <summary>Transparency Report（透明度报告）</summary>
+    <div class="body">
+      <p>头部互联网公司定期发布的"我们删了多少内容、为什么删、用 AI 占多少比例"的公开报告。</p>
+      <p>TikTok、YouTube、Meta、Twitter 都发。TikTok 的 Transparency Report 明确披露：内容审核大量使用 AI 辅助。</p>
+      <p>本文档引用 TikTok Transparency Report 作为"行业 AI 化已发生"的证据。</p>
+    </div>
+  </details>
+
+  <details class="expand">
+    <summary>RAG / embedding / 向量库 是啥（如果你要细看 Part 3 支柱 2）</summary>
+    <div class="body">
+      <p><b>RAG</b> = Retrieval-Augmented Generation，<b>先检索再生成</b>。</p>
+      <p>意思：先从历史 case 库找相似的几个，再让大模型基于这些参考资料给建议。</p>
+      <p><b>向量 / embedding</b>：把一段文字变成一串数字（768 维左右），语义相近的数字坐标也相近。这样能"找跟当前 case 行为像的"，而不只是"按 user_id 精确查"。</p>
+      <p><b>向量库（Milvus / ES kNN）</b>：专门存这些数字坐标 + 快速找最相似的几个。</p>
+      <p>详细见配套文档 <code>agent-architecture-design.html</code>。</p>
+    </div>
+  </details>
+
+  <h3 class="sub" style="margin-top:24px;color:var(--blue);">Part 8 终态架构里的内部术语</h3>
+  <p>下面这些是文档 Part 8 终态架构里反复出现的内部术语，外行第一次见容易卡。</p>
+
+  <details class="expand">
+    <summary>URG (Unified Risk Graph 统一风险图) 是啥</summary>
+    <div class="body">
+      <p><b>一句话</b>：风控所有事实的<b>统一数据底座</b>。所有人 / Agent / 系统读同一份事实。</p>
+      <p><b>不是什么</b>：不是图形界面 / 不是某种数据库技术（不是用 Neo4j 就叫 URG）/ 不是一次性建好的产品。</p>
+      <p><b>类比</b>：</p>
+      <p>现状像散在不同 Word 文档里的数据——档案中心一份、case 一份、判罚一份、策略一份。Alice 调查 case 切 5 个系统拼数据；反欺诈把用户标"高风险"+ 内容安全标同一用户"优质创作者"。</p>
+      <p>URG 像把所有文档合并到一个 Notion workspace：所有人编辑同一份，互相能看到。</p>
+      <p><b>核心实体（MVP 期只 4 个，CTO 警告"不要一上来全做"）</b>：</p>
+      <ul style="margin:4px 0 0 22px;">
+        <li>Case（风险事件单元）</li>
+        <li>Action（动作记录）</li>
+        <li>EvidenceRef（证据引用，不复制证据本身）</li>
+        <li>TraceRef（trace 引用，不复制 trace 本身）</li>
+      </ul>
+      <p>User / Content / Device / Memory 由现有系统引用，逐步并入。</p>
+      <p><b>物理实现</b>：Kafka 事件总线 + 关系库 + 向量库的组合。事件溯源（append-only）。</p>
+      <p><b>关键约束</b>：Agent 永远不直接写 URG，必须经 Action Adapter 过门。所有写入带元数据（谁 / 何时 / 依据什么 / trace_id）。</p>
+    </div>
+  </details>
+
+  <details class="expand">
+    <summary>The Gate（控制平面 / 统一执行护栏）是啥</summary>
+    <div class="body">
+      <p><b>一句话</b>：所有"写到生产"的动作必须经过的<b>唯一入口</b>，是 AI Native 风控架构的承重墙。</p>
+      <p><b>包含 4 个组件</b>：</p>
+      <ul style="margin:4px 0 4px 22px;">
+        <li><b>Action Adapter</b>（唯一写动作入口，见下条）</li>
+        <li><b>Policy-as-Code</b>（红线代码化运行时强制）</li>
+        <li><b>Trace / Replay / Audit</b>（全链路可追溯）</li>
+        <li><b>Rollback</b>（git-style 可回滚）</li>
+      </ul>
+      <p><b>类比</b>：像机场安检——每个想登机（写生产数据）的人必须过同一道门 / 同一套检查。机场可以扩建航站楼（加 Agent），但安检不变。</p>
+      <p><b>为什么是承重墙</b>：CTO 强调"架构主体不是 Agent，是 The Gate + URG"。Agent 可以替换 / 扩展 / 下线，The Gate 一旦立住不能动。</p>
+      <p><b>v2-v3 期的最大工程</b>：把快手现有所有风控写动作入口（判罚 / 策略 / 运营后台 / 灰度工具 / 工单 / 应急通道）<b>收编到 The Gate</b> 或封禁，否则 The Gate 只是 Agent 的门，不是风控生产动作的唯一门。</p>
+    </div>
+  </details>
+
+  <details class="expand">
+    <summary>Action Adapter（写动作的唯一入口）是啥</summary>
+    <div class="body">
+      <p><b>一句话</b>：The Gate 里负责"接收写请求 → 查 Policy → 检查幂等 → 执行 → 写 trace"的具体组件。</p>
+      <p><b>类比</b>：像银行柜台。任何想从账户取钱（写生产）的人都过同一个柜台。柜员（Adapter）做：</p>
+      <ul style="margin:4px 0 4px 22px;">
+        <li>核实身份（鉴权）</li>
+        <li>查规定（Policy 检查）</li>
+        <li>查是否重复操作（幂等）</li>
+        <li>执行 / 拒绝</li>
+        <li>记账（写 trace）</li>
+      </ul>
+      <p><b>关键</b>：Agent 不直接调底层服务，调 Action Adapter。Action Adapter 内部分发到 Dubbo / 现有 Java 服务。Agent 只知道"想做什么"，不知道"具体哪个服务实现"。</p>
+      <p>详细工程实现见配套文档 <code>agent-architecture-design.html §4.2</code>。</p>
+    </div>
+  </details>
+
+  <details class="expand">
+    <summary>Agent Society（多 Agent 协作运行时）是啥</summary>
+    <div class="body">
+      <p><b>一句话</b>：多个域内 Agent 协同跑的<b>运行时层</b>，跑在 The Gate + URG 之上。</p>
+      <p><b>包含哪些 Agent</b>（终态）：</p>
+      <ul style="margin:4px 0 4px 22px;">
+        <li>内容安全 Agent 群（视频 / 直播 / 评论 / 用户）</li>
+        <li>反欺诈 Agent 群</li>
+        <li>商家 / 电商 Agent 群</li>
+        <li>合规审查 Agent 群</li>
+        <li>跨域 Arbiter Agent（仲裁冲突）</li>
+      </ul>
+      <p><b>关键</b>：Society 这个词刻意选用——多 Agent 不是"线性流水线"，是"协作社会"，有冲突、有仲裁、有专长分工。但仍受控制平面 + 治理层约束。</p>
+      <p><b>CTO 强警告</b>：Agent Society 必须最后建（建设优先级第 6 位），<em>不能先于 The Gate</em>。否则做出一堆 Agent 没有控制平面承接 = 愿景项目。</p>
+    </div>
+  </details>
+
+  <details class="expand">
+    <summary>Memory tier (A/B/C/D) Memory 质量分级</summary>
+    <div class="body">
+      <p><b>一句话</b>：每条 Memory 按"可信度"分 4 级，决定哪些 Agent 能引用、哪些场景能用。</p>
+      <table class="tab" style="margin:4px 0;">
+        <thead><tr><th>tier</th><th>来源</th><th>谁能引用</th></tr></thead>
+        <tbody>
+          <tr><td><b>A</b> 最高</td><td>事故复盘 / Curator 显式标注 / 监管确认</td><td>所有 Agent + 高风险决策可引</td></tr>
+          <tr><td><b>B</b> 较高</td><td>判罚生效 + outcome 回填后</td><td>所有 Agent</td></tr>
+          <tr><td><b>C</b> 中</td><td>人审采纳 + 申诉 / 二审复核通过</td><td>大多数 Agent</td></tr>
+          <tr><td><b>D</b> 最低（DRAFT）</td><td>Agent 自己写的 / 未验证</td><td><b>不进检索</b>，只在 Curator 工作台可见</td></tr>
+        </tbody>
+      </table>
+      <p><b>关键</b>：Agent 写的 memory 永远 tier=D。必须经升级路径（人审 / 判罚 outcome / Curator 签）才能进检索。这是防"Agent 错 → memory → 再被引用"的核心机制。</p>
+      <p>详细 6 状态机：<code>DRAFT → QUARANTINED → VERIFIED → PROMOTED → DEPRECATED → REVOKED</code>，见 Part 8.6.4。</p>
+    </div>
+  </details>
+
+  <details class="expand">
+    <summary>CDIG (Cross-Domain Influence Graph 跨域影响图) 是啥</summary>
+    <div class="body">
+      <p><b>一句话</b>：描述"A 域改动会影响 B 域哪些指标"的<b>因果图谱</b>。v4 阶段才用。</p>
+      <p><b>例子</b>：</p>
+      <ul style="margin:4px 0 4px 22px;">
+        <li>"内容安全收紧营销号策略" → "电商商家投放限流" → "GMV 下降"</li>
+        <li>"反欺诈封禁新设备聚集账号" → "新用户激活率下降"</li>
+        <li>"未成年保护扩大识别" → "审核工单激增"</li>
+      </ul>
+      <p>每条边带：方向 / 强度 / 时延 / 是否需要联动。</p>
+      <p><b>怎么用</b>：</p>
+      <ul style="margin:4px 0 4px 22px;">
+        <li>某个域要改策略时自动检查 CDIG：会影响哪些下游？</li>
+        <li>跨域 Arbiter Agent 仲裁冲突时参考 CDIG 推因果</li>
+        <li>事故复盘时反向追溯：这次连锁反应有没有 CDIG 没覆盖的边</li>
+      </ul>
+      <p><b>v4 才用，原因</b>：CDIG 需要积累足够跨域数据才能建。v1-v3 期没这个数据。</p>
+    </div>
+  </details>
+
+  <details class="expand">
+    <summary>Failure Taxonomy（失败原因结构化标签）是啥</summary>
+    <div class="body">
+      <p><b>一句话</b>：把 Agent 失败拆成可训练的<b>结构化根因标签</b>。是数据飞轮的关键资产层。</p>
+      <p><b>为什么重要</b>：CTO 直接指出——没 Failure Taxonomy，飞轮只会堆数据，不会知道"该改 Agent / 改工具 / 改策略 / 改审核培训"。</p>
+      <p><b>失败类型枚举</b>（每次失败强制打标签，进结构化数据库）：</p>
+      <ul style="margin:4px 0 4px 22px;">
+        <li><code>EVIDENCE_MISSING</code> 证据缺失（拉不到关键数据）</li>
+        <li><code>TOOL_ERROR</code> 工具错（调用挂 / 超时 / 返回错）</li>
+        <li><code>PROMPT_ERROR</code> Prompt 错（指令不明确 / 引导偏差）</li>
+        <li><code>MODEL_ERROR</code> 模型错（幻觉 / 理解偏差）</li>
+        <li><code>MEMORY_POISONED</code> Memory 污染（引用了错的）</li>
+        <li><code>HUMAN_OVERRIDE_WRONG</code> 人审错（审核员判错被申诉推翻）</li>
+        <li><code>POLICY_DRIFTED</code> 策略口径变了（旧 prompt 跟不上新规）</li>
+      </ul>
+      <p><b>用途</b>：每月按 Failure Taxonomy 聚合 → 知道下个迭代该改哪里。</p>
+    </div>
+  </details>
+
+  <details class="expand">
+    <summary>applicability_contract（跨域迁移契约）是啥</summary>
+    <div class="body">
+      <p><b>一句话</b>：每条 Memory 带的"我能在哪些域 / 哪些场景被引用"的<b>显式契约</b>。跨域迁移默认禁止，有契约才允许。</p>
+      <p><b>为什么</b>：CTO 警告——"内容营销号模式不能直接迁移到电商商家。反欺诈设备关联不能直接迁移到未成年保护。"没有契约，URG 会变跨域污染源。</p>
+      <p><b>契约字段</b>：</p>
+      <ul style="margin:4px 0 4px 22px;">
+        <li><code>domain_scope</code>：适用业务线（如 "content-safety:marketing-account"）</li>
+        <li><code>subject_type</code>：主体类型（video / user / merchant）</li>
+        <li><code>evidence_prerequisites</code>：依赖的证据前提</li>
+        <li><code>forbidden_scenarios</code>：禁用场景（如 "minor-user" / "celebrity"）</li>
+        <li><code>migration_audit</code>：跨域迁移审批记录（谁批 / 何时 / holdout 测试结果）</li>
+      </ul>
+      <p>没契约的 Memory，跨域 Agent 不能引用。</p>
+    </div>
+  </details>
+
+  <details class="expand">
+    <summary>gold set（评估金标集）是啥</summary>
+    <div class="body">
+      <p><b>一句话</b>：人工精标的"标准答案集"，用来评估 Agent 质量。</p>
+      <p><b>构成</b>：</p>
+      <ul style="margin:4px 0 4px 22px;">
+        <li>1000-5000 条人工标注的 (case, 正确判罚) 对</li>
+        <li>每月新增 100-300 条（跟上对抗演化）</li>
+        <li>按业务线 / 难度 / 对抗类型分桶</li>
+      </ul>
+      <p><b>怎么用</b>：</p>
+      <ul style="margin:4px 0 4px 22px;">
+        <li>每日跑 eval：Agent 在 gold set 上的判准率</li>
+        <li>Prompt / Tool 变更前先在 gold set 跑 A/B</li>
+        <li>新版本上线门槛：≥ baseline + 无回归</li>
+      </ul>
+      <p><b>关键约束</b>：gold set 必须由 Curator + 资深审核员维护，<b>Agent 不能写 gold set</b>（否则就是自我证明）。</p>
+    </div>
+  </details>
+</section>
+
+<div class="red-line">
+  立项的不是 "AI Native 风控集团战略项目"，是 <b>¥1500 万 / 6-12 周 / 1 个安全业务线的 shadow 实验</b>。要证明的不是 AI 是趋势，是在快手量级的真实风控线上，AI Agent 能不能变成"可审计、可隔离、可控风险"的能力。跑出来，再谈集团级基础设施。
+</div>
+
+</main>
+</div>
+
+</body>
+</html>

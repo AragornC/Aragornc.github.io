@@ -1,0 +1,926 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Native 风控 · Agent 架构设计（快手语境 · 全 Java）</title>
+<style>
+  :root {
+    --bg:#fbfcfd; --paper:#fff; --ink:#0f1820; --ink-2:#26333f;
+    --muted:#5e6b78; --muted-2:#8997a5; --line:#dde4ec; --line-2:#c5cfdb;
+    --blue:#0c5d80; --blue-soft:#e6f1f6; --blue-line:#a8cfdc;
+    --green:#1f6f4f; --green-soft:#e6f3ec;
+    --red:#a3373a; --red-soft:#fbeceb;
+    --amber:#8a5d1f; --amber-soft:#fbf2dc;
+    --code-bg:#f1f4f8; --code-ink:#1a242e;
+    --mono: ui-monospace,"SF Mono",SFMono-Regular,Menlo,Monaco,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth;scroll-padding-top:20px}
+  body{margin:0;color:var(--ink);background:var(--bg);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    line-height:1.72;font-size:15px}
+  .shell{display:grid;grid-template-columns:250px minmax(0,1fr);gap:32px;max-width:1340px;margin:0 auto;padding:32px 32px 96px}
+
+  aside.toc{position:sticky;top:20px;align-self:start;max-height:calc(100vh - 40px);overflow-y:auto;
+    padding:16px;border:1px solid var(--line);border-radius:8px;background:var(--paper);font-size:13px}
+  aside.toc .toc-title{margin:0 0 10px;color:var(--blue);font-size:10.5px;font-weight:850;letter-spacing:0.12em}
+  aside.toc ol{list-style:none;margin:0;padding:0}
+  aside.toc > ol > li{margin:3px 0}
+  aside.toc a{display:block;padding:3px 6px;border-radius:4px;color:var(--ink-2);text-decoration:none}
+  aside.toc a:hover{background:var(--blue-soft);color:var(--blue)}
+  aside.toc .toc-num{display:inline-block;min-width:22px;color:var(--muted-2);font-variant-numeric:tabular-nums;font-weight:700}
+  aside.toc ol ol{margin:2px 0 4px 14px;font-size:12.5px}
+  aside.toc ol ol a{color:var(--muted);padding:2px 6px}
+  aside.toc .part-hd{margin-top:8px;color:var(--blue);font-size:11px;font-weight:850;letter-spacing:0.08em;padding:0 6px}
+
+  main{min-width:0}
+  .doc-meta{margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid var(--line)}
+  .doc-meta .eyebrow{display:inline-block;margin-bottom:8px;color:var(--blue);font-size:11px;font-weight:850;letter-spacing:0.1em}
+  .doc-meta h1{margin:0 0 6px;font-size:30px;line-height:1.25;letter-spacing:-0.01em}
+  .doc-meta .subtitle{margin:0;color:var(--ink-2);font-size:15px;font-weight:500}
+  .doc-meta .meta-line{margin-top:8px;color:var(--muted);font-size:12.5px}
+
+  section{margin:44px 0 0;scroll-margin-top:20px}
+  section.lead{margin-top:0}
+  h2.sec{display:flex;align-items:baseline;gap:12px;margin:0 0 12px;padding-bottom:10px;border-bottom:2px solid var(--line);
+    font-size:22px;line-height:1.3;letter-spacing:-0.005em}
+  h2.sec .n{color:var(--blue);font-variant-numeric:tabular-nums;font-weight:850;font-size:17px}
+  h3.sub{margin:28px 0 8px;font-size:16.5px}
+  h3.sub .n{color:var(--muted-2);font-variant-numeric:tabular-nums;font-weight:700;margin-right:6px}
+  h4{margin:18px 0 6px;font-size:14.5px;color:var(--ink-2)}
+
+  p{margin:8px 0}
+  strong{color:var(--ink)}
+  em{font-style:normal;color:var(--blue);font-weight:600}
+  code{padding:1px 5px;background:var(--code-bg);color:var(--code-ink);border-radius:3px;font-family:var(--mono);font-size:0.88em}
+
+  .stage-badge{display:inline-block;padding:2px 8px;border-radius:99px;font-size:10.5px;font-weight:850;letter-spacing:0.08em;margin-right:6px}
+  .stage-badge.exp{background:var(--green);color:white}
+  .stage-badge.v1{background:var(--blue);color:white}
+  .stage-badge.v2{background:var(--amber);color:white}
+  .stage-badge.never{background:var(--red);color:white}
+
+  .tldr{margin:12px 0 16px;padding:11px 14px;border-left:4px solid var(--blue);
+    background:var(--blue-soft);border-radius:0 4px 4px 0;color:var(--ink-2);font-size:14px}
+  .tldr b{color:var(--blue);font-size:11px;letter-spacing:0.1em}
+
+  table.tab{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px}
+  table.tab th, table.tab td{padding:9px 11px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+  table.tab th{background:#eef3f8;color:var(--ink);font-weight:700;font-size:12.5px}
+  table.tab tr:last-child td{border-bottom:0}
+  table.tab.bordered td, table.tab.bordered th{border:1px solid var(--line)}
+  table.tab td.mono, table.tab th.mono{font-family:var(--mono);font-size:12.5px}
+  table.tab .em{color:var(--red);font-weight:700}
+  table.tab .ok{color:var(--green);font-weight:700}
+  table.tab .warn{color:var(--amber);font-weight:700}
+
+  pre.diagram{margin:14px 0;padding:18px;background:#0d141b;color:#c4d0dd;border-radius:6px;
+    overflow-x:auto;font-family:var(--mono);font-size:12.5px;line-height:1.55}
+  pre.diagram .c1{color:#7ec5e6}
+  pre.diagram .c2{color:#86d4a1}
+  pre.diagram .c3{color:#e8c47a}
+  pre.diagram .c4{color:#dd8a90}
+  pre.diagram .cm{color:#7c8a9b;font-style:italic}
+  pre.diagram .cr{color:#ff6b6b;font-weight:bold}
+
+  pre.code{margin:10px 0;padding:14px 16px;background:#f5f7fa;color:var(--code-ink);border:1px solid var(--line);
+    border-radius:6px;overflow-x:auto;font-family:var(--mono);font-size:12.5px;line-height:1.55}
+  pre.code .kw{color:#0c5d80;font-weight:700}
+  pre.code .str{color:#1f6f4f}
+  pre.code .com{color:#8997a5;font-style:italic}
+  pre.code .typ{color:#8a5d1f}
+  pre.code .anno{color:#a3373a}
+
+  .callout{margin:12px 0;padding:11px 14px;border-radius:0 4px 4px 0;font-size:13.5px}
+  .callout.choice{border-left:4px solid var(--green);background:var(--green-soft);color:var(--ink-2)}
+  .callout.choice b{color:var(--green);font-size:11px;letter-spacing:0.08em}
+  .callout.warn{border-left:4px solid var(--amber);background:var(--amber-soft);color:var(--ink-2)}
+  .callout.warn b{color:var(--amber);font-size:11px;letter-spacing:0.08em}
+  .callout.risk{border-left:4px solid var(--red);background:var(--red-soft);color:var(--ink-2)}
+  .callout.risk b{color:var(--red);font-size:11px;letter-spacing:0.08em}
+
+  details.gloss{margin:10px 0;border-left:4px solid var(--blue);background:var(--blue-soft);border-radius:0 4px 4px 0;overflow:hidden}
+  details.gloss summary{list-style:none;cursor:pointer;padding:9px 14px;color:var(--blue);font-weight:700;font-size:13.5px;user-select:none}
+  details.gloss summary::-webkit-details-marker{display:none}
+  details.gloss summary::before{content:"▸";display:inline-block;margin-right:8px;color:var(--blue);font-size:10px;transition:transform 0.15s}
+  details.gloss[open] summary::before{transform:rotate(90deg)}
+  details.gloss .body{padding:0 14px 8px 32px;color:var(--ink-2);font-size:13.5px;line-height:1.7}
+  details.gloss .body p{margin:5px 0}
+
+  .steps{display:grid;gap:8px;margin:14px 0;counter-reset:s}
+  .step{counter-increment:s;display:grid;grid-template-columns:32px 1fr;gap:10px;padding:10px 12px;
+    border:1px solid var(--line);border-radius:6px;background:var(--paper);font-size:13.5px}
+  .step::before{content:counter(s,decimal-leading-zero);
+    display:flex;align-items:center;justify-content:center;
+    background:var(--blue);color:white;border-radius:6px;font-weight:850;font-size:12px;font-family:var(--mono)}
+  .step .title{font-weight:700;color:var(--ink)}
+  .step .meta{margin-top:2px;color:var(--muted);font-size:12.5px}
+
+  .agent-card{margin:18px 0;padding:0;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--paper)}
+  .agent-card .hd{padding:14px 18px;color:white}
+  .agent-card.exp .hd{background:linear-gradient(135deg,#1f6f4f 0%,#155538 100%)}
+  .agent-card.v2 .hd{background:linear-gradient(135deg,#8a5d1f 0%,#6a4317 100%)}
+  .agent-card .hd .label{display:inline-block;padding:2px 8px;background:rgba(255,255,255,0.2);border-radius:99px;font-size:11px;font-weight:700;letter-spacing:0.08em;margin-bottom:6px}
+  .agent-card .hd h3{margin:0;font-size:18px}
+  .agent-card .hd .one-liner{margin-top:4px;font-size:13.5px;opacity:0.92}
+  .agent-card .bd{padding:14px 18px}
+  .agent-card .bd h4{margin:14px 0 6px;color:var(--blue);font-size:14px}
+  .agent-card .bd h4:first-child{margin-top:0}
+
+  .red-lines{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:18px 0}
+  .red-line-card{padding:14px 16px;border:1px solid var(--red);border-radius:6px;background:#fff8f8}
+  .red-line-card .num{display:inline-block;padding:2px 8px;background:var(--red);color:white;border-radius:99px;font-size:10.5px;font-weight:850;letter-spacing:0.08em;margin-bottom:8px}
+  .red-line-card h4{margin:4px 0 6px;color:var(--ink);font-size:14.5px}
+  .red-line-card p{font-size:12.5px;color:var(--ink-2);margin:4px 0}
+
+  .red-line{margin-top:40px;padding:16px 20px;border-left:5px solid var(--red);background:var(--red-soft);color:#5a2526;font-weight:700;border-radius:0 6px 6px 0}
+
+  @media (max-width: 900px){
+    .shell{grid-template-columns:1fr;padding:18px}
+    aside.toc{position:static;max-height:none}
+    .red-lines{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+<aside class="toc">
+  <div class="toc-title">目录 · TOC</div>
+  <ol>
+    <li><a href="#p0"><span class="toc-num">0</span>项目定位</a></li>
+    <li class="part-hd">阶段范围</li>
+    <li><a href="#p1"><span class="toc-num">1</span>分阶段路线</a></li>
+    <li><a href="#p2"><span class="toc-num">2</span>实时链路三层红线</a></li>
+    <li class="part-hd">整体架构</li>
+    <li><a href="#p3"><span class="toc-num">3</span>系统全貌</a></li>
+    <li><a href="#p4"><span class="toc-num">4</span>4 类 Agent + v1 范围</a></li>
+    <li class="part-hd">实现细节</li>
+    <li><a href="#p5"><span class="toc-num">5</span>30 行 Agent 本质</a></li>
+    <li><a href="#p6"><span class="toc-num">6</span>Tool 系统</a></li>
+    <li><a href="#p7"><span class="toc-num">7</span>对话与记忆</a></li>
+    <li><a href="#p8"><span class="toc-num">8</span>技术栈逐个解释</a></li>
+    <li class="part-hd">部署 / 决策</li>
+    <li><a href="#p9"><span class="toc-num">9</span>部署与变更</a></li>
+    <li><a href="#p10"><span class="toc-num">10</span>选型决策</a></li>
+    <li><a href="#p11"><span class="toc-num">11</span>明确不用的</a></li>
+  </ol>
+</aside>
+
+<main>
+
+<div class="doc-meta">
+  <span class="eyebrow">AI Native Risk Control · Engineering Design v3 · 快手语境</span>
+  <h1>Agent 架构设计（快手语境 · 全 Java）</h1>
+  <p class="subtitle">在快手 1500 万 QPS 机审实时引擎<em>旁边</em>建一个独立 Java 服务，业务线实验阶段不触碰实时链路。一种语言、最小新增、严格红线。</p>
+  <div class="meta-line">面向：风控中台研发 + 业务线 owner · v1 范围 = 1 个业务线 shadow 实验 · 立项论证见 ai-native-risk-case.html</div>
+</div>
+
+<!-- ============ Part 0 项目定位 ============ -->
+<section id="p0" class="lead">
+  <h2 class="sec"><span class="n">0</span>项目定位</h2>
+  <div class="tldr">
+    <b>TL;DR</b><br>
+    新建 1 个 Java Spring Boot 服务（Agent Service），跑在<em>机审实时引擎的外面</em>，通过 Kafka 异步消费"转人审" case 做调查。v1 业务线实验阶段：1 个业务线 shadow，¥1500 万投入。不动机审 / 不进生产决策 / 不碰政治内容。
+  </div>
+
+  <h3 class="sub"><span class="n">0.1</span>快手风控的真实尺寸</h3>
+  <table class="tab bordered">
+    <thead><tr><th style="width:25%">维度</th><th>数字</th></tr></thead>
+    <tbody>
+      <tr><td>业务覆盖</td><td>短视频 + 直播 + 电商 + 本地生活 + 海外 Kwai</td></tr>
+      <tr><td>机审 QPS</td><td><b>1500 万</b></td></tr>
+      <tr><td>日均机审事件</td><td>千亿级</td></tr>
+      <tr><td>日均转人审 case</td><td>估 100-500 万</td></tr>
+      <tr><td>策略数 / 特征数</td><td>40000+ / 100000+</td></tr>
+      <tr><td>审核线 / 审核员</td><td>几百条 / 1-3 万人（含外包）</td></tr>
+      <tr><td>风控中台研发</td><td>50-60 人</td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="sub"><span class="n">0.2</span>核心设计原则（不可妥协）</h3>
+  <ol>
+    <li><b>实时链路物理隔离。</b>1500 万 QPS 实时引擎跟 Agent 服务永远不调用，三层红线保证（见 §2）</li>
+    <li><b>v1 业务线实验范围硬收敛。</b>1 个业务线（电商反欺诈 或 商家风控），shadow 模式</li>
+    <li><b>不碰政治内容 / 价值观定性。</b>边界靠 Policy-as-Code 物理隔离</li>
+    <li><b>Agent 作为可问责工作单元，</b>每次动作可回放、可解释、可撤销</li>
+    <li><b>过门即权威。</b>任何写入经 Action Adapter + Policy 检查</li>
+    <li><b>Java 主导稳态，Java 跑推理。</b>不引入跨语言负担</li>
+  </ol>
+</section>
+
+<!-- ============ Part 1 分阶段 ============ -->
+<section id="p1">
+  <h2 class="sec"><span class="n">1</span>分阶段路线（不要混淆）</h2>
+  <div class="tldr"><b>TL;DR</b><br>四个阶段递进，每阶段的 ask、范围、风险容忍度都不同。本文档主要描述<span class="stage-badge exp">实验</span>阶段，并指出哪些是 v2/v3 演进。</div>
+
+  <table class="tab bordered">
+    <thead><tr><th style="width:18%">阶段</th><th>范围</th><th>投入</th><th>失败容忍</th></tr></thead>
+    <tbody>
+      <tr><td><span class="stage-badge exp">实验</span> 业务线实验</td><td>1 个业务线（电商反欺诈 或 商家风控）shadow 6-12 周</td><td>¥1500 万</td><td>全损可接受，换真知</td></tr>
+      <tr><td><span class="stage-badge v1">v1</span> 业务线 GA</td><td>1-2 个业务线正式上线（仍是 shadow + 人审建议）</td><td>¥几千万</td><td>受限——审核员产能影响</td></tr>
+      <tr><td><span class="stage-badge v2">v2</span> 多业务线 + 判罚 Review</td><td>3-5 个业务线 + 判罚 Review Agent（fail-close）</td><td>¥亿级</td><td>低——已影响判罚链路</td></tr>
+      <tr><td>v3 集团级基础设施</td><td>策略治理 + 跨域协同 + 海外业务</td><td>¥几亿</td><td>极低——已是关键基础设施</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout warn">
+    <b>本文档主体描述实验阶段</b><br>
+    所有数字 / 容量 / 部署都按"业务线实验"规模。v1/v2/v3 演进会在 §10/§11 简述触发条件，但不展开方案。
+  </div>
+</section>
+
+<!-- ============ Part 2 红线 ============ -->
+<section id="p2">
+  <h2 class="sec"><span class="n">2</span>实时链路三层红线</h2>
+  <div class="tldr"><b>TL;DR</b><br>1500 万 QPS 机审实时引擎跟 Agent 服务的隔离，不能靠"口头承诺"。三层红线 = 架构 + 治理 + 责任，靠代码 + Policy + 组织共同保证。</div>
+
+  <div class="red-lines">
+    <div class="red-line-card">
+      <span class="num">红线 1</span>
+      <h4>架构红线</h4>
+      <p>机审实时引擎跟 Agent 服务<b>物理隔离</b>：不同 K8s namespace、不同网络段。机审代码层 Maven 依赖白名单：禁止引入 Anthropic SDK / 任何 LLM 依赖。CI 自动拒。</p>
+    </div>
+    <div class="red-line-card">
+      <span class="num">红线 2</span>
+      <h4>治理红线</h4>
+      <p>Policy-as-Code 写明"实时链路不允许 LLM 调用"。任何想突破必须治理委员会 + 安全 + 法务多签。默认拒绝 / 白名单审批。</p>
+    </div>
+    <div class="red-line-card">
+      <span class="num">红线 3</span>
+      <h4>责任红线</h4>
+      <p>实时引擎 owner ≠ Agent service owner。KPI 互斥：实时 owner 不为 AI 推动负责。任何"大促能不能 AI 实时拦"请求要走结构化审批，足够慢挡住临时压力。</p>
+    </div>
+  </div>
+
+  <h3 class="sub"><span class="n">2.1</span>具体实施细节</h3>
+
+  <h4>① 架构红线（代码层）</h4>
+  <pre class="code"><span class="com">// Agent Service 的 pom.xml 依赖白名单</span>
+<span class="com">// 机审引擎 pom.xml 中明确禁止以下依赖</span>
+<span class="anno">&lt;dependencyManagement&gt;</span>
+  <span class="anno">&lt;dependencies&gt;</span>
+    <span class="com">&lt;!-- 这些依赖在机审引擎里被 CI 自动检测并拒绝 PR --&gt;</span>
+    <span class="com">&lt;!-- com.anthropic:anthropic-java --&gt;</span>
+    <span class="com">&lt;!-- com.openai:openai-java --&gt;</span>
+    <span class="com">&lt;!-- dev.langchain4j:* --&gt;</span>
+  <span class="anno">&lt;/dependencies&gt;</span>
+<span class="anno">&lt;/dependencyManagement&gt;</span>
+
+<span class="com">// 网络层：K8s NetworkPolicy 拒绝机审 namespace 出网到 anthropic.com</span></pre>
+
+  <h4>② 治理红线（Policy 层）</h4>
+  <pre class="code"><span class="com">// Policy-as-Code (Rego)</span>
+package risk.realtime.boundary
+
+<span class="com"># 实时链路绝对不允许 LLM 调用</span>
+deny[msg] {
+    input.caller_service == <span class="str">"machine-audit-realtime"</span>
+    input.target_endpoint == <span class="str">"llm-gateway"</span>
+    msg := <span class="str">"realtime audit cannot call LLM gateway - blocked by boundary policy"</span>
+}
+
+<span class="com"># 任何突破必须 governance_token + 多签</span>
+allow_exception {
+    input.governance_multi_sign &gt;= 3
+    input.signers[_] == <span class="str">"policy_steward"</span>
+    input.signers[_] == <span class="str">"security_owner"</span>
+    input.signers[_] == <span class="str">"legal_owner"</span>
+}</pre>
+
+  <h4>③ 责任红线（组织层）</h4>
+  <table class="tab">
+    <tbody>
+      <tr><td>实时引擎 owner</td><td>KPI：1500 万 QPS 稳定性、响应延迟、规则覆盖率。不为 AI 推动负责</td></tr>
+      <tr><td>Agent service owner</td><td>KPI：业务线实验指标。不能影响实时引擎</td></tr>
+      <tr><td>事故责任链</td><td>实时引擎事故 → 实时 owner；Agent 错建议 → Agent owner；不会混淆</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ============ Part 3 系统全貌 ============ -->
+<section id="p3">
+  <h2 class="sec"><span class="n">3</span>系统全貌</h2>
+  <div class="tldr"><b>TL;DR</b><br>1 个新 Java Spring Boot 服务 + 你现有所有基础设施。Agent Service 通过 Kafka 异步消费机审产出的 case，永不被机审同步调用。</div>
+
+  <pre class="diagram">
+<span class="cm"># 现有生产链路（不动）</span>
+<span class="c1">┌────────────────────────────────────────────────────────────────────────┐</span>
+<span class="c1">│  机审引擎 1500 万 QPS    人审工作台      判罚策略引擎      档案中心     │</span>
+<span class="c1">│  (Java 实时栈)          (1-3 万审核员)   (Java)            (HBase+CK)   │</span>
+<span class="c1">└──────┬──────────────────┬───────────────┬─────────────────┬────────────┘</span>
+       │ 转人审 case (异步)  │ 打开 case      │ (v2+ 判罚 review)│ 只读查询
+       │ <span class="cr">Kafka 单向</span>          │ HTTP/SSE       │                  │ Dubbo
+       ▼                    ▼                                  ▲
+<span class="cm"># 你现有 Java Web 后端（加几个 controller，转发到 Agent Service）</span>
+<span class="c1">┌────────────────────────────────────────────────────────────────────────┐</span>
+<span class="c1">│  Java Web 后端（你现有的）+ /api/agent/* controllers                     │</span>
+<span class="c1">└──────┬──────────────────────────────────────────────────────────────────┘</span>
+       │ HTTP
+       ▼
+<span class="cm"># 新建的 Agent Service（这次唯一新建的服务）</span>
+<span class="c2">┌────────────────────────────────────────────────────────────────────────┐</span>
+<span class="c2">│  Agent Service · Java Spring Boot 3                                     │</span>
+<span class="c2">│  ─────────────────────────────────────────────────────────────────     │</span>
+<span class="c2">│  · 30 行 Agent Loop 核心                                                │</span>
+<span class="c2">│  · Tool Registry（Spring bean + @AgentTool 注解扫描）                   │</span>
+<span class="c2">│  · 2 类 v1 Agent：Case 调查（异步）+ 人审辅助（同步 SSE）                │</span>
+<span class="c2">│  · Kafka consumer（业务线 case 调查）                                   │</span>
+<span class="c2">│  · HTTP/SSE endpoints（审核员工作台聊天）                                │</span>
+<span class="c2">│  · 调 Anthropic Java SDK / Dubbo / Redis / MySQL                       │</span>
+<span class="c2">│                                                                         │</span>
+<span class="c2">│  独立 K8s namespace，<span class="cr">不与机审 namespace 互通</span>                            │</span>
+<span class="c2">└──┬──────────┬─────────────────┬─────────────────┬─────────────────────┘</span>
+   │ HTTPS     │ Dubbo            │ JDBC             │ Kafka
+   ▼           ▼                  ▼                  ▼
+<span class="c3">┌──────────┐  ┌──────────────┐  ┌─────────────┐  ┌──────────────────┐</span>
+<span class="c3">│ Claude    │  │ 你现有        │  │ MySQL       │  │ Kafka topics:    │</span>
+<span class="c3">│ API       │  │ Java 服务集   │  │ Redis       │  │ - case.req       │</span>
+<span class="c3">│           │  │ - 策略库      │  │ ES (trace)  │  │ - case.result    │</span>
+<span class="c3">│ (或自部署 │  │ - 档案中心    │  │             │  │ - trace.events   │</span>
+<span class="c3">│ Qwen)     │  │ - 案例库      │  │             │  │                  │</span>
+<span class="c3">│           │  │ - 判罚历史    │  │             │  │                  │</span>
+<span class="c3">└──────────┘  └──────────────┘  └─────────────┘  └──────────────────┘</span>
+  </pre>
+
+  <h3 class="sub"><span class="n">3.1</span>这次项目要新建什么</h3>
+  <p><b>就一个</b>：Agent Service（Java Spring Boot）。所有 v1 Agent 跑在同一个服务里，靠不同 Bean / 不同 Kafka consumer / 不同 HTTP endpoint 区分。</p>
+  <p>v1 不拆微服务的理由：</p>
+  <ul style="margin:6px 0 6px 22px;color:var(--ink-2);">
+    <li>实验阶段流量小（5-20 万 case/day），单服务集群完全扛住</li>
+    <li>共享同样的 Agent Loop / Tool Registry / 配置</li>
+    <li>拆微服务后部署 / 运维成本翻倍，没带来对应价值</li>
+    <li>未来某个 Agent 量爆了再拆出来不晚</li>
+  </ul>
+
+  <h3 class="sub"><span class="n">3.2</span>不新增任何基础设施</h3>
+  <p>项目<b>零新增基础设施</b>。Kafka / Redis / MySQL / ES / Dubbo / Apollo / K8s 全部复用你们已有。</p>
+  <p>唯一可能"新增"的是 Milvus（v2 阶段做 RAG 时考虑），但 v1 用 ES 的 kNN 凑合。</p>
+</section>
+
+<!-- ============ Part 4 Agent 4 位置 ============ -->
+<section id="p4">
+  <h2 class="sec"><span class="n">4</span>4 类 Agent + v1 范围明确</h2>
+  <div class="tldr"><b>TL;DR</b><br>架构设计 4 类 Agent，但 v1 业务线实验阶段只做前 2 类。后 2 类是 v2+ 演进。</div>
+
+  <table class="tab bordered">
+    <thead><tr><th style="width:14%">Agent</th><th>阶段</th><th>触发方式</th><th>v1 实验做不做</th></tr></thead>
+    <tbody>
+      <tr><td><b>Case 调查</b></td><td><span class="stage-badge exp">实验</span></td><td>机审转人审 → Kafka 异步</td><td><b class="ok">✓ 做</b></td></tr>
+      <tr><td><b>人审辅助</b></td><td><span class="stage-badge exp">实验</span></td><td>审核员工作台 → HTTP/SSE</td><td><b class="ok">✓ 做（实验后半段）</b></td></tr>
+      <tr><td><b>判罚 Review</b></td><td><span class="stage-badge v2">v2</span></td><td>判罚 proposal → 同步 gRPC</td><td>❌ 不做（v2 引入，fail-close）</td></tr>
+      <tr><td><b>策略治理</b></td><td><span class="stage-badge v2">v2</span></td><td>定时 + 运营聊天</td><td>❌ 不做（v2 引入）</td></tr>
+    </tbody>
+  </table>
+
+  <!-- 4.1 Case 调查 -->
+  <div class="agent-card exp">
+    <div class="hd">
+      <span class="stage-badge exp" style="background:rgba(255,255,255,0.25);">实验 · 必做</span>
+      <h3>4.1 Case 调查 Agent（v1 主力）</h3>
+      <div class="one-liner">机审转人审时自动跑，给审核员产出"已调研" case。</div>
+    </div>
+    <div class="bd">
+
+      <h4>v1 实验范围限定</h4>
+      <ul style="margin:6px 0 6px 22px;color:var(--ink-2);">
+        <li>业务线：电商反欺诈 <em>或</em> 商家风控（二选一，立项时定）</li>
+        <li>case 量：业务线日均 5-20 万</li>
+        <li>模式：shadow，结果展示给审核员但<b>不影响生产决策</b></li>
+        <li>时长：6-12 周</li>
+      </ul>
+
+      <h4>触发方式</h4>
+      <p>机审决策 = "转人审" 时，机审在自己的判罚流程外多发一份 Kafka 消息到 <code>risk.case.investigation.request.{业务线}</code> topic。Agent 服务消费这个 topic，每条消息触发一次调查。<b>不是用户点的</b>。</p>
+
+      <h4>容量与成本（实验阶段）</h4>
+      <table class="tab">
+        <tbody>
+          <tr><td>日 case 量（业务线实验）</td><td>5-20 万</td></tr>
+          <tr><td>每 case 平均耗时</td><td>15-30 秒</td></tr>
+          <tr><td>每 case LLM call 数</td><td>~6-10</td></tr>
+          <tr><td>每 case 平均 token in / out</td><td>15k / 2k</td></tr>
+          <tr><td>每 case 成本（Claude Sonnet 4.5）</td><td>~$0.06-0.10</td></tr>
+          <tr><td>日成本（10 万 case 中位估算）</td><td>~$8000 ≈ ¥6 万</td></tr>
+          <tr><td>实验期总成本（10 周）</td><td>~¥400-600 万 LLM API</td></tr>
+          <tr><td>并发 worker 数</td><td>~30-80（视业务线 case 速率）</td></tr>
+          <tr><td>需要的 pod 数</td><td>~10-20 个</td></tr>
+        </tbody>
+      </table>
+
+      <h4>审核员看到什么</h4>
+      <p>审核员打开 case 详情页时，看到一个"AI 调查"模块：</p>
+      <ul style="margin:6px 0 6px 22px;color:var(--ink-2);">
+        <li>风险方向标签（如"疑似薅羊毛 · 新型租号联动"）</li>
+        <li>主要证据 5-10 条（来源 + 时间 + 强弱标记，可点开看原始记录）</li>
+        <li>相似历史 case 3-5 个（含历史处罚结果）</li>
+        <li>反例点 1-3 条（Agent 自己找的反对证据）</li>
+        <li>推荐处置（明确标"AI 建议"含置信度，<b>UI 不显示数字置信度防 automation bias</b>）</li>
+        <li>完整 trace 入口（点开看 Agent 思考过程）</li>
+      </ul>
+
+      <h4>失败行为</h4>
+      <p><b>Agent 永远不阻塞人审</b>。三种状态：</p>
+      <table class="tab bordered">
+        <thead><tr><th>状态</th><th>UI 表现</th></tr></thead>
+        <tbody>
+          <tr><td>已完成（绝大多数）</td><td>直接展示</td></tr>
+          <tr><td>仍在跑</td><td>"AI 调查中..."占位 + 普通证据，审核员正常审；完成时 SSE 推送更新</td></tr>
+          <tr><td>失败 / 超时</td><td>"AI 调查失败"提示，审核员正常审，不阻塞</td></tr>
+        </tbody>
+      </table>
+
+      <h4>Java 代码骨架</h4>
+      <pre class="code"><span class="anno">@Component</span>
+<span class="kw">public class</span> <span class="typ">CaseInvestigationConsumer</span> {
+
+    <span class="anno">@Autowired</span> AgentLoop agentLoop;
+    <span class="anno">@Autowired</span> IdempotencyStore idempotency;
+    <span class="anno">@Autowired</span> CaseInvestigationRepository repo;
+    <span class="anno">@Autowired</span> KafkaTemplate&lt;String, ?&gt; kafka;
+
+    <span class="anno">@KafkaListener</span>(topics = <span class="str">"risk.case.investigation.request.ecommerce-fraud"</span>,
+                    concurrency = <span class="str">"30"</span>)
+    <span class="kw">public void</span> consume(CaseInvestigationRequest req) {
+        <span class="com">// 1. 幂等 + 业务线 ACL（双重保险）</span>
+        <span class="kw">if</span> (idempotency.exists(req.getTraceId())) <span class="kw">return</span>;
+        <span class="kw">if</span> (!BUSINESS_LINE_WHITELIST.contains(req.getBusinessLine())) {
+            log.error(<span class="str">"业务线超出实验范围: {}"</span>, req.getBusinessLine());
+            <span class="kw">return</span>;
+        }
+
+        <span class="com">// 2. 跑 Agent loop</span>
+        Budget budget = Budget.forCaseInvestigation();
+        AgentResult result;
+        <span class="kw">try</span> {
+            result = agentLoop.run(
+                AgentConfig.CASE_INVESTIGATOR_V1,
+                <span class="kw">new</span> AgentInput(req),
+                budget
+            );
+        } <span class="kw">catch</span> (Exception e) {
+            repo.saveDegraded(req.getTraceId(), e.getMessage());
+            <span class="kw">return</span>;
+        }
+
+        <span class="com">// 3. 持久化 + 广播</span>
+        repo.save(toEntity(result));
+        kafka.send(<span class="str">"risk.case.investigation.result"</span>, result.toMessage());
+        idempotency.put(req.getTraceId());
+    }
+}</pre>
+    </div>
+  </div>
+
+  <!-- 4.2 人审辅助 -->
+  <div class="agent-card exp">
+    <div class="hd">
+      <span class="stage-badge exp" style="background:rgba(255,255,255,0.25);">实验后半段</span>
+      <h3>4.2 人审辅助 Agent</h3>
+      <div class="one-liner">审核员在工作台跟 Agent 聊天，问证据 / 找相似 case / 生成处罚理由。</div>
+    </div>
+    <div class="bd">
+
+      <h4>v1 实验范围</h4>
+      <ul style="margin:6px 0 6px 22px;color:var(--ink-2);">
+        <li>仅同业务线（跟 4.1 同一个业务线）</li>
+        <li>实验阶段后半段（第 4-6 周）启用</li>
+        <li>仅核心审核员使用（约 100-500 人），不开放全部审核员</li>
+      </ul>
+
+      <h4>UI 形态</h4>
+      <p>case 详情页右侧 Drawer，可关可开。流式（SSE）。能问：查关联账号、找相似 case、解释命中策略、整理处罚理由。<b>不能</b>：改判罚 / 跨业务线查 / 改 case 结论。</p>
+
+      <h4>会话状态在哪存</h4>
+      <p>MySQL 两张表：<code>conversation</code>（元数据）+ <code>conversation_message</code>（消息历史）。Agent Service 直接 JDBC 读写。每次用户发消息时 Java 把历史一起传给 LLM。</p>
+
+      <h4>上下文压缩</h4>
+      <p>Java 里做。当 messages 累积超过 100k token 时，用便宜模型（Claude Haiku）生成 summary 替换早期消息。</p>
+    </div>
+  </div>
+
+  <!-- 4.3 判罚 Review (v2) -->
+  <div class="agent-card v2">
+    <div class="hd">
+      <span class="stage-badge v2" style="background:rgba(255,255,255,0.25);">v2 演进，本立项不做</span>
+      <h3>4.3 判罚 Review Agent</h3>
+      <div class="one-liner">高影响判罚执行前同步复核。质检员 + 闸门混合，失败默认 escalate 给人。</div>
+    </div>
+    <div class="bd">
+
+      <h4>为什么 v1 不做</h4>
+      <ul style="margin:6px 0 6px 22px;color:var(--ink-2);">
+        <li>需要进入判罚链路（影响生产决策）</li>
+        <li>fail-close 语义需要充分验证后才能上</li>
+        <li>错误成本远高于 Case 调查 Agent</li>
+      </ul>
+
+      <h4>v2 触发条件</h4>
+      <p>v1 实验成功 + 完整生产 6 个月 + 事故率 ≤ baseline + 治理委员会批准后才考虑引入。</p>
+
+      <p>v2 阶段的具体设计（高影响判罚定义、错误码细分、fail-close 实现）<b>不在本文档详述</b>，待 v2 立项时另写。</p>
+    </div>
+  </div>
+
+  <!-- 4.4 策略治理 (v2) -->
+  <div class="agent-card v2">
+    <div class="hd">
+      <span class="stage-badge v2" style="background:rgba(255,255,255,0.25);">v2 演进，本立项不做</span>
+      <h3>4.4 策略治理 Agent</h3>
+      <div class="one-liner">运营手动聊天 + 定时巡检。永远不自动改策略。</div>
+    </div>
+    <div class="bd">
+
+      <h4>为什么 v1 不做</h4>
+      <ul style="margin:6px 0 6px 22px;color:var(--ink-2);">
+        <li>策略治理需要广义风控生态（算法 / 策略 / 治理 / 法务）共同认可</li>
+        <li>40000+ 策略的扫描成本不低，需要先验证基础能力</li>
+        <li>跟 v1 实验的"控风险 + 监管表率"目标偏离</li>
+      </ul>
+
+      <p>v2 阶段引入。具体设计待 v2 立项。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ Part 5 30 行 Agent ============ -->
+<section id="p5">
+  <h2 class="sec"><span class="n">5</span>30 行 Agent 本质</h2>
+  <div class="tldr"><b>TL;DR</b><br>不用 LangGraph / Spring AI agent 模块。Agent 就是 LLM 调用循环 + 工具执行，30 行 Java 写得完。Claude / Codex / ChatGPT 都不用 framework。</div>
+
+  <pre class="code"><span class="anno">@Service</span>
+<span class="kw">public class</span> <span class="typ">AgentLoop</span> {
+
+    <span class="anno">@Autowired</span> AnthropicClient anthropic;
+    <span class="anno">@Autowired</span> ToolRegistry toolRegistry;
+    <span class="anno">@Autowired</span> TraceRecorder trace;
+    <span class="anno">@Autowired</span> PromptManager promptManager;
+
+    <span class="kw">public</span> AgentResult run(AgentConfig config, AgentInput input, Budget budget) {
+        List&lt;Message&gt; messages = <span class="kw">new</span> ArrayList&lt;&gt;();
+        messages.add(<span class="kw">new</span> UserMessage(input.getUserMessage()));
+        String traceId = trace.start(input);
+
+        <span class="kw">while</span> (!budget.exhausted()) {
+            <span class="com">// 1. 调大模型（带 prompt + tools schema）</span>
+            Response resp = anthropic.messages()
+                .model(config.getModel())
+                .systemPrompt(promptManager.load(config.getPromptName()))
+                .messages(messages)
+                .tools(toolRegistry.schemasFor(config.getAgentName()))
+                .invoke();
+            messages.add(resp.toMessage());
+            budget.consumeLlm(resp.usage());
+            trace.recordLlmCall(traceId, resp);
+
+            <span class="com">// 2. 没工具调用 = 完成</span>
+            <span class="kw">if</span> (resp.toolCalls().isEmpty()) <span class="kw">break</span>;
+
+            <span class="com">// 3. 执行工具（顺序或并发视 config）</span>
+            <span class="kw">for</span> (ToolCall tc : resp.toolCalls()) {
+                trace.recordToolStart(traceId, tc);
+                Object result = toolRegistry.invoke(tc.name(), tc.args(), input.getContext());
+                trace.recordToolEnd(traceId, tc, result);
+                messages.add(<span class="kw">new</span> ToolResultMessage(tc.id(), result));
+                budget.consumeTool();
+            }
+        }
+
+        trace.finish(traceId, messages);
+        <span class="kw">return</span> <span class="kw">new</span> AgentResult(messages, traceId);
+    }
+}</pre>
+
+  <div class="callout choice">
+    <b>就这。所有 4 类 Agent（v1 + v2）都基于这个核心循环</b><br>
+    差别只在：① system prompt 不同 ② 允许的 tool 集合不同 ③ budget / timeout 不同 ④ 触发方式不同（异步 Kafka / 同步 HTTP）。本质代码是同一段。
+  </div>
+
+  <h3 class="sub"><span class="n">5.1</span>不用 LangGraph 等 framework 的原因</h3>
+  <ul style="margin:6px 0 6px 22px;color:var(--ink-2);">
+    <li>Anthropic 自己反对重 framework（《Building Effective Agents》论文公开）</li>
+    <li>Claude / Codex / ChatGPT 都不用 LangGraph</li>
+    <li>30 行 Java 等价 LangGraph"高级特性"（条件边、checkpointer、streaming、interrupt）</li>
+    <li>Spring AI 1.0 才 GA，agent 抽象未稳定，直接用 SDK 更可控</li>
+  </ul>
+</section>
+
+<!-- ============ Part 6 Tool 系统 ============ -->
+<section id="p6">
+  <h2 class="sec"><span class="n">6</span>Tool 系统</h2>
+  <div class="tldr"><b>TL;DR</b><br>Tool 用 Spring Bean + 注解定义，一处搞定执行逻辑 + LLM schema + UI 元数据。Spring 启动扫一遍自动注册。加新 tool = 写一个 Java class，走标准 CI/CD。</div>
+
+  <h3 class="sub"><span class="n">6.1</span>Tool 定义：一个 Java class 搞定一切</h3>
+  <pre class="code"><span class="anno">@AgentTool</span>(
+    name = <span class="str">"query_user_archive"</span>,
+    displayName = <span class="str">"查询用户档案"</span>,
+    description = <span class="str">"查询用户的关联账号、设备、行为路径"</span>,
+    tier = ToolTier.READ_ONLY,
+    icon = <span class="str">"user-search"</span>,
+    resultRenderer = <span class="str">"user_archive_card"</span>,
+    allowedAgents = {
+        AgentConfig.CASE_INVESTIGATOR_V1,
+        AgentConfig.HUMAN_REVIEW_ASSIST_V1
+    },
+    <span class="com">// v1 业务线 ACL：只允许这些业务线调</span>
+    allowedBusinessLines = {<span class="str">"ecommerce-fraud"</span>}
+)
+<span class="anno">@Component</span>
+<span class="kw">public class</span> <span class="typ">QueryUserArchiveTool</span> {
+
+    <span class="anno">@Autowired</span> ArchiveService archiveService;   <span class="com">// 你现有的 Dubbo service</span>
+
+    <span class="anno">@ToolMethod</span>
+    <span class="kw">public</span> ArchiveResult invoke(
+        <span class="anno">@ToolParam</span>(name=<span class="str">"user_id"</span>, label=<span class="str">"用户 ID"</span>) String userId,
+        <span class="anno">@ToolParam</span>(name=<span class="str">"scope"</span>, label=<span class="str">"查询范围"</span>,
+                    enums={<span class="str">"basic"</span>,<span class="str">"relations"</span>,<span class="str">"behavior"</span>}) String scope
+    ) {
+        <span class="kw">return</span> archiveService.query(userId, scope);
+    }
+}</pre>
+
+  <p>一个 Java class 同时承载：执行逻辑 + LLM schema + UI 元数据 + 权限分级 + 业务线 ACL + Dubbo 服务调用。</p>
+
+  <h3 class="sub"><span class="n">6.2</span>Tool 三级权限</h3>
+  <table class="tab bordered">
+    <thead><tr><th style="width:14%">Tier</th><th>范围</th><th>调用方式</th></tr></thead>
+    <tbody>
+      <tr><td><b class="ok">T1 只读</b></td><td>查档案 / 查策略 / 查相似 case / 查判罚历史 / 命中详情</td><td>v1 实验阶段主要用 T1</td></tr>
+      <tr><td><b class="warn">T2 受限可逆写</b></td><td>建 case / 改 case 优先级 / 路由人审 / 写 memory draft</td><td>v1 实验阶段不开 T2 写权限</td></tr>
+      <tr><td><b class="em">T3 高影响</b></td><td>执行判罚 / 改名单 / 改策略</td><td>永远不让 Agent 调（v2/v3 也不开放）</td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="sub"><span class="n">6.3</span>UI Catalog</h3>
+  <p>前端启动时调 <code>/api/tools/catalog</code> 拿到完整 UI 元数据。Spring 扫所有 <code>@AgentTool</code> bean 自动暴露。函数调用 SSE 事件时按 tool name 查 catalog 渲染。</p>
+
+  <h3 class="sub"><span class="n">6.4</span>加一个新 Tool 的流程</h3>
+  <div class="steps">
+    <div class="step"><div><div class="title">业务方提需求</div></div></div>
+    <div class="step"><div><div class="title">研发确认现有 Java 服务有对应方法</div></div></div>
+    <div class="step"><div><div class="title">写一个新 Java class 加 @AgentTool 注解</div></div></div>
+    <div class="step"><div><div class="title">提 PR + review + 合并</div></div></div>
+    <div class="step"><div><div class="title">Maven build + Docker 镜像 + K8s 灰度发布</div></div></div>
+    <div class="step"><div><div class="title">Spring 扫到新 tool 自动注册，前端 catalog 自动看到</div></div></div>
+  </div>
+  <p>加新 tool 没有 Python / 没有跨服务发布。走你们现有 CI/CD。</p>
+</section>
+
+<!-- ============ Part 7 对话与记忆 ============ -->
+<section id="p7">
+  <h2 class="sec"><span class="n">7</span>对话与记忆</h2>
+  <div class="tldr"><b>TL;DR</b><br>对话状态全部 MySQL + Redis，Java 直接读写。上下文压缩 Java 代码做。Memory 是 MySQL 一张表 + ES 全文检索（v1 不上 Milvus）。</div>
+
+  <h3 class="sub"><span class="n">7.1</span>对话状态</h3>
+  <table class="tab bordered">
+    <thead><tr><th>数据</th><th>存哪</th></tr></thead>
+    <tbody>
+      <tr><td>conversation 元数据</td><td>MySQL（id / user / domain / status / title / 时间戳）</td></tr>
+      <tr><td>conversation_message 历史</td><td>MySQL（role / content / tool_calls / timestamp）</td></tr>
+      <tr><td>working memory（当前 chat 中间状态）</td><td>Redis 1h TTL</td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="sub"><span class="n">7.2</span>上下文压缩（Java 里做）</h3>
+  <pre class="code"><span class="kw">private</span> List&lt;Message&gt; compressIfNeeded(List&lt;Message&gt; messages) {
+    <span class="kw">int</span> tokens = TokenEstimator.estimate(messages);
+    <span class="kw">if</span> (tokens &lt; 100_000) <span class="kw">return</span> messages;
+
+    List&lt;Message&gt; recent = lastN(messages, 10);
+    List&lt;Message&gt; older = exceptLastN(messages, 10);
+
+    <span class="com">// 用便宜模型压缩</span>
+    String summary = anthropic.messages()
+        .model(<span class="str">"claude-haiku-3-5"</span>)
+        .systemPrompt(<span class="str">"用 2000 字以内概括对话，保留所有 case_id / strategy_id / 数值结论"</span>)
+        .userMessage(formatMessages(older))
+        .invoke().text();
+
+    List&lt;Message&gt; compressed = <span class="kw">new</span> ArrayList&lt;&gt;();
+    compressed.add(<span class="kw">new</span> SystemMessage(<span class="str">"[早期对话摘要]\n"</span> + summary));
+    compressed.addAll(recent);
+    <span class="kw">return</span> compressed;
+}</pre>
+
+  <h3 class="sub"><span class="n">7.3</span>Memory（跨对话知识）</h3>
+  <table class="tab bordered">
+    <thead><tr><th>Memory 类型</th><th>存哪</th><th>v1 实验阶段</th></tr></thead>
+    <tbody>
+      <tr><td>对抗模式 / 历史 case 经验</td><td>MySQL memory_item + <b>ES 索引</b>（v1 不上 Milvus）</td><td>仅实验业务线相关</td></tr>
+      <tr><td>用户档案</td><td>你现有档案中心（不动）</td><td>只读引用</td></tr>
+      <tr><td>策略文档</td><td>你现有策略库 / Git + ES</td><td>只读引用</td></tr>
+    </tbody>
+  </table>
+
+  <p>实验阶段 RAG 检索用 ES BM25 + 简单 vector（ES kNN）。如果实验成功且数据量增长到千万级，v2 阶段评估引入 Milvus。</p>
+
+  <h3 class="sub"><span class="n">7.4</span>防 Memory 污染</h3>
+  <div class="callout warn">
+    <b>三道防线</b><br>
+    ① Agent 写的 memory 永远 <code>tier=D, status=DRAFT, human_verified=false</code><br>
+    ② Retrieval 默认 filter <code>tier ≥ C AND human_verified=true</code>（DRAFT 不进检索）<br>
+    ③ 升级路径：DRAFT → HUMAN_REVIEW (tier C) → PRODUCTION (tier B) → CANONICAL (tier A)
+  </div>
+</section>
+
+<!-- ============ Part 8 技术栈 ============ -->
+<section id="p8">
+  <h2 class="sec"><span class="n">8</span>技术栈逐个解释</h2>
+  <div class="tldr"><b>TL;DR</b><br>项目 95% 是你们已有的技术栈。唯一可能新增的是 Milvus（v2 才考虑）。每一项都有解释 + 不用行不行。</div>
+
+  <h3 class="sub"><span class="n">8.1</span>已有的（直接复用，零新增）</h3>
+
+  <details class="gloss">
+    <summary>Spring Boot — Java 项目脚手架</summary>
+    <div class="body">
+      <p>HTTP server、依赖注入、配置管理、健康检查这些基础能力。Agent Service 用 Spring Boot 3 + Reactor。你们后端都是 Spring Boot，零学习成本。</p>
+    </div>
+  </details>
+
+  <details class="gloss">
+    <summary>Kafka — 排队和广播</summary>
+    <div class="body">
+      <p>分布式消息队列。机审产生"转人审" case → 扔 Kafka topic <code>risk.case.investigation.request</code> → Agent 服务从队列拉。<b>关键：Kafka 是机审跟 Agent 之间唯一的通信通道，单向流动</b>。机审从不读 Agent 输出。</p>
+    </div>
+  </details>
+
+  <details class="gloss">
+    <summary>Redis — 内存缓存 + 临时记忆</summary>
+    <div class="body">
+      <p>① 缓存（用户档案、相似 case 短时缓存）② 幂等键（防 Agent 重复处理）③ 限流计数 ④ 分布式锁（同一 case 同时只允许一个 worker 跑）</p>
+    </div>
+  </details>
+
+  <details class="gloss">
+    <summary>MySQL — 关系型业务数据</summary>
+    <div class="body">
+      <p><code>case_investigation</code> / <code>conversation</code> / <code>conversation_message</code> / <code>tool_registry</code> / <code>memory_item</code> 等表。</p>
+    </div>
+  </details>
+
+  <details class="gloss">
+    <summary>Elasticsearch — 全文搜索 + Trace 热查询</summary>
+    <div class="body">
+      <p>Trace 热查询（30 天内）+ memory 文本检索 + ES kNN（v1 简单向量检索，替代 Milvus）。</p>
+    </div>
+  </details>
+
+  <details class="gloss">
+    <summary>Dubbo — Java 服务 RPC</summary>
+    <div class="body">
+      <p>Agent 调你们现有的策略库 / 档案中心 / 案例库 / 判罚历史走 Dubbo。复用 Spring + Dubbo 集成。</p>
+    </div>
+  </details>
+
+  <details class="gloss">
+    <summary>Apollo / Nacos — 配置中心</summary>
+    <div class="body">
+      <p>存 prompt 模板版本、Agent 配置、tool registry 配置。改完热 reload，无需重启。</p>
+    </div>
+  </details>
+
+  <h3 class="sub"><span class="n">8.2</span>可能新增（按需）</h3>
+
+  <details class="gloss">
+    <summary>Anthropic Java SDK — 调 Claude</summary>
+    <div class="body">
+      <p>v1 实验阶段必需（除非用国产模型，那就改用对应 SDK）。1 行 Maven 依赖。封装 HTTP 请求 / 签名 / 重试 / 流式响应 / function calling 协议。</p>
+    </div>
+  </details>
+
+  <details class="gloss">
+    <summary>Milvus — 向量数据库（v2 才考虑）</summary>
+    <div class="body">
+      <p>v1 不上。用 ES kNN 凑合。v2 阶段如果 memory 数据涨到千万级再评估引入。</p>
+    </div>
+  </details>
+
+  <details class="gloss">
+    <summary>Embedding 模型 — 把文字变成向量</summary>
+    <div class="body">
+      <p>v1 阶段：用 ES 内置 embedding 或 Claude/OpenAI 的 embedding API。v2 阶段考虑自部署 BGE-M3。</p>
+    </div>
+  </details>
+</section>
+
+<!-- ============ Part 9 部署 ============ -->
+<section id="p9">
+  <h2 class="sec"><span class="n">9</span>部署与代码变更</h2>
+  <div class="tldr"><b>TL;DR</b><br>Agent Service 用你们现有 CI/CD 部署。改 tool / prompt / 切模型都是标准 Java 服务变更。</div>
+
+  <h3 class="sub"><span class="n">9.1</span>实验阶段部署</h3>
+  <pre class="diagram">
+  <span class="c2">K8s namespace: risk-agent-exp                                     </span>
+  <span class="c2">                                                                  </span>
+  <span class="c2">Deployment: agent-service-exp                                     </span>
+  <span class="c2">  replicas: 10 (HPA 自动扩缩 10-30)                                </span>
+  <span class="c2">  container: agent-service:v1.0.0-exp                              </span>
+  <span class="c2">  resources: 4 CPU / 8GB RAM per pod                              </span>
+  <span class="c2">                                                                  </span>
+  <span class="c2">NetworkPolicy:                                                    </span>
+  <span class="c2">  - 允许：Agent Service → Anthropic API（出网）                    </span>
+  <span class="c2">  - 允许：Agent Service → 现有内部 Java 服务（Dubbo）              </span>
+  <span class="cr">  - 拒绝：机审 namespace ↔ Agent namespace 任何互通                  </span>
+  </pre>
+
+  <h3 class="sub"><span class="n">9.2</span>变更类型与发布流程</h3>
+  <table class="tab bordered">
+    <thead><tr><th style="width:22%">变更</th><th>怎么改</th><th>发布</th></tr></thead>
+    <tbody>
+      <tr><td>加新 tool</td><td>写 Java class</td><td>PR → CI/CD → 灰度</td></tr>
+      <tr><td>改 prompt</td><td>Apollo 改配置</td><td>热 reload，秒级</td></tr>
+      <tr><td>切模型</td><td>Apollo 改配置</td><td>热 reload，秒级</td></tr>
+      <tr><td>改 budget / timeout</td><td>Apollo 改配置</td><td>热 reload</td></tr>
+      <tr><td>改 Agent loop 主逻辑</td><td>Java 代码</td><td>PR → CI/CD</td></tr>
+      <tr><td>改 Policy（红线）</td><td>Apollo / 代码</td><td>多签后发布</td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="sub"><span class="n">9.3</span>实验阶段灰度</h3>
+  <p>三层灰度：</p>
+  <ol>
+    <li><b>业务线灰度</b>：仅 1 个业务线（电商反欺诈或商家风控）开启</li>
+    <li><b>审核员灰度</b>：50% 审核员看 AI 建议 / 50% 不看（双盲 A/B）</li>
+    <li><b>Case 比例</b>：实验早期可只跑 10-20% case（观察成本和质量）</li>
+  </ol>
+
+  <h3 class="sub"><span class="n">9.4</span>监控告警</h3>
+  <p>Prometheus + Grafana，跟你们现有体系一样。核心指标：</p>
+  <table class="tab">
+    <tbody>
+      <tr><td>agent.latency.p50/p95/p99</td><td>各 Agent 延迟</td></tr>
+      <tr><td>agent.llm.cost.usd（实时）</td><td>关注成本，>阈值自动暂停 + 钉钉告警</td></tr>
+      <tr><td>agent.error.rate</td><td>>5% / 5min → P2</td></tr>
+      <tr><td>agent.fail.reason{type}</td><td>失败原因分布</td></tr>
+      <tr><td>kill_criteria.* 实时跟踪</td><td>判准率 / 调查时间 / automation bias 指标</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ============ Part 10 选型决策 ============ -->
+<section id="p10">
+  <h2 class="sec"><span class="n">10</span>选型决策汇总</h2>
+  <div class="tldr"><b>TL;DR</b><br>每个关键选型都列对比备选 + 理由。这是评审 / 面试时挡反对意见的弹药库。</div>
+
+  <table class="tab bordered">
+    <thead><tr><th>决策点</th><th>选定</th><th>不选的</th><th>理由</th></tr></thead>
+    <tbody>
+      <tr><td>整体语言</td><td><b class="ok">全 Java</b></td><td>Python runtime / 跨语言</td><td>快手 Java 团队 + 现有体系。UI 元数据天然在 Java</td></tr>
+      <tr><td>Agent 框架</td><td><b class="ok">手写 30 行 loop</b></td><td>LangGraph / LangChain4j / Spring AI</td><td>Anthropic 论文反对；30 行 Java 已够</td></tr>
+      <tr><td>大模型（实验）</td><td><b class="ok">Claude Sonnet 4.5</b></td><td>GPT / Qwen / 自部署</td><td>SOTA + function calling 稳定 + Java SDK 官方。v2 后评估自部署</td></tr>
+      <tr><td>大模型 SDK</td><td><b class="ok">Anthropic Java SDK</b></td><td>HTTP 直调 / LangChain4j</td><td>官方维护，省 500 行胶水代码</td></tr>
+      <tr><td>工作流引擎</td><td><b class="ok">不用</b></td><td>Temporal</td><td>v1 单次 Agent 30s 完成，不需要 durable workflow</td></tr>
+      <tr><td>LLM Gateway</td><td><b class="ok">不用（v2 评估）</b></td><td>独立网关服务</td><td>v1 仅 1 服务，直接调 SDK</td></tr>
+      <tr><td>Action Adapter</td><td><b class="ok">Spring Bean + 注解（不独立服务）</b></td><td>独立 Java 服务</td><td>v1 不需要跨服务复用</td></tr>
+      <tr><td>对话状态</td><td><b class="ok">MySQL conversation_message 表</b></td><td>LangGraph checkpointer / Postgres</td><td>简单直接，Java 团队熟悉</td></tr>
+      <tr><td>向量库</td><td><b class="ok">v1 用 ES kNN，v2 评估 Milvus</b></td><td>Qdrant / pgvector</td><td>v1 数据量小，ES 够用</td></tr>
+      <tr><td>消息队列</td><td><b class="ok">现有 Kafka</b></td><td>—</td><td>已有</td></tr>
+      <tr><td>缓存</td><td><b class="ok">现有 Redis</b></td><td>—</td><td>已有</td></tr>
+      <tr><td>持久化</td><td><b class="ok">现有 MySQL</b></td><td>—</td><td>已有</td></tr>
+      <tr><td>配置中心</td><td><b class="ok">现有 Apollo</b></td><td>—</td><td>已有</td></tr>
+      <tr><td>RPC</td><td><b class="ok">现有 Dubbo</b></td><td>gRPC / HTTP</td><td>跟现有 Java 服务一致</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ============ Part 11 不用的 ============ -->
+<section id="p11">
+  <h2 class="sec"><span class="n">11</span>明确不用 / v2+ 才考虑的</h2>
+
+  <table class="tab bordered">
+    <thead><tr><th style="width:22%">不用</th><th>什么时候才考虑</th></tr></thead>
+    <tbody>
+      <tr><td><b>LangGraph / LangChain4j</b></td><td>当你有 50+ 不同 Agent 配置且需要复用状态机抽象。v1/v2 都不需要</td></tr>
+      <tr><td><b>Spring AI agent 模块</b></td><td>Spring AI 1.5+ 稳定后可评估，预计 2026 年</td></tr>
+      <tr><td><b>Temporal 工作流</b></td><td>当 Agent 跑变成"小时级长任务"或"多步骤跨天"时</td></tr>
+      <tr><td><b>独立 LLM Gateway</b></td><td>当 Agent 数 ≥ 10 且需要跨 Agent 限流 / 计费时</td></tr>
+      <tr><td><b>独立 Action Adapter 服务</b></td><td>当跨服务复用 tool 调用、需要统一审计 / 鉴权时</td></tr>
+      <tr><td><b>Python / 跨语言</b></td><td>当 Java 生态无法解决的 LLM 工程问题时（目前没有）</td></tr>
+      <tr><td><b>Milvus 向量库</b></td><td>case memory 数据量超 1000 万条时</td></tr>
+      <tr><td><b>判罚 Review Agent</b></td><td>v1 实验成功 + 6 个月生产稳定 + 事故率 ≤ baseline 后</td></tr>
+      <tr><td><b>策略治理 Agent</b></td><td>v2 阶段，独立立项</td></tr>
+      <tr><td><b>多业务线扩展</b></td><td>v1 实验跑通 + 业务线 owner 同意 + 治理委员会批准</td></tr>
+      <tr><td><b>判罚链路接入</b></td><td>v2，需要重新过 fail-close 设计 + 多签</td></tr>
+      <tr><td><b>政治内容审核</b></td><td><b class="em">永远不</b>（除非 v3+ 极远期才可能讨论，且必须是辅助资深审核员，非替代）</td></tr>
+      <tr><td><b>实时链路接入</b></td><td><b class="em">永远不</b>（架构红线）</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout choice">
+    <b>v1 设计哲学</b><br>
+    每一个"不用"都不是"永远不要"（除了政治内容 + 实时链路），而是"v1 实验不必要，等具体痛点 / 触发条件出现再加"。这样既保证 v1 能快速跑起来，也不堵死未来演进。
+  </div>
+</section>
+
+<div class="red-line">
+  红线 · v1 实验阶段 Agent 只给建议、不做决策。判罚执行 / 改名单 / 改策略永远不让 Agent 自动做。<b>实时链路物理隔离不可移除</b>。所有动作可追溯、可解释、可降级回归人审。
+</div>
+
+</main>
+</div>
+
+</body>
+</html>

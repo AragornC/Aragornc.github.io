@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Agent Knowledge Pack · AragornC</title>
+<style>
+  :root{
+    --bg:#fafaf7;--paper:#fffffc;--ink:#2f302d;--muted:#676861;
+    --line:#dedbd2;--soft:#eff3ef;--accent:#2f5d50;--warm:#8b5e34;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);
+    font:16px/1.7 "Inter","Helvetica Neue","PingFang SC","Hiragino Sans GB",sans-serif}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline}
+  .wrap{max-width:1100px;margin:0 auto;padding:48px 28px 96px}
+  header{border-bottom:1px solid var(--line);padding-bottom:24px;margin-bottom:36px}
+  .kicker{color:var(--muted);font-size:13px;letter-spacing:.4px;text-transform:uppercase}
+  h1{margin:8px 0 6px;font:600 30px/1.2 "Source Serif 4","Georgia","Noto Serif SC",serif;color:#252622}
+  .lead{color:var(--muted);font-size:15px;max-width:760px}
+  .back{display:inline-block;margin-bottom:18px;color:var(--muted);font-size:13.5px}
+  .sec{margin:48px 0 18px;font:600 20px/1.3 "Source Serif 4",serif;color:#252622;border-bottom:1px solid var(--line);padding-bottom:10px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(420px,1fr));gap:18px}
+  .card{background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:22px 24px;transition:box-shadow .2s,transform .2s}
+  .card:hover{box-shadow:0 8px 22px rgba(47,48,45,.08);transform:translateY(-1px)}
+  .card h3{margin:0 0 8px;font:600 17px/1.35 "Source Serif 4",serif}
+  .card h3 a{color:#252622}
+  .card .tags{margin:0 0 10px;display:flex;flex-wrap:wrap;gap:6px}
+  .card .tag{font-size:11px;padding:2px 8px;border-radius:11px;background:#f0eee6;color:var(--muted);letter-spacing:.2px;border:1px solid var(--line)}
+  .card .tag.new{background:#e8efe2;color:var(--accent);border-color:#c8d6bd}
+  .card p{margin:0 0 12px;font-size:13.5px;color:var(--muted);line-height:1.7}
+  .card .open{font-size:13px;font-weight:600;color:var(--accent)}
+  .stack-note{background:#f5f7f2;border:1px solid #d4dccb;border-left:4px solid var(--accent);padding:14px 18px;border-radius:6px;margin:18px 0;font-size:14px}
+  footer{margin-top:64px;padding-top:24px;border-top:1px solid var(--line);color:var(--muted);font-size:12.5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="../../">← 返回主页</a>
+  <header>
+    <div class="kicker">Topic · Agent Knowledge Pack</div>
+    <h1>Agent 知识包 · 从生态全景到 LangChain 演进、风控落地</h1>
+    <p class="lead">12 份相互关联的长文 + 配图。从 12 组件 3 层架构总览出发，逐层下沉到信息层（上下文/记忆/压缩）、运行层（编排/工具/观测）、保证层（约束/验证）；横向铺开 LangChain 三年演进 8 阶段、Agent 框架技术深读；纵向落到风控生产场景的迁移取舍与自研架构。</p>
+  </header>
+
+  <div class="stack-note">
+    <b>阅读建议</b>：第一次进入建议先读「Agent 3 层理念架构」建立心智模型 → 再读「LangChain 生态演进 · 8 阶段」摸透一个完整框架的演化路径 → 然后看「风控场景迁移 + LangChain 落地」对照生产取舍。所有文档相互交叉引用，可任意跳转。
+  </div>
+
+  <h2 class="sec">📚 主线 · 三层架构 + 生态演进</h2>
+  <div class="grid">
+    <div class="card">
+      <div class="tags"><span class="tag new">最新</span><span class="tag">12 组件 × 3 层</span><span class="tag">5 图</span></div>
+      <h3><a href="agent-3-layer-architecture.html">Agent 3 层理念架构 · 信息 / 运行 / 保证</a></h3>
+      <p>用「信息层 + 运行时层 + 保证层」三层心智图统一 12 个主流 Agent 组件。每层带 11 × 子能力矩阵、主贡献精读、不要误用清单。配 3 张层机制图。</p>
+      <a class="open" href="agent-3-layer-architecture.html">打开 →</a>
+    </div>
+
+    <div class="card">
+      <div class="tags"><span class="tag new">最新</span><span class="tag">8 阶段五段式</span><span class="tag">硬社区数据</span><span class="tag">12 图</span></div>
+      <h3><a href="langchain-evolution.html">LangChain 生态演进 · 8 阶段体系化拆解</a></h3>
+      <p>用社区硬数据（PyPI 月下载 / GitHub stars / HN 6 个原帖批评 / 竞品压力 / 融资里程碑）把 LangChain 三年演进拆成 8 个阶段五段式 + 3 条演进规律 + 4 条未来判断。读懂 LangChain = 读懂任何 Agent 框架的成熟必经路径。</p>
+      <a class="open" href="langchain-evolution.html">打开 →</a>
+    </div>
+
+    <div class="card">
+      <div class="tags"><span class="tag new">最新</span><span class="tag">风控迁移</span><span class="tag">A/B 分类</span></div>
+      <h3><a href="agent-migration-and-langchain.html">风控场景迁移落地 + LangChain 生态演进 · 配套读物</a></h3>
+      <p>12 组件 × 5 链路矩阵 A/B 二分（直接套用 vs 借鉴思路）+ Langfuse 精读 + 8 条 B 类机制可抄清单 + LangChain 演进硬证据 5 段。回答「快手风控线如何落 Agent」。</p>
+      <a class="open" href="agent-migration-and-langchain.html">打开 →</a>
+    </div>
+  </div>
+
+  <h2 class="sec">🗺️ 生态地图 · 框架深读</h2>
+  <div class="grid">
+    <div class="card">
+      <div class="tags"><span class="tag">7 层生态部件栈</span><span class="tag">30+ 框架</span></div>
+      <h3><a href="agent-ecosystem-map.html">Agent 生态认知地图</a></h3>
+      <p>从模型、训练、范式、工具到产品的 7 层生态部件栈视角；30+ Agent 框架在生态里的位置归位。</p>
+      <a class="open" href="agent-ecosystem-map.html">打开 →</a>
+    </div>
+
+    <div class="card">
+      <div class="tags"><span class="tag">8 框架卡片</span><span class="tag">12 维对比</span></div>
+      <h3><a href="agent-frameworks-deep-dive.html">Agent 框架技术深读</a></h3>
+      <p>主流 8 个 Agent 框架的卡片化深读 + 12 维度横向对比表。每个框架的核心设计理念 / 解决的核心问题。</p>
+      <a class="open" href="agent-frameworks-deep-dive.html">打开 →</a>
+    </div>
+
+    <div class="card">
+      <div class="tags"><span class="tag">编排重写</span><span class="tag">参考</span></div>
+      <h3><a href="agent-orchestration-structured-rewrite.html">Agent 编排结构化重写</a></h3>
+      <p>关于 Agent 编排范式的早期整理。</p>
+      <a class="open" href="agent-orchestration-structured-rewrite.html">打开 →</a>
+    </div>
+  </div>
+
+  <h2 class="sec">🛡️ 风控场景 · 立项与落地</h2>
+  <div class="grid">
+    <div class="card">
+      <div class="tags"><span class="tag">立项立痛</span><span class="tag">立项三角</span></div>
+      <h3><a href="ai-native-risk-case.html">AI Native 风控立项 case</a></h3>
+      <p>立项三角 + 数据飞轮 + 终态架构。快手风控视角下的 Agent 化立项叙事。</p>
+      <a class="open" href="ai-native-risk-case.html">打开 →</a>
+    </div>
+
+    <div class="card">
+      <div class="tags"><span class="tag">全 Java 实现</span></div>
+      <h3><a href="agent-architecture-design.html">Agent 自研架构设计</a></h3>
+      <p>全 Java 工程实现方案。从 0 到 1 起一个生产级 Agent 系统的代码细节。</p>
+      <a class="open" href="agent-architecture-design.html">打开 →</a>
+    </div>
+
+    <div class="card">
+      <div class="tags"><span class="tag">终态架构</span></div>
+      <h3><a href="ai-native-risk-agent-endgame.html">AI Native 风控 · Agent 终态</a></h3>
+      <p>AI Native 风控的终态架构推演。</p>
+      <a class="open" href="ai-native-risk-agent-endgame.html">打开 →</a>
+    </div>
+
+    <div class="card">
+      <div class="tags"><span class="tag">系统</span></div>
+      <h3><a href="ai-native-risk-system.html">AI Native 风控系统</a></h3>
+      <p>风控系统层面的整体方案。</p>
+      <a class="open" href="ai-native-risk-system.html">打开 →</a>
+    </div>
+
+    <div class="card">
+      <div class="tags"><span class="tag">终态推导</span></div>
+      <h3><a href="ai-native-risk-end-state-derivation.html">风控终态推导</a></h3>
+      <p>风控 Agent 终态的逐步推导过程。</p>
+      <a class="open" href="ai-native-risk-end-state-derivation.html">打开 →</a>
+    </div>
+
+    <div class="card">
+      <div class="tags"><span class="tag">L0-L5</span><span class="tag">PDCA 框架</span></div>
+      <h3><a href="ai-native-risk-pdca-l0-l5-framework.html">风控 PDCA · L0-L5 成熟度框架</a></h3>
+      <p>风控 Agent 化的成熟度分级（L0~L5）+ PDCA 闭环。</p>
+      <a class="open" href="ai-native-risk-pdca-l0-l5-framework.html">打开 →</a>
+    </div>
+  </div>
+
+  <footer>
+    AragornC · Agent Knowledge Pack · 2026-05 · 所有文档为个人学习与思考过程沉淀
+  </footer>
+</div>
+</body>
+</html>

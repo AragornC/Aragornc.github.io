@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>风控场景迁移落地 + LangChain 生态演进 · 配套读物</title>
+<style>
+  :root{
+    --bg:#fafaf7; --surface:#fffffc; --surface-muted:#f3f2ed;
+    --text:#2f302d; --text-muted:#676861; --text-soft:#8a8b82;
+    --primary:#2f5d50; --secondary:#8b5e34; --accent:#6f7f8f;
+    --line:#dedbd2; --line-soft:#ebe8df; --table-zebra:#f6f5ef;
+    --code-bg:#f1f0ea; --code-text:#3a3b36;
+    --shadow-sm:0 1px 2px rgba(47,48,45,.05); --shadow-md:0 10px 28px rgba(47,48,45,.08);
+    --radius-card:8px; --radius-small:5px;
+    --font-title:"Source Serif 4","Literata","Georgia","Noto Serif SC","Source Han Serif SC","Songti SC",serif;
+    --font-body:"Inter","IBM Plex Sans","Helvetica Neue","Noto Sans SC","Source Han Sans SC","PingFang SC",Arial,sans-serif;
+    --font-mono:"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--text);font:16px/1.72 var(--font-body);letter-spacing:0}
+  .wrap{max-width:none;margin:0;padding:42px max(40px, 6vw) 96px max(288px, 16vw);transition:padding .25s ease}
+  .wrap.toc-collapsed{padding-left:max(88px, 6vw)}
+  @media (max-width:1100px){ .wrap{padding:42px 32px 96px 32px !important} .toc{position:static !important;width:auto !important;height:auto !important;max-height:none !important;border-right:none !important;border-bottom:1px solid var(--line-soft);margin-bottom:24px} .toc-toggle{display:none !important} }
+  header{border-bottom:1px solid var(--line);padding-bottom:24px;margin-bottom:40px}
+  h1{margin:0 0 8px;font-family:var(--font-title);font-weight:600;font-size:30px;line-height:1.18;color:#252622;letter-spacing:-.2px}
+  .meta{color:var(--text-soft);font-size:13px;font-style:italic}
+  h2.sec{font-family:var(--font-title);font-weight:600;font-size:24px;line-height:1.2;margin:56px 0 18px;padding:0 0 12px;border-bottom:1px solid var(--line);color:#252622;display:flex;align-items:baseline;gap:14px}
+  h2.sec .n{font-family:var(--font-title);color:var(--primary);font-size:18px;font-weight:500;min-width:24px}
+  h3.sub{font-family:var(--font-title);font-weight:600;font-size:18px;color:#252622;margin:30px 0 10px;display:flex;align-items:baseline;gap:10px}
+  h3.sub .n{color:var(--secondary);font-size:14px;font-weight:500;font-family:var(--font-title)}
+  h4{margin:20px 0 8px;font-family:var(--font-title);font-weight:600;font-size:15px;color:var(--primary)}
+  p{margin:0 0 14px}
+  em{color:var(--secondary);font-style:normal;font-weight:600}
+  code{background:var(--code-bg);color:var(--code-text);padding:1px 6px;border-radius:var(--radius-small);font:12.5px/1.6 var(--font-mono);border:1px solid #dedbd0}
+  pre.code{background:var(--code-bg);color:var(--code-text);border:1px solid #dedbd0;border-radius:var(--radius-small);padding:16px 18px;overflow-x:auto;font:12.5px/1.62 var(--font-mono)}
+  .tldr{padding:18px 20px;border:1px solid #ded7cc;border-left:4px solid var(--secondary);background:#f7f3ed;border-radius:7px;margin:14px 0 20px;font-size:14.5px}
+  .tldr b{color:var(--secondary);font-weight:650}
+  .callout{padding:18px 20px;margin:14px 0;border:1px solid #d9ddd4;border-left:4px solid var(--primary);background:#f5f7f2;border-radius:7px;font-size:14px}
+  .callout.info{border-left-color:var(--accent);background:#f2f5f5;border-color:#d7dce0}
+  .callout.ok{border-left-color:var(--primary);background:#f0f4ee;border-color:#d4dccb}
+  .callout.warn{border-left-color:#9b6842;background:#f8f1eb;border-color:#e1d4c6}
+  table.tab{width:100%;border-collapse:collapse;margin:18px 0;font-size:13.5px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);table-layout:fixed}
+  table.tab th,table.tab td{padding:13px 16px;border-bottom:1px solid var(--line-soft);text-align:left;vertical-align:top;word-break:break-word;overflow-wrap:anywhere}
+  table.tab td code,table.tab td .keyfile{word-break:break-all;overflow-wrap:anywhere;display:inline-block;max-width:100%}
+  table.tab th{background:#f0eee6;color:#252622;font-weight:650;font-family:var(--font-body);font-size:13px;letter-spacing:.2px}
+  table.tab tr:nth-child(even) td{background:var(--table-zebra)}
+  table.tab.bordered th,table.tab.bordered td{border:1px solid var(--line-soft)}
+  table.tab td.mark-main{background:#e8efe2 !important;color:var(--primary);font-weight:650;text-align:center}
+  table.tab td.mark-sub{background:#f4ebe0 !important;color:var(--secondary);text-align:center}
+  table.tab td.mark-empty{color:var(--text-soft);text-align:center;font-style:italic}
+  .badge{display:inline-block;padding:2px 8px;border-radius:11px;background:var(--surface-muted);color:var(--text-muted);font-size:11px;margin:0 4px 3px 0;border:1px solid var(--line-soft);font-weight:500;letter-spacing:.2px}
+  .badge.oss{background:#e6efde;color:#33572b;border-color:#c8d8b8}
+  .badge.closed{background:#f1e6ee;color:#6a3460;border-color:#dcc6d4}
+  .badge.layer1{background:#eef2f8;color:#3a5275;border-color:#cdd5e3}
+  .badge.layer2{background:#f5e8e0;color:#7a3a1e;border-color:#e1c8b4}
+  .badge.layer3{background:#e0eff2;color:#1f5d68;border-color:#bcd6da}
+  .layer{background:var(--surface);border:1px solid var(--line-soft);border-radius:var(--radius-card);padding:24px 26px;margin:18px 0;box-shadow:var(--shadow-sm)}
+  .layer .head{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:10px}
+  .layer .head .num{display:inline-block;width:36px;height:36px;line-height:36px;text-align:center;border-radius:50%;font-weight:700;color:#fff;font-family:var(--font-title);font-size:15px}
+  .layer.l1 .num{background:#4d7a90}.layer.l2 .num{background:#9b6842}.layer.l3 .num{background:#3f8c8f}
+  .layer h3{margin:0;font-family:var(--font-title);font-weight:600;font-size:18px;color:#252622}
+  .layer .def{font-size:13.5px;color:var(--text-muted);margin-top:3px;line-height:1.55}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin:16px 0}
+  .card{background:var(--surface);border:1px solid var(--line-soft);border-radius:var(--radius-card);padding:18px 20px;box-shadow:var(--shadow-sm)}
+  .card h5{margin:0 0 8px;color:#252622;font-family:var(--font-title);font-size:15px;font-weight:600}
+  .fig{margin:22px 0;padding:18px;background:var(--surface);border:1px solid var(--line-soft);border-radius:var(--radius-card);text-align:center;box-shadow:var(--shadow-sm)}
+  .fig svg,.fig img{max-width:100%;height:auto;display:block;margin:0 auto;border-radius:6px}
+  .fig .cap{margin-top:12px;font-size:13px;color:var(--text-muted);text-align:left;line-height:1.65;font-style:italic;border-top:1px solid var(--line-soft);padding-top:12px}
+  .toc{position:fixed;top:0;left:0;width:248px;height:100vh;overflow-y:auto;background:var(--surface);border-right:1px solid var(--line-soft);padding:32px 22px 32px 28px;box-shadow:var(--shadow-sm);font-size:12.5px;z-index:50;transition:width .25s ease,padding .25s ease}
+  .toc.collapsed{width:48px;padding:32px 4px 32px 4px;overflow:hidden}
+  .toc.collapsed .toc-title,.toc.collapsed ul{opacity:0;pointer-events:none;transition:opacity .15s}
+  .toc.collapsed .toc-toggle{transform:rotate(180deg)}
+  .toc::-webkit-scrollbar{width:6px}.toc::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
+  .toc-toggle{position:absolute;top:14px;right:10px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;background:var(--surface-muted);border:1px solid var(--line-soft);border-radius:50%;cursor:pointer;color:var(--text-muted);font-size:14px;line-height:1;padding:0;transition:transform .25s ease,background .15s,color .15s;z-index:2}
+  .toc-toggle:hover{background:#e8e8e0;color:var(--primary)}
+  .toc-toggle svg{width:14px;height:14px;display:block}
+  .toc-title{font-family:var(--font-title);font-weight:600;font-size:13px;color:var(--text-soft);letter-spacing:.5px;text-transform:uppercase;margin:0 36px 14px 0;padding-bottom:10px;border-bottom:1px solid var(--line-soft);transition:opacity .25s ease}
+  .toc ul{list-style:none;margin:0;padding:0;transition:opacity .25s ease}
+  .toc li{margin:0;border-left:3px solid transparent;padding:7px 0 7px 12px;line-height:1.5;transition:border-color .2s,background .2s,padding-left .2s;position:relative}
+  .toc li.active{border-left-color:var(--primary);background:linear-gradient(90deg,#e8efe2 0%,#f0f4ee 70%, transparent 100%);padding-left:14px}
+  .toc li.active a{color:var(--primary);font-weight:650}
+  .toc li.active::before{content:"▸";position:absolute;left:-2px;top:7px;color:var(--primary);font-size:10px;line-height:1.5;animation:tocBlink 2s ease-in-out infinite}
+  @keyframes tocBlink{0%,100%{opacity:.5}50%{opacity:1}}
+  .toc a{color:var(--text-muted);text-decoration:none;display:block}
+  .toc a:hover{color:var(--primary)}
+  .toc li.sub{padding-left:28px;font-size:12px;color:var(--text-soft)}
+  .sec-divider{border:none;border-top:1px solid var(--line);margin:64px 0 0;height:0}
+  .sec-divider::before{content:"❦";display:block;text-align:center;color:var(--text-soft);font-size:14px;margin-top:-10px;background:var(--bg);width:24px;margin-left:auto;margin-right:auto}
+  /* inline glossary: <span class="g">term<span class="gb">body</span></span>, click to toggle */
+  .g{cursor:help;color:var(--primary);text-decoration:underline dotted;text-underline-offset:3px;font-weight:500;outline:none}
+  .g::after{content:" ⓘ";color:var(--text-soft);font-size:.85em;font-weight:normal}
+  .g.o::after{content:" ⊖";color:var(--secondary)}
+  .g .gb{display:none}
+  .g.o .gb{display:block;background:#fbf8f1;border:1px solid #e7e1d0;border-left:3px solid var(--secondary);padding:12px 16px;margin:8px 0;border-radius:5px;font-size:13.5px;color:var(--text);line-height:1.7;font-weight:400}
+  .g.o .gb em{color:var(--secondary)}
+  details.expand{background:var(--surface-muted);border:1px solid var(--line-soft);border-radius:var(--radius-small);padding:10px 14px;margin:10px 0}
+  details.expand summary{cursor:pointer;font-weight:600;color:var(--primary);outline:none;font-family:var(--font-title);font-size:14.5px}
+  details.expand .body{margin-top:12px;border-top:1px dashed var(--line);padding-top:12px;font-size:14px}
+  .keyfile{background:#fbf8f1;border:1px solid #e7e1d0;border-radius:var(--radius-small);padding:2px 8px;font:11.5px/1.6 var(--font-mono);color:#5d4f33;display:inline-block;margin:2px 0;word-break:break-all}
+  .insight{background:#f2f5f5;border-left:4px solid var(--accent);padding:14px 18px;margin:14px 0;font-size:14px;border-radius:5px;border-top:1px solid #d7dce0;border-right:1px solid #d7dce0;border-bottom:1px solid #d7dce0}
+  .insight b{color:var(--accent);font-weight:650}
+  ul.ref{font-size:13.5px;line-height:1.85}.ref a{color:var(--primary);text-decoration:underline;text-decoration-color:#bcc4b4;text-underline-offset:3px}
+  ul,ol{padding-left:22px}li{margin:4px 0}
+  .design-pros{color:var(--primary);font-weight:600}
+  .design-cons{color:var(--secondary);font-weight:600}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>风控场景迁移落地 + LangChain 生态演进 · 配套读物</h1>
+  <div class="meta">2026 年 5 月 · 与 codex 多轮共审 · 姊妹文 <a href="agent-3-layer-architecture.html">Agent 3 层理念架构</a> 的"落地选型 + 生态全景"两章独立成册</div>
+</header>
+
+<nav class="toc" id="toc">
+  <button class="toc-toggle" id="tocToggle" type="button" aria-label="收起/展开目录" title="收起 / 展开目录">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="10 4 4 8 10 12"/></svg>
+  </button>
+  <div class="toc-title">目录 / Outline</div>
+  <ul>
+    <li data-target="migration"><a href="#migration">1 · 风控场景迁移落地</a></li>
+    <li class="sub" data-target="m1"><a href="#m1">1.1 · 不迁移框架，迁移机制</a></li>
+    <li class="sub" data-target="m2"><a href="#m2">1.2 · 二分原则</a></li>
+    <li class="sub" data-target="m3"><a href="#m3">1.3 · 12 组件 × 5 链路矩阵</a></li>
+    <li class="sub" data-target="m4"><a href="#m4">1.4 · A 类 · Langfuse 精读</a></li>
+    <li class="sub" data-target="m5"><a href="#m5">1.5 · B 类机制可抄清单（8 条）</a></li>
+    <li class="sub" data-target="m6"><a href="#m6">1.6 · 不要误用</a></li>
+    <li data-target="lc"><a href="#lc">2 · LangChain 生态演进：从 Chain 胶水到 LangGraph Runtime</a></li>
+    <li class="sub" data-target="lc1"><a href="#lc1">2.1 · 仓库地图 + 时间线</a></li>
+    <li class="sub" data-target="lc2"><a href="#lc2">2.2 · langchain-core / Runnable / LCEL</a></li>
+    <li class="sub" data-target="lc3"><a href="#lc3">2.3 · LangChain v1：create_agent 跑在 LangGraph 上</a></li>
+    <li class="sub" data-target="lc4"><a href="#lc4">2.4 · LangGraph 内核 · Pregel + StateGraph + Channel + Checkpointer</a></li>
+    <li class="sub" data-target="lc5"><a href="#lc5">2.5 · LangSmith trace/eval</a></li>
+    <li class="sub" data-target="lc6"><a href="#lc6">2.6 · LangServe + supervisor/swarm 的真实状态</a></li>
+    <li class="sub" data-target="lc7"><a href="#lc7">2.7 · 演进路线硬证据</a></li>
+    <li class="sub" data-target="lc8"><a href="#lc8">2.8 · Java/Spring AI 替代位 + 风控"用 vs 不用"</a></li>
+    <li><a href="agent-3-layer-architecture.html" style="color:var(--secondary);font-weight:600">← 返回主篇：Agent 3 层理念架构</a></li>
+  </ul>
+</nav>
+
+<div class="callout info" style="margin-top:0">
+  <b>这是一份配套读物</b>。主篇《<a href="agent-3-layer-architecture.html">Agent 3 层理念架构</a>》定义了信息层 / 运行时层 / 保证层 的 12 组件矩阵；本文把其中"<em>落地选型</em>" 与"<em>LangChain 生态全景</em>" 两个话题独立展开，避免主篇过厚。两章相对独立、各自闭合，建议在读完主篇 3 层后再读本文。
+</div>
+
+
+<hr class="sec-divider">
+
+<!-- ============ 6 风控场景迁移落地 ============ -->
+<section id="migration">
+  <h2 class="sec"><span class="n">1</span>风控场景迁移落地 · 不迁移框架，迁移机制</h2>
+
+  <div class="tldr"><b>这一章想干什么</b><br>把第 1~3 层的 12 个组件，按"<em>能不能、要不要进快手风控线上链路</em>"重新做一次取舍。<em>结论先说</em>：风控的主战场不是"<em>选哪个 Agent 框架</em>"，而是把<em>状态、记忆、权限、审计、评估</em> 这些机制嵌进 Java 主导的生产链路。框架可以不上，机制必须有。</div>
+
+  <figure class="figure">
+    <img src="images/3l-fig-4.png" alt="风控生产高速公路：实时判罚车道（Java/Policy/毫秒 SLA）+ 旁路 Langfuse 观测 + 外圈机制工具箱" />
+    <figcaption>图 1 · <b>风控生产高速公路</b>。中间是实时判罚车道（Java + Policy + 毫秒 SLA），旁路接 Langfuse trace/eval/dataset 作为<em>唯一可直接套用的开源观测平面</em>；外圈是 LangGraph / Agents SDK / Codex CLI 等框架，<em>被拆成机制零件后</em>进入工具箱——它们的库不进生产线，它们的设计照搬到 Java。</figcaption>
+  </figure>
+
+  <h3 class="sub" id="m1"><span class="n">1.1</span>不迁移框架，迁移机制</h3>
+  <p>姊妹文《<a href="agent-3-layer-architecture.html">Agent 3 层理念架构</a>》把 12 个组件按层位讲透了，但<em>"理解" 不等于"采纳"</em>。风控线有 3 条硬约束让"<em>整框架照搬</em>"几乎不成立：</p>
+  <ul>
+    <li><b>Java 主导</b>：核心交易/审核/判罚链路是 JVM，Python 框架不能进进程内；走 RPC 多 5~20 ms 在毫秒级 SLA 里是灾难。</li>
+    <li><b>强审计、强合规</b>：每条决策要可追溯到模型版本 + prompt 版本 + 规则版本 + 人审签名，开源框架的 trace 默认 schema 不够。</li>
+    <li><b>反对抗 + 多租户</b>：策略要按业务线/团队级隔离，需要权限/记忆/动作三套 ACL，开源框架默认是单租户思维。</li>
+  </ul>
+  <p>所以这一章的核心姿势是：<em>风控不迁移框架，迁移机制</em>——把 trace/eval、状态图、guardrail、checkpoint、memory event、permission gate、file policy 这 7 个机制吃透，<em>在 Java 这边自己起接口</em>。</p>
+
+  <h3 class="sub" id="m2"><span class="n">1.2</span>二分原则</h3>
+  <div class="callout ok"><b>A vs B 的判定线</b><br>
+    <b>A 类（直接套用）</b>：<em>语言无关 + 可内网自部署 + 协议化</em> 的<em>观测/评估</em> 类基础设施。<br>
+    <b>B 类（仅借鉴机制）</b>：凡是<em>带运行时</em>（Python / Node）+ 强生态绑定的代码框架；以及<em>场景错配</em>（终端 Coding Agent ≠ 线上风控服务）的产品。<br>
+    <em>原则一句话</em>：<b>凡进入毫秒级判罚链路的，只借鉴机制不引入运行时；凡属于观测评估且可内网自部署的，才允许直接套用。</b>
+  </div>
+
+  <h3 class="sub" id="m3"><span class="n">1.3</span>12 组件 × 5 链路矩阵</h3>
+  <p>"<em>能不能用</em>" 这个问题太粗。一个组件可能在 <em>离线调查</em> 能用、在 <em>实时判罚</em> 不能用。所以按风控的 5 条实际链路打标签：</p>
+  <ul>
+    <li><b>实时判罚</b>：毫秒级线上决策（拦 / 放 / 审），JVM 进程内</li>
+    <li><b>离线调查</b>：分析员 case 调查、举证、报告</li>
+    <li><b>策略生产</b>：策略 PM / 算法工程师编写、回归、上线策略</li>
+    <li><b>研发提效</b>：风控研发自己写代码、debug、跑实验</li>
+    <li><b>观测评估</b>：trace / dataset / eval / annotation / 数据飞轮</li>
+  </ul>
+  <table class="tab bordered">
+    <thead><tr>
+      <th style="width:14%">组件</th>
+      <th style="width:13%">实时判罚</th>
+      <th style="width:13%">离线调查</th>
+      <th style="width:13%">策略生产</th>
+      <th style="width:13%">研发提效</th>
+      <th style="width:13%">观测评估</th>
+      <th style="width:21%">归类</th>
+    </tr></thead>
+    <tbody>
+      <tr><td><b>Langfuse</b></td>
+        <td><span class="design-pros">直接套（旁路观测）</span></td><td><span class="design-pros">直接套</span></td><td><span class="design-pros">直接套</span></td><td><span class="design-pros">直接套</span></td><td><span class="design-pros">直接套</span></td>
+        <td><span class="badge layer3">A · 唯一</span></td></tr>
+      <tr><td><b>Claude Code</b></td>
+        <td><span class="mark-empty">不用</span></td><td><span class="design-cons">借鉴</span></td><td><span class="design-cons">借鉴</span></td><td><span class="design-pros">直接套（研发侧）</span></td><td><span class="mark-empty">不用</span></td>
+        <td>B · 研发侧可直用</td></tr>
+      <tr><td><b>Codex CLI</b></td>
+        <td><span class="mark-empty">不用</span></td><td><span class="design-cons">借鉴</span></td><td><span class="design-cons">借鉴</span></td><td><span class="design-pros">直接套（研发侧）</span></td><td><span class="mark-empty">不用</span></td>
+        <td>B · 研发侧可直用</td></tr>
+      <tr><td><b>Agents SDK</b></td>
+        <td><span class="mark-empty">不用</span></td><td><span class="design-cons">借鉴</span></td><td><span class="design-cons">借鉴</span></td><td><span class="design-cons">借鉴</span></td><td><span class="design-cons">借鉴</span></td>
+        <td>B · 抽象集模板</td></tr>
+      <tr><td><b>LangGraph</b></td>
+        <td><span class="mark-empty">不用</span></td><td><span class="design-cons">借鉴</span></td><td><span class="design-cons">借鉴</span></td><td><span class="design-cons">借鉴</span></td><td><span class="design-cons">借鉴</span></td>
+        <td>B · 架构可抄</td></tr>
+      <tr><td><b>LangChain</b></td>
+        <td><span class="mark-empty">不用</span></td><td><span class="design-cons">借鉴</span></td><td><span class="design-cons">借鉴</span></td><td><span class="mark-empty">不用</span></td><td><span class="design-cons">借鉴</span></td>
+        <td>B · 接口抽象</td></tr>
+      <tr><td><b>DSPy</b></td>
+        <td><span class="mark-empty">不用</span></td><td><span class="design-cons">借鉴</span></td><td><span class="design-cons">借鉴</span></td><td><span class="mark-empty">不用</span></td><td><span class="design-cons">借鉴</span></td>
+        <td>B · 离线优化思想</td></tr>
+      <tr><td><b>mem0</b></td>
+        <td><span class="mark-empty">不用</span></td><td><span class="design-cons">借鉴</span></td><td><span class="design-cons">借鉴</span></td><td><span class="mark-empty">不用</span></td><td><span class="design-cons">借鉴</span></td>
+        <td>B · 事件模型</td></tr>
+      <tr><td><b>Letta</b></td>
+        <td><span class="mark-empty">不用</span></td><td><span class="design-cons">借鉴</span></td><td><span class="design-cons">借鉴</span></td><td><span class="mark-empty">不用</span></td><td><span class="design-cons">借鉴</span></td>
+        <td>B · read_only ACL</td></tr>
+      <tr><td><b>OpenClaw</b></td>
+        <td><span class="mark-empty">不用</span></td><td><span class="design-cons">借鉴</span></td><td><span class="design-cons">借鉴</span></td><td><span class="mark-empty">不用</span></td><td><span class="mark-empty">不用</span></td>
+        <td>B · 插件契约</td></tr>
+      <tr><td><b>Hermes Agent</b></td>
+        <td><span class="mark-empty">不用</span></td><td><span class="design-cons">借鉴</span></td><td><span class="design-cons">借鉴</span></td><td><span class="design-cons">借鉴</span></td><td><span class="design-cons">借鉴</span></td>
+        <td>B · 压缩 + 写入隔离</td></tr>
+      <tr><td><b>pi</b></td>
+        <td><span class="mark-empty">不用</span></td><td><span class="design-cons">借鉴</span></td><td><span class="design-cons">借鉴</span></td><td><span class="mark-empty">不用</span></td><td><span class="mark-empty">不用</span></td>
+        <td>B · 边界 + hook</td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="sub" id="m4"><span class="n">1.4</span>A 类 · Langfuse 精读（唯一可直接套用）</h3>
+  <p><b>为什么能用</b>：Langfuse 开源（MIT）+ Docker 自部署 + 兼容 OpenTelemetry + 有 Java SDK，<em>是协议层而非框架层</em>。trace / span / score / dataset / annotation 这套数据模型正好是风控 Agent 最缺的<em>"决策可追溯 + 闭环改进"</em> 底座。能直接用不是因为它懂风控，而是因为它<em>选择不绑死任何业务</em>。</p>
+  <p><b>对应风控收益</b>：① 每条判罚动作落 trace + 模型版本 + prompt 版本 + 规则版本，监管举证查询<em>毫秒级</em>。② 差 case 标 annotation + 进 dataset，喂回 prompt 迭代 / 微调数据。③ LLM-as-judge 自动评 + 人工复核 = 数据飞轮的源头。</p>
+  <p><b>风险</b>：① Postgres + ClickHouse 后端要扛快手级 QPS，需<em>分片 + 采样策略</em>（典型方案：高风险动作 100% 采样，低风险 1% 采样，仅 trace head 入库）；<em>采样会导致审计缺口</em>，监管样本需要 100% 留存。② 评分体系偏 LLM 质量，风控自定义维度（命中规则 / 模型分 / 人审签名）需扩展 score schema。③ <em>PII / 敏感字段脱敏</em>——trace 直接落 prompt / tool 输入会泄露用户信息，必须 SDK 侧过滤。④ <em>租户隔离</em>——多业务线共用一套 Langfuse 需 project + ACL 双层隔离。⑤ <em>trace 写入背压不能反压主链路</em>——必须异步 + 本地缓存 + 丢弃熔断。⑥ 自部署运维成本：Postgres + ClickHouse + Redis + Worker 一套要专人维护。</p>
+  <p><b>未来限制</b>：① 核心观测能力（trace / score / dataset）可自部署 MIT；<em>企业治理能力</em>（SCIM / audit logging / data retention 等 <code>/ee</code> 模块）<em>可能需商业授权</em>。② OTel 协议演进可能要求 SDK 升级。</p>
+  <p><b>外部依据</b>：<a href="https://langfuse.com/docs/" target="_blank">langfuse.com/docs</a> · <a href="https://github.com/langfuse/langfuse" target="_blank">langfuse/langfuse</a></p>
+
+  <h3 class="sub" id="m5"><span class="n">1.5</span>B 类机制可抄清单（8 条）</h3>
+  <p>这 8 个机制是 B 类组件里<em>必须照搬到 Java 风控</em> 的设计，每个都对应一个具体出处：</p>
+  <ol class="m5-list">
+    <li><b>文件型 policy 分层</b>（来自 <em>Claude Code CLAUDE.md / Codex CLI AGENTS.md / Anthropic Agent Skills</em>）：风控规则 SOP 用 <code>RISK_AGENT.md</code> 家族管理——平台级 / 业务线级 / 团队级三档，全部进 git、PR review、人是 owner。<em>比塞向量库优越</em>：可读、可评审、可审计、可回滚。</li>
+    <li><b>execpolicy / action gate</b>（来自 <em>Codex CLI execpolicy + Starlark DSL</em>）：风控动作（封 / 限 / 解 / 公示）用 OPA Rego 或 Cedar 写策略 DSL——<em>规则即数据</em>，让策略团队不写 Java 也能改。</li>
+    <li><b>StateGraph + Checkpointer</b>（来自 <em>LangGraph Pregel 内核</em>）：复杂 case 调查走显式状态图（Java 用 LangGraph4j 或自研最小状态机 ~150 行），<em>每个节点</em> checkpoint，挂了能从断点恢复。</li>
+    <li><b>interrupt / HITL</b>（来自 <em>LangGraph interrupt() + Claude Code permission 4 档</em>）：高风险动作（封禁 / 资金 / 公开声明）必须有 <code>WAITING_HUMAN</code> 状态，<em>不允许 Agent 自动 commit</em>。permission 持久化"<em>这次允许 / 总是允许</em>" 是 The Gate 的标准接口。</li>
+    <li><b>memory ADD/UPDATE/DELETE 事件</b>（来自 <em>mem0 + Letta read_only block</em>）：用户画像 / 历史 / 黑名单走事件流而非快照，<em>每个事件可追溯</em>。Letta 的 read_only ACL 直接映射 Memory tier A（Policy 红线不可改）。</li>
+    <li><b>ContextVar / ThreadLocal 写入来源隔离</b>（来自 <em>Hermes ContextVar + skill_provenance</em>）：每次写记忆前 set 来源（user / agent / background），<em>auto-promote 只动 agent 自创，永不越权改用户内容</em>。Java 侧用 <code>ThreadLocal&lt;WriteOrigin&gt;</code>。</li>
+    <li><b>assertion + eval 数据飞轮</b>（来自 <em>DSPy Assert/Suggest + Langfuse score</em>）：评分 / 分类 / 判罚信号这些 prompt 敏感场景跑 assertion 自动重试 + metric-driven 优化。这是<em>把人工调 prompt 的工作交给优化器</em> 的范式，Agent 主体仍走 State Graph + Spring AI。</li>
+    <li><b>budget / timeout / cost ceiling / circuit breaker</b>（来自 <em>Codex CLI 预算配置 + Agents SDK max_turns + 通用 SRE 实践</em>）：每个 Agent 任务必须显式声明 <em>token 上限 / 步数上限 / 时长上限 / 单 case 成本天花板</em>，触顶熔断 → 降级到规则 / 人审。<em>毫秒 SLA 和成本失控</em> 的硬护栏，比 assertion + eval 更靠生产运行层。</li>
+  </ol>
+
+  <h3 class="sub" id="m6"><span class="n">1.6</span>不要误用</h3>
+  <div class="callout warn"><b>五条红线</b><br>
+    · <b>不要把 LangGraph 当实时判罚引擎</b>——它是 Python，跨语言 RPC 是毫秒级 SLA 的死刑；它的设计可以抄，库不要进生产链路。<br>
+    · <b>不要把 LangChain 当生产治理层</b>——它的<em>本体</em> 是接口胶水（langchain-core + LCEL），不是治理基础设施，frequent breaking change 不适合风控线上依赖。<br>
+    · <b>不要把 mem0 / Letta 当权限系统</b>——它们是<em>记忆模型</em>，不是 ACL；高风险数据隔离 / 多租户权限要 The Gate 那一层做。<br>
+    · <b>不要把 supervisor / swarm 当多 Agent 组织架构</b>——它们是 LangGraph 之上的<em>多 Agent 模板包</em>，适合 demo 和低风险编排，<em>风控生产</em> 的多 Agent 协作要走自研的 The Gate + URG，不能让模板包替治理边界做决定。<br>
+    · <b>不要把 Langfuse 当实时 policy gate / enforcement engine</b>——它的角色是<em>观测 + 评估 + 复盘</em>，<em>不在主判罚链路上</em>。把"<em>这条 trace 得分低</em>" 当作"<em>下条相似请求要拦截</em>" 是错的；enforcement 必须由 OPA / Cedar / 自研规则引擎独立完成。
+  </div>
+</section>
+
+<hr class="sec-divider">
+
+<!-- ============ 7 LangChain 生态演进 ============ -->
+<section id="lc">
+  <h2 class="sec"><span class="n">2</span>LangChain 生态演进 · 从 Chain 胶水到 LangGraph Runtime</h2>
+
+  <div class="tldr"><b>这一章想回答的核心问题</b><br>LangChain 为什么从最初的"<em>链式调用</em>" 演进到 LangGraph 的"<em>图状态机</em>"？链式不能做循环吗？——<em>能做，但代价是把状态、恢复、人审、trace 责任散落在业务代码里</em>。<em>这一章用 LangChain 官方原话 + 源码 file:line + Pregel 血统 给出硬证据。</em></div>
+
+  <figure class="figure">
+    <img src="images/3l-fig-5.png" alt="LangChain 生态演进树：Runnable/LCEL 为根，classic/chains 为旧枝，主干长成 LangGraph Runtime，旁枝 LangSmith 观测 + 已枯萎的 LangServe" />
+    <figcaption>图 2 · <b>LangChain 生态演进树</b>。树根是 <em>Runnable / LCEL</em>（统一接口），旧枝是 <em>classic / chains</em>（隔离归档），主干长成 <em>LangGraph Runtime</em>（v1 agent 底座），旁枝是 <em>LangSmith</em>（trace/eval）和 已枯萎的 <em>LangServe</em>（2024-11-18 deprecated）。</figcaption>
+  </figure>
+
+  <h3 class="sub" id="lc1"><span class="n">2.1</span>仓库地图 + 时间线</h3>
+  <p>LangChain 已经从"<em>一个大包包天下</em>" 演进成多仓库分层组合。当前（2025-Q4 后）的真实结构：</p>
+  <table class="tab bordered">
+    <thead><tr><th style="width:22%">仓库</th><th style="width:14%">协议</th><th style="width:14%">状态</th><th style="width:50%">定位</th></tr></thead>
+    <tbody>
+      <tr><td><code>langchain-ai/langchain</code></td><td>MIT</td><td>active</td><td>主仓库（monorepo）：<code>langchain-core</code>（Runnable 抽象）/ <code>langchain</code>（v1 瘦身后只剩 6 模块 + <code>create_agent</code>）/ <code>langchain-classic</code>（旧 Chain/AgentExecutor/memory/vectorstores 全部隔离归档）</td></tr>
+      <tr><td><code>langchain-ai/langgraph</code></td><td>MIT</td><td>active</td><td><em>v1 agent 真正的 runtime</em>。<code>CompiledStateGraph</code> 直接继承 <code>Pregel</code>（<code>graph/state.py:1391-1392</code>）</td></tr>
+      <tr><td><code>langchain-ai/langsmith-sdk</code></td><td>MIT</td><td>active</td><td>客户端 SDK：trace / dataset / eval 上报。<em>server / Platform 闭源付费</em>。</td></tr>
+      <tr><td><code>langchain-ai/langserve</code></td><td>MIT</td><td><b>deprecated 2024-11-18</b></td><td>把 Runnable 暴露成 FastAPI 服务的工具，已退场。LangChain 推荐改用 LangGraph Platform 部署。</td></tr>
+      <tr><td><code>langgraph-supervisor</code> / <code>langgraph-swarm</code></td><td>MIT</td><td>auxiliary template packages</td><td>多 Agent 模板包：<em>适合 demo 和低风险编排</em>，多 Agent 治理边界仍应自研。</td></tr>
+    </tbody>
+  </table>
+  <p><b>关键时间线</b>：<em>2022-10-24</em> Harrison Chase 发布 LangChain 首版（9 天写成）· <em>2023-08-01</em> LCEL 发布 · <em>2024-01-08</em> v0.1 + 同时官宣 LangGraph · <em>2024-01-17</em> LangGraph 发布博客 · <em>2024-05-10</em> v0.2 把 LangGraph 写成 "the recommended way to build agents" · <em>2024-11-18</em> LangServe 标 deprecated · <em>2025-10-22</em> LangChain 1.0 + LangGraph 1.0 GA，<code>create_agent</code> 替换 AgentExecutor。</p>
+
+  <h3 class="sub" id="lc2"><span class="n">2.2</span>langchain-core / Runnable / LCEL</h3>
+  <p><b>定位</b>：LCEL（LangChain Expression Language）的价值<em>不是让 Agent 更聪明</em>，而是把 <em>prompt → retriever → model → parser</em> 这类<em>线性胶水</em> 变成<em>可组合 Runnable</em>。</p>
+  <p><b>核心抽象</b>：<code>Runnable</code>（基类）/ <code>RunnableSequence</code>（管道）/ <code>RunnableParallel</code>（并行）/ <code>RunnableLambda</code>（包装函数）。<code>|</code> 操作符是<em>纯 Python <code>__or__</code> dunder</em>，无魔法——<code>langchain-core/runnables/base.py:619-638</code> 直接返回 <code>RunnableSequence(self, coerce_to_runnable(other))</code>。统一拿到 <em>stream / batch / async / fallbacks / retry</em> 这些原生能力。</p>
+  <pre class="code"># LCEL 典型范例
+chain = prompt | model | StrOutputParser()
+chain.invoke({"question": "..."})
+chain.stream({"question": "..."})
+chain.batch([{"question": q} for q in qs])</pre>
+  <p><b>解决的痛点</b>：老 Chain 类（<code>SequentialChain</code> / <code>LLMChain</code>）<em>不是真正可组合</em>——每个 Chain 自带一套 streaming/async/callback 实现，跨 Chain 拼装是噩梦。LCEL 把这件事统一成<em>一个接口 + 五种适配器</em>。</p>
+  <blockquote class="quote">"these chains weren't really composable. Sure - we had SequentialChain, but that wasn't amazingly usable." —— LangChain LCEL 官方博客</blockquote>
+
+  <h3 class="sub" id="lc3"><span class="n">2.3</span>LangChain v1：create_agent 跑在 LangGraph 上，classic 被隔离</h3>
+  <p><b>v1 信号</b>：<code>langchain</code> 1.3+ 主包<em>已被瘦身到只剩 6 个模块</em>，旧的所有重东西（Chain / AgentExecutor / memory / vectorstores）<em>全部隔离到 <code>langchain_classic</code></em>。新的 <code>create_agent()</code> <em>底层完全跑在 LangGraph 上</em>——<code>langchain/agents/factory.py</code> 直接 <code>import langgraph</code> 的 <code>StateGraph / ToolNode / Command / Send</code>。</p>
+  <p><b>这意味着</b>：<em>Agent 门面留在 LangChain，真正 runtime 下沉到 LangGraph，旧链式资产进 classic</em>。读者再听到"<em>LangChain Agent</em>" 不要联想老 AgentExecutor——它已经只是 LangGraph 的一个 facade。</p>
+  <p><b>AgentExecutor 退役原因（官方原话）</b>：<em>"We've added a lot of parameters and functionality to AgentExecutor, but it's still just one way of running a loop."</em>（v0.1.0 博客）</p>
+
+  <h3 class="sub" id="lc4"><span class="n">2.4</span>LangGraph 内核 · Pregel + StateGraph + Channel + Checkpointer + interrupt</h3>
+  <p><b>定位</b>：LangGraph 的核心<em>不是画图</em>，而是用 <em>Pregel 式状态传播</em> 把循环、分支、恢复、人审变成<em>可持久化执行</em>。</p>
+  <p><b>Pregel 血统</b>（官方亲口承认）：<em>"LangGraph is inspired by Pregel and Apache Beam. The public interface draws inspiration from NetworkX."</em>。<code>libs/langgraph/langgraph/pregel/main.py:448</code> docstring 明确说是 "Pregel Algorithm / Bulk Synchronous Parallel model"，<em>每步分 Plan / Execution / Update 三阶段</em>。</p>
+  <p><b>核心抽象</b>：</p>
+  <ul>
+    <li><code>StateGraph</code>：用户描述节点 + 条件边 + 状态 schema</li>
+    <li><code>Channel</code>：节点间通信通道，常用类型包括 <code>LastValue</code> / <code>Topic</code> / <code>BinaryOperatorAggregate</code> / <code>EphemeralValue</code> / <code>AnyValue</code>（reducer 决定如何合并多入边的写入；另有 <code>DeltaChannel</code> 等 beta 类型）</li>
+    <li><code>Checkpointer</code>：每次 superstep 后把 state 持久化（SQLite / Postgres / Redis），<em>挂了能从断点恢复</em></li>
+    <li><code>interrupt()</code>：在任意节点调用 → 写盘 + 退出 → 外部喂回人审决策 → 继续。<em>在主流 OSS Agent runtime 里少见地同时提供 durable + interruptable + state-editable</em></li>
+    <li><code>AgentMiddleware</code>（v1 引入）：官方切面机制，可拦截每次 model call / tool call</li>
+  </ul>
+  <pre class="code"># LangGraph 典型范例
+graph = StateGraph(State)
+graph.add_node("plan", plan_fn)
+graph.add_node("act", act_fn)
+graph.add_node("review", lambda s: interrupt({"need": "human approval"}))
+graph.add_conditional_edges("plan", route_fn, {"safe": "act", "risky": "review"})
+graph.add_edge("review", "act")
+app = graph.compile(checkpointer=SqliteSaver(...))
+app.invoke({"goal": "..."}, config={"thread_id": "case-123"})</pre>
+
+  <h3 class="sub" id="lc5"><span class="n">2.5</span>LangSmith trace / eval（核心 SDK MIT；server / Platform 闭源）</h3>
+  <p><b>定位</b>：LangSmith 是 LangChain 生态的<em>商业观测面</em>。SDK（<code>langsmith-sdk</code>）MIT 开源可嵌入<em>任何</em> Python / TS 应用（甚至非 LangChain）。但 server 端、Platform、Self-hosted 全部<em>闭源付费</em>。</p>
+  <p><b>能力</b>：trace（run tree）+ dataset（黄金集）+ evaluation（LLM-as-judge + 人工标注）+ prompt versioning + experiment comparison。</p>
+  <p><b>使用边界</b>：可以用 SDK 自己往任意后端（Langfuse / 自建 ClickHouse）转发；但<em>不能假设 LangSmith server 是开源基础设施</em>。<em>风控选 Langfuse，不是 LangSmith</em>——同样的能力 + MIT 全栈 + 内网自部署。</p>
+
+  <h3 class="sub" id="lc6"><span class="n">2.6</span>LangServe + supervisor / swarm 的真实状态</h3>
+  <p><b>LangServe</b>：<em>明确 deprecated</em>（2024-11-18 起，仓库 README 已挂"<em>This repository is no longer actively maintained</em>" 标记）。原作用：把 Runnable 包成 FastAPI 服务并发 OpenAPI。LangChain 官方建议改用 <em>LangGraph Platform</em>（闭源付费）或<em>自己起 FastAPI</em>。</p>
+  <p><b>supervisor / swarm</b>：<em>辅助模板包</em>——LangGraph reference 仍把它们列在多 Agent 章节，<em>适合 demo 和低风险编排</em>。两者本质是<em>多 Agent 编排模板包</em>，适合 demo 和低风险场景，<em>风控生产</em> 不应把它当治理边界——治理要走 The Gate + URG，<em>不能让模板包替治理决定</em>。</p>
+
+  <h3 class="sub" id="lc7"><span class="n">2.7</span>演进路线硬证据 · 5 段官方原话</h3>
+  <p>这是<em>用户长期困扰的问题</em>："<em>链式调用不能解决循环吗？为什么演进？</em>"——下面 5 段 LangChain 自己的话，给出完整证据链。</p>
+
+  <details class="expand" open><summary>① 承认老 Chain 抽象太差（LCEL 博客）</summary><div class="body">
+    <blockquote class="quote">"these chains weren't really composable. Sure - we had SequentialChain, but that wasn't amazingly usable."</blockquote>
+    <p>—— <em>LangChain LCEL 官方博客</em>。承认<em>第一代 Chain 抽象失败</em>：组合性差、隐藏 prompt、每个 Chain 自带一套 streaming/async。</p>
+    <p>外部依据：<a href="https://www.langchain.com/blog/langchain-expression-language" target="_blank">LangChain Expression Language 官方博客</a></p>
+  </div></details>
+
+  <details class="expand"><summary>② LCEL 是 DAG 的官方承认（LangGraph 发布博客）</summary><div class="body">
+    <blockquote class="quote">"Effectively, these chains are directed acyclic graphs (DAGs)... we've lacked a method for easily introducing cycles."</blockquote>
+    <p>—— <em>LangGraph 发布博客（2024-01-17）</em>。这是<em>关键钉子</em>：LCEL 本质是 DAG，<em>设计上就画不出循环</em>。Agent 的本质就是"<em>think → act → observe → think</em>" 的循环，<em>DAG 表达不出来</em>。</p>
+    <p>外部依据：<a href="https://blog.langchain.com/langgraph/" target="_blank">LangGraph 发布博客</a></p>
+  </div></details>
+
+  <details class="expand"><summary>③ AgentExecutor 死结（v0.1.0 博客）</summary><div class="body">
+    <blockquote class="quote">"We've added a lot of parameters and functionality to AgentExecutor, but it's still just one way of running a loop."</blockquote>
+    <p>—— <em>LangChain v0.1.0 博客（2024-01-08）</em>。AgentExecutor 是<em>把循环写死在框架内</em>，加再多参数都<em>只是一种循环</em>，定制不动，所以 v1 弃用、改成 <code>create_agent</code> 跑在 LangGraph 上。</p>
+  </div></details>
+
+  <details class="expand"><summary>④ Pregel 血统亲口承认（LangGraph docs）</summary><div class="body">
+    <blockquote class="quote">"LangGraph is inspired by Pregel and Apache Beam. The public interface draws inspiration from NetworkX."</blockquote>
+    <p>—— <em>LangGraph 官方 runtime docs（"runtime named after Google's Pregel algorithm"）</em>。<em>Pregel</em> 是 Google 2010 年发的图计算论文（同名系统跑全网爬虫图、社交图）；<em>BSP（Bulk Synchronous Parallel）</em> 模型把"<em>循环</em>" 切成多个 superstep，每步可以持久化、可以中断、可以恢复。这<em>正是 Agent 循环需要的</em>——所以 LangGraph 直接把 Pregel 的 superstep 思路拿来做 Agent runtime。</p>
+    <p>外部依据：<a href="https://docs.langchain.com/langgraph" target="_blank">LangGraph 官方文档</a></p>
+  </div></details>
+
+  <details class="expand"><summary>⑤ Harrison Chase 三周年反省（2025-10-20）</summary><div class="body">
+    <blockquote class="quote">"we traded power for ease of use" ... "the same high-level interfaces ... were now getting in the way when people tried to customize them to go to production."</blockquote>
+    <p>—— <em>Harrison Chase 三周年总结</em>。<em>这是最重的一段</em>：老 LangChain"<em>用易用性换了表达力</em>"，到了生产场景<em>反而挡路</em>。所以 v1 大幅收缩主包、把 runtime 让给 LangGraph、把旧 Chain 全部归档到 classic。</p>
+  </div></details>
+
+  <div class="callout ok"><b>核心结论（可直接背）</b><br>
+    <em>链式不是不能做循环，而是循环一旦进入分支、人审和恢复，就应该升级为状态图。</em><br>
+    更具体：<b>老 Chain</b> 解决"<em>串起来</em>"，但抽象太死；<b>LCEL</b> 解决"<em>串得优雅</em>"（统一 Runnable + 原生 stream/batch/async），但<em>设计上就是 DAG，画不出 Agent 循环</em>；<b>AgentExecutor</b> 把循环写死在框架内，"<em>只是一种循环</em>" 定制不动；<b>LangGraph</b> 借鉴 Google Pregel 的 superstep + message-passing，把 Agent 显式建模为<em>带 State 一等公民 + Checkpointer + 条件边 + interrupt</em> 的图状态机，是把"<em>控制流从框架内隐藏</em>" 升级为"<em>用户显式描述</em>"。
+  </div>
+
+  <h3 class="sub" id="lc8"><span class="n">2.8</span>Java / Spring AI 替代位 + 风控"用 vs 不用"</h3>
+  <p>LangChain 生态全是 Python（少量 TS），<em>风控线 Java 主导不能进进程内</em>。所以"<em>用 vs 不用</em>" 的判断要按<em>链路</em> 来：</p>
+  <table class="tab bordered">
+    <thead><tr><th style="width:22%">能力</th><th style="width:30%">LangChain 生态怎么做</th><th style="width:48%">Java / 风控怎么承接</th></tr></thead>
+    <tbody>
+      <tr><td><b>Runnable / 管道</b></td><td>LCEL <code>|</code> 操作符 + RunnableSequence</td><td><em>Spring AI 1.x ChatClient</em> 的 fluent API + 自研 Builder DSL（不要直接引 langchain-core）</td></tr>
+      <tr><td><b>Agent runtime</b></td><td>LangGraph StateGraph + Checkpointer + interrupt</td><td><em>LangGraph4j</em>（JVM 端口，提供 Spring AI integration，可与 Spring AI 并用）或<em>自研最小状态机</em> ~150 行（v1 case 不复杂时优先）</td></tr>
+      <tr><td><b>Retriever / RAG</b></td><td>Document / Retriever / 向量库适配</td><td><em>Spring AI VectorStore + DocumentRetriever</em>，背后接公司已有的向量库（Milvus / Tair Vector）</td></tr>
+      <tr><td><b>Tool 注册</b></td><td>LangChain Tool + LangGraph ToolNode</td><td><em>Spring AI @Tool 注解</em> 或自研 ToolRegistry；动作粒度按 The Gate 的 plugin-package-contract 声明</td></tr>
+      <tr><td><b>trace / eval</b></td><td>LangSmith（闭源付费）</td><td><em>Langfuse</em>（MIT 自部署 + Java SDK）<b>← 这是 A 类直接套</b></td></tr>
+      <tr><td><b>HITL</b></td><td>LangGraph interrupt()</td><td>自研 <code>WAITING_HUMAN</code> 状态 + 工单系统对接（审核员侧入口在 The Gate UI）</td></tr>
+    </tbody>
+  </table>
+  <p><b>一句话原则</b>：<em>用 LangChain 的概念，不用 LangChain 的 Python runtime</em>。把 Runnable / StateGraph / Checkpointer / interrupt / Channel / Reducer 这些<em>词汇</em> 在 Java 这边各起一个类——是<em>最省脑的起点</em>，也是<em>未来与社区对话的最低成本</em>。</p>
+  <p class="callout ok"><b>承上启下</b>：本文两章给出了"<em>不迁移框架、迁移机制</em>" 的硬清单和演进证据；继续阅读姊妹文《<a href="agent-3-layer-architecture.html#decision">Agent 3 层理念架构 · 第 6 章 三层选型决策树</a>》——把这些机制反查到三层失败症状：你遇到什么问题，去哪一层加什么，对应哪个组件的哪个机制。</p>
+</section>
+
+</div>
+<script>
+(function(){
+  const toc = document.getElementById('toc');
+  const wrap = document.querySelector('.wrap');
+  const toggleBtn = document.getElementById('tocToggle');
+  const tocItems = Array.from(document.querySelectorAll('#toc li[data-target]'));
+  const sections = tocItems.map(li => document.getElementById(li.dataset.target)).filter(Boolean);
+
+  function applyCollapsed(collapsed){
+    toc.classList.toggle('collapsed', collapsed);
+    wrap.classList.toggle('toc-collapsed', collapsed);
+    toggleBtn.setAttribute('aria-expanded', String(!collapsed));
+    toggleBtn.title = collapsed ? '展开目录' : '收起目录';
+  }
+  const stored = localStorage.getItem('tocCollapsed') === '1';
+  applyCollapsed(stored);
+  toggleBtn.addEventListener('click', () => {
+    const now = !toc.classList.contains('collapsed');
+    applyCollapsed(now);
+    localStorage.setItem('tocCollapsed', now ? '1' : '0');
+  });
+
+  if (!sections.length) return;
+
+  function setActive(id){
+    let changed = false;
+    tocItems.forEach(li => {
+      const isActive = li.dataset.target === id;
+      if (isActive !== li.classList.contains('active')) changed = true;
+      li.classList.toggle('active', isActive);
+    });
+    if (changed && !toc.classList.contains('collapsed')){
+      const active = toc.querySelector('li.active');
+      if (active){
+        const r = active.getBoundingClientRect();
+        const tr = toc.getBoundingClientRect();
+        if (r.top < tr.top + 40 || r.bottom > tr.bottom - 40){
+          active.scrollIntoView({block:'center',behavior:'smooth'});
+        }
+      }
+    }
+  }
+
+  let raf = 0;
+  function update(){
+    raf = 0;
+    const marker = window.innerHeight * 0.25;
+    let current = sections[0].id;
+    for (const sec of sections){
+      const r = sec.getBoundingClientRect();
+      if (r.top - marker <= 0) current = sec.id;
+      else break;
+    }
+    setActive(current);
+  }
+  function onScroll(){ if (!raf) raf = requestAnimationFrame(update); }
+  window.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('resize', onScroll);
+  update();
+
+  document.querySelectorAll('#toc a[href^="#"]').forEach(a => {
+    a.addEventListener('click', e => {
+      const id = a.getAttribute('href').slice(1);
+      const t = document.getElementById(id);
+      if (t) { e.preventDefault(); t.scrollIntoView({behavior:'smooth',block:'start'}); history.replaceState(null,'','#'+id); }
+    });
+  });
+})();
+</script>
+</body>
+</html>
