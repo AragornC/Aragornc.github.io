@@ -3,491 +3,88 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>AragornC · Agent Knowledge</title>
-  <style>
-    :root {
-      --bg: #f6f6f1;
-      --paper: #ffffff;
-      --ink: #1f2328;
-      --muted: #626b64;
-      --line: #deded5;
-      --soft: #eff3ef;
-      --accent: #245f73;
-      --accent-dark: #153f4d;
-      --warm: #8a4e27;
-      --warn: #b84a36;
-      --shadow: 0 18px 44px rgba(31, 35, 40, 0.08);
-    }
-
-    * {
-      box-sizing: border-box;
-    }
-
-    body {
-      margin: 0;
-      color: var(--ink);
-      background:
-        linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(246, 246, 241, 0.94)),
-        var(--bg);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
-        "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
-      line-height: 1.7;
-    }
-
-    a {
-      color: inherit;
-      text-decoration: none;
-    }
-
-    .page {
-      max-width: 1180px;
-      margin: 0 auto;
-      padding: 34px 24px 72px;
-    }
-
-    header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 24px;
-      padding-bottom: 28px;
-      border-bottom: 1px solid var(--line);
-    }
-
-    .brand {
-      display: grid;
-      gap: 4px;
-    }
-
-    .kicker {
-      color: var(--accent);
-      font-size: 12px;
-      font-weight: 800;
-      letter-spacing: 0.11em;
-      text-transform: uppercase;
-    }
-
-    h1, h2, h3, p {
-      margin: 0;
-    }
-
-    .brand h1 {
-      font-size: 26px;
-      line-height: 1.2;
-      letter-spacing: 0;
-    }
-
-    nav {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      color: var(--muted);
-      font-size: 14px;
-      font-weight: 700;
-    }
-
-    nav a {
-      padding: 8px 10px;
-      border-radius: 8px;
-    }
-
-    nav a:hover {
-      background: var(--soft);
-      color: var(--ink);
-    }
-
-    .hero {
-      display: grid;
-      grid-template-columns: minmax(0, 0.95fr) minmax(340px, 1.05fr);
-      gap: 46px;
-      align-items: center;
-      padding: 56px 0 46px;
-    }
-
-    .hero-copy {
-      display: grid;
-      gap: 22px;
-    }
-
-    .hero h2 {
-      max-width: 700px;
-      font-size: clamp(38px, 6vw, 70px);
-      line-height: 1.02;
-      letter-spacing: 0;
-    }
-
-    .hero p {
-      max-width: 660px;
-      color: var(--muted);
-      font-size: 18px;
-    }
-
-    .actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-    }
-
-    .button {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 42px;
-      padding: 10px 16px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: var(--paper);
-      color: var(--ink);
-      font-weight: 800;
-      box-shadow: 0 8px 20px rgba(31, 35, 40, 0.05);
-    }
-
-    .button.primary {
-      border-color: var(--accent);
-      background: var(--accent);
-      color: #fff;
-    }
-
-    .visual {
-      position: relative;
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      background: #fbfaf5;
-      box-shadow: var(--shadow);
-      overflow: hidden;
-    }
-
-    .visual img {
-      display: block;
-      width: 100%;
-      max-height: 680px;
-      object-fit: cover;
-      object-position: top;
-    }
-
-    .visual-caption {
-      position: absolute;
-      right: 18px;
-      bottom: 18px;
-      max-width: 300px;
-      padding: 12px 14px;
-      border: 1px solid rgba(36, 95, 115, 0.24);
-      border-radius: 8px;
-      background: rgba(255, 255, 255, 0.9);
-      color: var(--accent-dark);
-      font-size: 14px;
-      font-weight: 800;
-      backdrop-filter: blur(12px);
-    }
-
-    .section {
-      padding: 42px 0 0;
-      border-top: 1px solid var(--line);
-    }
-
-    .section-head {
-      display: grid;
-      gap: 8px;
-      max-width: 780px;
-      margin-bottom: 22px;
-    }
-
-    .section-head h2 {
-      font-size: 28px;
-      line-height: 1.22;
-    }
-
-    .section-head p {
-      color: var(--muted);
-    }
-
-    .topic {
-      display: grid;
-      grid-template-columns: 1.1fr 0.9fr;
-      gap: 24px;
-      align-items: stretch;
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      background: var(--paper);
-      box-shadow: var(--shadow);
-      overflow: hidden;
-    }
-
-    .topic-body {
-      display: grid;
-      gap: 18px;
-      padding: 26px;
-    }
-
-    .topic h3 {
-      font-size: 26px;
-      line-height: 1.25;
-    }
-
-    .topic p {
-      color: var(--muted);
-    }
-
-    .meta {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      color: var(--accent-dark);
-      font-size: 13px;
-      font-weight: 800;
-    }
-
-    .meta span {
-      padding: 5px 9px;
-      border-radius: 999px;
-      background: #eef6f8;
-    }
-
-    .topic-preview {
-      min-height: 320px;
-      background: #f9f8f1;
-    }
-
-    .topic-preview img {
-      display: block;
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      object-position: top;
-    }
-
-    .map {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 14px;
-    }
-
-    .map-item {
-      min-height: 150px;
-      padding: 18px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: var(--paper);
-    }
-
-    .map-item strong {
-      display: block;
-      margin-bottom: 8px;
-      color: var(--accent-dark);
-      font-size: 17px;
-    }
-
-    .map-item span {
-      color: var(--muted);
-      font-size: 14px;
-    }
-
-    .status {
-      display: grid;
-      gap: 12px;
-      padding: 22px;
-      border: 1px solid #e0d2bd;
-      border-radius: 10px;
-      background: #fff6e8;
-      color: #5f4a2f;
-    }
-
-    .status strong {
-      color: var(--warm);
-    }
-
-    footer {
-      margin-top: 46px;
-      padding-top: 22px;
-      border-top: 1px solid var(--line);
-      color: var(--muted);
-      font-size: 14px;
-    }
-
-    @media (max-width: 880px) {
-      header,
-      .hero,
-      .topic {
-        grid-template-columns: 1fr;
-      }
-
-      header {
-        align-items: flex-start;
-      }
-
-      .map {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-    }
-
-    @media (max-width: 560px) {
-      .page {
-        padding: 22px 16px 48px;
-      }
-
-      header {
-        display: grid;
-      }
-
-      .hero {
-        padding-top: 38px;
-      }
-
-      .map {
-        grid-template-columns: 1fr;
-      }
-    }
-  </style>
+  <title>AragornC · AI Agent 知识基地</title>
+  <link rel="stylesheet" href="assets/css/site.css">
 </head>
 <body>
   <div class="page">
-    <header>
-      <div class="brand">
-        <div class="kicker">AragornC · Agent Knowledge</div>
-        <h1>个人 Agent 知识管理</h1>
-      </div>
-      <nav aria-label="主导航">
-        <a href="#topics">专题</a>
-        <a href="#map">知识地图</a>
-        <a href="#system">系统规划</a>
+    <header class="site-nav">
+      <a class="brand" href="./">AragornC</a>
+      <nav class="nav-links" aria-label="主导航">
+        <a href="#writing">专题</a>
+        <a href="#about">About</a>
       </nav>
     </header>
 
     <main>
-      <section class="hero">
-        <div class="hero-copy">
-          <div class="kicker">Knowledge base for agentic systems</div>
-          <h2>把 AI Agent 的概念、证据、产品和工程模式沉淀成可复用知识。</h2>
-          <p>
-            这里会持续记录 agent、workflow、orchestration、harness、MCP、A2A、Agents SDK
-            等主题。目标不是堆资料，而是把来源、术语、阶段、例子、证据和图解整理成可以反复调用的个人知识系统。
-          </p>
-          <div class="actions">
-            <a class="button primary" href="topics/agent-orchestration/">阅读第一个专题</a>
-            <a class="button" href="#map">查看知识地图</a>
-          </div>
-        </div>
-        <figure class="visual">
-          <img src="assets/agent-orchestration/stage-08-protocol-sdk-summary-v1.png" alt="协议生态与官方 Agent SDK 信息图预览">
-          <figcaption class="visual-caption">
-            当前专题：从 Transformer 到 Agent 编排，8 个阶段串起 agent 能力演进。
-          </figcaption>
-        </figure>
-      </section>
-
-      <section class="section" id="topics">
-        <div class="section-head">
-          <div class="kicker">Topics</div>
-          <h2>专题库</h2>
-          <p>每个专题都尽量做到：有明确来源、有术语解释、有例子牵引、有证据支撑、有结构化图解。</p>
-        </div>
-        <article class="topic">
-          <div class="topic-body">
-            <div class="meta">
-              <span>12 长文 + 50 图</span>
-              <span>3 层架构 / 8 阶段 / 风控落地</span>
-              <span>2026-05 最新</span>
-            </div>
-            <h3>Agent 知识包：3 层架构 + LangChain 8 阶段演进 + 风控落地</h3>
-            <p>
-              12 份相互交叉引用的长文。主线：「信息层 + 运行时层 + 保证层」三层心智图统一 12 个 Agent 组件 →
-              LangChain 三年演进 8 阶段五段式（带社区硬数据）→ 风控生产场景 12 组件 × 5 链路 A/B 二分。
-              每段配 ChatGPT image2 生成的中文信息图。
-            </p>
-            <div class="actions">
-              <a class="button primary" href="topics/agent-knowledge/">打开知识包</a>
-              <a class="button" href="topics/agent-knowledge/agent-3-layer-architecture.html">直达 3 层架构</a>
-              <a class="button" href="topics/agent-knowledge/langchain-evolution.html">直达 LangChain 演进</a>
-            </div>
-          </div>
-          <a class="topic-preview" href="topics/agent-knowledge/" aria-label="打开 Agent 知识包">
-            <img src="topics/agent-knowledge/images/lc-fig-11.png" alt="LangChain 三年演进 8 阶段一览图">
-          </a>
-        </article>
-
-        <article class="topic">
-          <div class="topic-body">
-            <div class="meta">
-              <span>8 阶段</span>
-              <span>论文 / 官方文档 / 产品</span>
-              <span>长文 + 图解</span>
-            </div>
-            <h3>AI Agent Orchestration：从 Transformer 到 Agent 编排</h3>
-            <p>
-              从语言建模底座开始，追踪 scaling、instruction alignment、reason/action 原语、
-              workflow 与 agent loop、状态化框架、coding harness、协议与 SDK 的出现原因和边界。
-            </p>
-            <div class="actions">
-              <a class="button primary" href="topics/agent-orchestration/">打开专题</a>
-            </div>
-          </div>
-          <a class="topic-preview" href="topics/agent-orchestration/" aria-label="打开 AI Agent Orchestration 专题">
-            <img src="assets/agent-orchestration/stage-01-transformer-summary-v5.png" alt="Transformer 与预训练语言模型信息图预览">
-          </a>
-        </article>
-
-        <article class="topic" style="margin-top:24px;">
-          <div class="topic-body">
-            <div class="meta">
-              <span>立项论证</span>
-              <span>快手语境</span>
-              <span>认知框架 + SVG</span>
-            </div>
-            <h3>AI Native 风控：业务线实验立项论证</h3>
-            <p>
-              用"立项决策三角"（必然性 / 窗口性 / 可控性）作为认知框架，论证一个 ¥1500 万 / 6-12 周 / 1 个内容安全子场景 shadow 实验该不该立。
-              基于跟 codex（扮演快手 COO + CTO）的多轮硬推演，含三角形 mental model、终态架构、Agent 数据飞轮 + 自进化、CTO 8 条硬条件。
-            </p>
-            <div class="actions">
-              <a class="button primary" href="topics/ai-native-risk-case/">打开专题</a>
-            </div>
-          </div>
-          <a class="topic-preview" href="topics/ai-native-risk-case/" aria-label="打开 AI Native 风控立项专题"
-             style="display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#fbf2dc 0%,#fff8e0 100%);padding:24px;">
-            <svg viewBox="0 0 320 280" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:280px;">
-              <polygon points="160,30 30,240 290,240" fill="rgba(232,196,122,0.35)" stroke="#8a5d1f" stroke-width="2"/>
-              <circle cx="160" cy="30" r="7" fill="#8a5d1f"/>
-              <circle cx="30" cy="240" r="7" fill="#8a5d1f"/>
-              <circle cx="290" cy="240" r="7" fill="#8a5d1f"/>
-              <text x="160" y="20" text-anchor="middle" font-size="13" font-weight="800" fill="#8a5d1f">必然性</text>
-              <text x="30" y="262" text-anchor="middle" font-size="13" font-weight="800" fill="#8a5d1f">窗口性</text>
-              <text x="290" y="262" text-anchor="middle" font-size="13" font-weight="800" fill="#8a5d1f">可控性</text>
-              <circle cx="160" cy="155" r="42" fill="#1f6f4f" opacity="0.95"/>
-              <text x="160" y="153" text-anchor="middle" font-size="13" font-weight="800" fill="white">立项</text>
-              <text x="160" y="172" text-anchor="middle" font-size="10" fill="white">三角稳定 ✓</text>
-            </svg>
-          </a>
-        </article>
-      </section>
-
-      <section class="section" id="map">
-        <div class="section-head">
-          <div class="kicker">Knowledge Map</div>
-          <h2>知识地图</h2>
-          <p>后续内容会围绕这些入口继续拆分，避免把模型、框架、产品、协议和工程实践混成一团。</p>
-        </div>
-        <div class="map">
-          <div class="map-item"><strong>模型与训练</strong><span>Transformer、pre-training、scaling、alignment、reasoning models。</span></div>
-          <div class="map-item"><strong>Agent 模式</strong><span>workflow、agent loop、state graph、multi-agent handoff。</span></div>
-          <div class="map-item"><strong>工程 Harness</strong><span>repo、shell、test、patch、trace、sandbox、human-in-the-loop。</span></div>
-          <div class="map-item"><strong>协议与生态</strong><span>MCP、A2A、Agents SDK、ADK、平台治理和互操作。</span></div>
+      <section class="identity" id="about">
+        <h1>你好，我是 AragornC。</h1>
+        <p>在快手做 AI native 风控；这里是我关于 AI agent 的笔记和长文。</p>
+        <div class="inline-links" aria-label="个人链接">
+          <a href="https://github.com/aragornc">GitHub</a>
+          <span>·</span>
+          <a href="mailto:zc427@cornell.edu">Email</a>
+          <span>·</span>
+          <a href="./">RSS</a>
         </div>
       </section>
 
-      <section class="section" id="system">
-        <div class="section-head">
-          <div class="kicker">Next System</div>
-          <h2>后续系统化方向</h2>
+      <section class="section" aria-labelledby="now-title">
+        <h2 class="section-title" id="now-title">Now</h2>
+        <p class="now"><em>AI Native 风控正在做立项论证 / agent orchestration 8 阶段已写完封档</em></p>
+      </section>
+
+      <section class="section" id="writing" aria-labelledby="writing-title">
+        <h2 class="section-title" id="writing-title">Writing</h2>
+        <div class="writing-list">
+          <a class="writing-card" href="topics/agent-knowledge/">
+            <div class="cover">
+              <img src="topics/agent-knowledge/images/lc-fig-11.png" alt="LangChain 三年演进 8 阶段一览图">
+            </div>
+            <div class="card-body">
+              <h2>Agent 知识包：3 层架构 + LangChain 演进</h2>
+              <p class="meta">12 章 · 50 图 · 2026-05 更新</p>
+              <p class="abstract">从 Agent 生态地图、三层理念架构和 LangChain 演进出发，落到快手风控场景里的迁移取舍、自研架构和生产约束。</p>
+            </div>
+          </a>
+
+          <a class="writing-card" href="topics/agent-orchestration/">
+            <div class="cover">
+              <img src="assets/agent-orchestration/stage-01-transformer-summary-v5.png" alt="Transformer 与预训练语言模型信息图预览">
+            </div>
+            <div class="card-body">
+              <h2>AI Agent Orchestration：从 Transformer 到 Agent 编排</h2>
+              <p class="meta">8 阶段 · 2026-04 更新</p>
+              <p class="abstract">从 Transformer、预训练、对齐、reason/action 原语一路讲到 workflow、state graph、coding harness、MCP、A2A 和 Agents SDK。</p>
+            </div>
+          </a>
+
+          <a class="writing-card text-card" href="topics/ai-native-risk-case/">
+            <div class="card-body">
+              <h2>AI Native 风控：业务线立项论证</h2>
+              <p class="meta">立项论证 · 快手语境 · 2026-05 更新</p>
+              <p class="abstract">用“必然性 / 窗口性 / 可控性”的立项三角，论证一个 1500 万、6-12 周、单业务线 shadow 实验是否值得启动。</p>
+            </div>
+          </a>
         </div>
-        <div class="status">
-          <p><strong>当前阶段：</strong>先把个人主页拆成“首页 + 专题页 + 资源目录”的静态知识库骨架。</p>
-          <p><strong>下一步：</strong>逐步加入术语索引、资料来源库、专题图册、更新日志，以及面向 agent 的结构化内容数据。</p>
+      </section>
+
+      <section class="section" aria-labelledby="topics-title">
+        <h2 class="section-title" id="topics-title">Topics</h2>
+        <div class="topic-links">
+          <a href="topics/agent-knowledge/agent-ecosystem-map.html">模型与训练</a>
+          <span>·</span>
+          <a href="topics/agent-knowledge/agent-3-layer-architecture.html">Agent 模式</a>
+          <span>·</span>
+          <a href="topics/agent-knowledge/agent-frameworks-deep-dive.html">工程 Harness</a>
+          <span>·</span>
+          <a href="topics/agent-orchestration/">协议与生态</a>
         </div>
       </section>
     </main>
 
-    <footer>
-      AragornC.github.io · personal agent knowledge base
+    <footer class="site-footer">
+      © 2026 AragornC · <a href="https://github.com/aragornc">github.com/aragornc</a>
     </footer>
   </div>
 </body>
