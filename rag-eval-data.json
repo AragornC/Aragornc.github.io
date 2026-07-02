@@ -1,0 +1,415 @@
+[
+ {
+  "key": "retrieval",
+  "title": "检索层评测指标",
+  "overview": "检索层评测只关心一件事:针对一个 query,检索器有没有把\"真正有用的 chunk\"捞出来、并排在前面。它不评 LLM 生成得好不好,只评\"喂给 LLM 的材料对不对、全不全、顺序好不好\"。这一层是 RAG 的地基:如果相关内容根本没被检索到(召回缺失),后面再强的模型也答不对;如果检索进一堆噪声(精确率低),会增加幻觉风险。绝大多数检索指标都需要一份 golden set(标注集):每个 query 对应\"哪些 chunk 才算相关\"的人工或合成标注;没有标注就只能靠生成答案的质量去间接反推检索好坏。指标分两类:不看排序的(Recall@k、Precision@k、Hit@k)和看排序的(MRR、MAP、NDCG)。在做横向选型时,这些排序指标也是 BEIR、MTEB 等检索/嵌入基准的核心评测口径(BEIR 常用 NDCG@10,含 18 个数据集;MTEB 覆盖检索、聚类、重排等多任务)。",
+  "items": [
+   {
+    "name": "召回率@k",
+    "en": "Recall@k",
+    "what": "前 k 个检索结果里,覆盖了多少比例的'全部相关 chunk',衡量'漏没漏'。",
+    "detail": "Recall@k = (前 k 个结果中相关 chunk 数) / (该 query 全部相关 chunk 总数)。例:某 query 共有 4 个相关 chunk,前 5 个里命中 3 个,则 Recall@5 = 3/4 = 0.75。是 RAG 检索层最被看重的指标,因为漏了关键证据 LLM 就无法作答。",
+    "good_or_note": "通常追求 Recall@5 或 Recall@10 ≥ 0.7~0.8;生产级两阶段(混合检索+重排)在部分 QA 基准上可达约 0.8 以上。值越高越好,但单看 Recall 会鼓励'多检索'从而拉低精确率,需与 Precision 配合。必须有 golden set 才能算。"
+   },
+   {
+    "name": "精确率@k",
+    "en": "Precision@k",
+    "what": "前 k 个检索结果里有多少比例是真正相关的,衡量'准不准、噪声多不多'。",
+    "detail": "Precision@k = (前 k 个结果中相关 chunk 数) / k。例:前 10 个里 9 个相关,则 Precision@10 = 0.9。精确率低意味着 LLM 要在大量无关文本里'淘金',增加混淆和幻觉风险。",
+    "good_or_note": "没有放之四海的硬阈值,取决于 k 和场景;一般希望尽量高(如 ≥0.7~0.8)。与 Recall 存在权衡:高召回低精确会塞进噪声,高精确低召回会漏证据。两者常用 F1@k 综合。需 golden set。"
+   },
+   {
+    "name": "命中率 / 命中@k",
+    "en": "Hit Rate / Hit@k",
+    "what": "前 k 个结果里'有没有至少一个相关 chunk',最简单的二元覆盖指标,只问'中没中'。",
+    "detail": "单个 query:前 k 里只要有 ≥1 个相关 chunk 就记 1,否则记 0;整体 Hit@k = 所有 query 的命中率平均。不关心命中的是第 1 名还是第 5 名,也不关心命中几个。注意:当每个 query 只有 1 个相关 chunk 时,Hit@k 数值上等于 Recall@k(此时有些资料把 Recall@k 也叫 Hit Rate@k)。",
+    "good_or_note": "最直观、最易算,适合快速调试('装答案的那个 chunk 到底进没进 top-k')。生产中常追求高位(如 ≥0.9)。局限:只要中一个就算满分,无法反映覆盖全不全或排序好不好,在需要多相关证据的场景下信息量不足。需 golden set。"
+   },
+   {
+    "name": "平均倒数排名",
+    "en": "MRR (Mean Reciprocal Rank)",
+    "what": "第一个相关结果出现得有多靠前,衡量'第一个对的答案排在第几位'。",
+    "detail": "对每个 query,取'第一个相关 chunk 的排名'的倒数 1/rank(排第 1 名得 1,第 2 名得 0.5,第 3 名得 0.33…);MRR = 所有 query 的 1/rank 取平均(若该 query 在 top-k 内无相关结果则记 0)。只看第一个相关结果的位置,不管后面还有多少相关项。",
+    "good_or_note": "适合'一个相关文档就够'的事实型/单跳问答(factoid)。值在 0~1,越高越好,接近 1 说明相关结果几乎总排在最前。局限:忽略其余相关项,不适合需要多文档综合的复杂查询。需 golden set。"
+   },
+   {
+    "name": "平均精度均值",
+    "en": "MAP (Mean Average Precision)",
+    "what": "综合考虑'找全相关项'和'把相关项排在前面',对每个 query 算 AP 再取均值。",
+    "detail": "先算单 query 的 Average Precision(AP):在每个命中相关 chunk 的位置上记下当时的 Precision@k,再对这些 Precision 取平均(分母是相关项总数);MAP = 所有 query 的 AP 取平均。直觉:既奖励'把相关项都找到',又奖励'把它们排得更靠前'。",
+    "good_or_note": "适合需要多个相关文档、且在意排序的分析型/多跳查询。值在 0~1,越高越好。比 Recall/Precision 更全面,但只支持二元相关(相关/不相关),无法表达'部分相关'的分级。需 golden set。"
+   },
+   {
+    "name": "归一化折损累积增益@k",
+    "en": "NDCG@k (Normalized Discounted Cumulative Gain)",
+    "what": "在'相关项排得越靠前越好'的基础上,还能利用分级相关度(非常相关/有点相关/不相关),是最完整的排序指标。",
+    "detail": "三步:1) DCG@k = Σ (rel_i / log2(i+1)),rel_i 是第 i 位结果的相关度分,分母 log2(i+1) 是'位置折损'(第 1 位除以 log2(2)=1 计满分,第 2 位除以 log2(3)≈1.58,越往后权重越小,即排错位置惩罚越大)。2) IDCG@k = 把相关度按理想顺序(从高到低)排好后算出的 DCG,代表'这批结果能达到的最高分'。3) NDCG@k = DCG@k / IDCG@k,归一化到 0~1。为什么要归一化:不同 query 的相关项数量、相关度不同,原始 DCG 不可横向比较;除以 IDCG 后,1.0 恒表示'完美排序',使不同 query/数据集之间可比。",
+    "good_or_note": "当相关度是分级的(不止相关/不相关两档)时最优,能充分利用相关信号。值在 0~1,越接近 1 越好;搜索/推荐里常用 NDCG@10,也是 BEIR 基准的主报告口径。代价:需要分级相关度标注,成本更高。需 golden set(且最好带相关度分级)。"
+   },
+   {
+    "name": "上下文精确率(Ragas 风格)",
+    "en": "Context Precision",
+    "what": "面向 RAG 的精确率变体:衡量检索器有没有把'相关 chunk'排在'无关 chunk'前面,即检索上下文的信噪比与排序质量。",
+    "detail": "Context Precision@K = ( Σ_k [Precision@k × v_k] ) / (top K 中相关项总数),其中 Precision@k = 命中数 / (命中数+误检数),v_k∈{0,1} 是第 k 位的相关性指示。Ragas 提供多种算法:(a) LLM 评判(带 reference:拿检索内容对照参考答案;或不带 reference:对照生成的 response);(b) 非 LLM(用 Levenshtein 等字符串相似度对照参考上下文);(c) 基于 ID(直接比对 chunk 的 ID:命中的检索 ID 数 / 检索 ID 总数)。强调'无关 chunk 排在前面会显著扣分'。",
+    "good_or_note": "属于 Ragas 这类 LLM-as-judge 评测框架的指标,可在没有逐 chunk 人工相关性标注时,用参考答案或生成答案作代理来评估。值在 0~1,越高越好(通常追求高位)。注意 LLM 评判存在波动性,基于 ID 的变体更客观但需要 ID 级标注。"
+   },
+   {
+    "name": "上下文召回率(Ragas 风格)",
+    "en": "Context Recall",
+    "what": "面向 RAG 的召回率变体:衡量回答参考答案所需的信息,有多少比例真的被检索到了,即'该捞的有没有都捞到'。",
+    "detail": "标准(LLM)算法:把 reference 参考答案拆成若干 claim(主张/事实点),逐条检查检索到的上下文能否支撑;Context Recall = (被检索上下文支撑的 claim 数) / (参考答案中 claim 总数)。其它变体:非 LLM 用字符串相似度,Context Recall = |检索到的相关上下文| / |参考上下文总数|;基于 ID,= (在检索 ID 中找到的参考 ID 数) / (参考 ID 总数)。所需输入随变体不同:LLM 版需要 user_input、retrieved_contexts、reference。",
+    "good_or_note": "和 Context Precision 配对:精确率看'返回的有没有用',召回率看'需要的有没有全部 returned'。值在 0~1,越高越好,RAG 里通常优先保召回(漏证据 = 答不全)。同样是 Ragas 风格指标,LLM 拆 claim 的方式让它在只有参考答案、没有逐 chunk 相关性标注时也能评。"
+   },
+   {
+    "name": "标注集 / 黄金集",
+    "en": "Golden Set / Ground Truth",
+    "what": "上面绝大多数指标的前提:一份 query → 相关 chunk(及可选相关度分级)的标注数据,作为'标准答案'用来回归测试检索质量。",
+    "detail": "结构通常是 (question, 相关 chunk_id / 相关上下文文本, 参考答案) 三元组。来源:人工标注,或'合成生成 + 人工校验'(直接从知识库生成 question-answer-context 三元组)。规模上,实践建议起步 30~50 条真实/拟真查询,做有意义的评测一般 50~200+ 条;覆盖事实型、需多文档综合、歧义、以及'答案是无法回答'等情形。",
+    "good_or_note": "没有 golden set 就只能用生成答案质量去'间接'评检索,无法精确区分是检索还是生成出了问题。是检索层量化评测的基础设施,需随知识库更新而维护;LLM-as-judge(Ragas)可降低标注成本,但仍建议保留一部分人工校验的高质量样本作为可信基准。"
+   }
+  ],
+  "highlights": [
+   "先看 Recall@k:RAG 检索层第一要务是'别漏证据'。通常把 Recall@5 或 Recall@10 ≥ 0.7~0.8 作为及格线,漏了关键 chunk 后面再强的 LLM 也救不回来。",
+   "Recall 和 Precision 一起看:只追召回会塞进噪声、升高幻觉;只追精确会漏证据。两者权衡,可用 F1@k 综合;调 k 值本质就是在二者间取舍。",
+   "选指标看场景:单跳/事实型问答用 MRR(第一个对的够用);需要多文档综合用 MAP 或 NDCG;有'分级相关度'标注时优先 NDCG(信息利用最充分)。",
+   "调试用 Hit@k:想快速确认'装答案的 chunk 到底进没进 top-k',Hit@k 最直观;它满分太容易,别用它当最终验收指标。",
+   "理解 NDCG 三件套:DCG 用 log2 位置折损惩罚'相关项排太后',IDCG 是理想排序上限,NDCG=DCG/IDCG 归一化到 0~1 让不同 query 可比——这就是为什么不能只用裸 DCG。NDCG@10 也是 BEIR 等检索基准的主报告口径。",
+   "没标注集就只能间接评:Context Precision / Context Recall(Ragas 风格)可用 LLM 把参考答案拆成 claim 去评,省去逐 chunk 人工标注;但 LLM 评判有波动,基于 ID 的变体更客观。若完全没有 golden set,还可用 TruLens RAG Triad(context relevance / groundedness / answer relevance)做无标注评测。",
+   "建并维护 golden set:起步 30~50 条、正式评测 50~200+ 条,覆盖事实/多文档/歧义/不可回答等情形,作为回归测试随知识库更新维护。",
+   "参考值用'通常/约/一般追求'看待:具体阈值强烈依赖语料、k 值、任务难度和基准,别把某个数字当绝对真理,关键是同一套 golden set 上做纵向对比和回归。"
+  ],
+  "sources": [
+   "https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/context_precision/",
+   "https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/context_recall/",
+   "https://www.trulens.org/getting_started/core_concepts/rag_triad/",
+   "https://weaviate.io/blog/retrieval-evaluation-metrics",
+   "https://towardsdatascience.com/how-to-evaluate-retrieval-quality-in-rag-pipelines-precisionk-recallk-and-f1k/",
+   "https://towardsdatascience.com/how-to-evaluate-retrieval-quality-in-rag-pipelines-part-3-dcgk-and-ndcgk/",
+   "https://www.evidentlyai.com/ranking-metrics/ndcg-metric",
+   "https://github.com/beir-cellar/beir",
+   "https://arxiv.org/abs/2210.07316",
+   "https://developer.nvidia.com/blog/evaluating-retriever-for-enterprise-grade-rag/",
+   "https://toloka.ai/blog/rag-evaluation-a-technical-guide-to-measuring-retrieval-augmented-generation/",
+   "https://www.braintrust.dev/articles/what-is-rag-evaluation"
+  ]
+ },
+ {
+  "key": "generation",
+  "title": "生成层评测 + RAG Triad",
+  "overview": "生成层评测关心的是:在拿到检索内容之后,大模型\"写出来的答案\"到底好不好。它和检索层评测互补——检索层问\"找对了吗\",生成层问\"用对了吗、答对了吗、有没有胡编\"。核心要回答三件事:答案是否只基于检索内容(忠实/防幻觉)、答案是否切题、对照标准答案是否正确。其中最重要的框架是 TruLens 提出的 RAG Triad(RAG 三角):Context Relevance(检索的上下文与问题相关吗)+ Groundedness(答案有据于上下文吗)+ Answer Relevance(答案切题吗),三角全过才能较有把握地说\"既切题又有据、较少幻觉\",哪条不过就指向该修链路的哪一段。RAG Triad 的一大优点是三条都不需要人工标准答案,因此可在生产环境对采样流量在线评测。这些维度大多难以用规则量化,业界主流是 LLM-as-judge(让大模型当裁判打分);传统 BLEU/ROUGE 因为只看词面重叠、看不懂语义、查不出幻觉,对 RAG 已不够用。",
+  "items": [
+   {
+    "name": "RAG 三角(总览)",
+    "en": "RAG Triad (TruLens)",
+    "what": "把「检索→生成」全链路串起来的三条评测,合起来给「无幻觉」的整体信心",
+    "detail": "由 TruLens(原 TruEra,后并入 Snowflake)提出。三条腿:① Context Relevance(检索的上下文 vs 问题)② Groundedness(答案 vs 上下文)③ Answer Relevance(答案 vs 问题)。结构是一个三角形:问题—上下文—答案两两连边。三条都达标 → 较有把握说答案既切题又有据;任何一条掉链子,这条边就精准告诉你该修哪一段(检索 / 拼接 / 生成)。三条均为「无参照」评测,不需要人工标准答案,可在线对采样流量跑。",
+    "good_or_note": "通常三项都追求 ≥0.8(具体阈值随业务设定)。最大价值在「定位」而非单一总分——它把一个笼统的「答得不好」拆成可定位的三段。注意:三角全过说明「切题且有据」,但若检索内容本身错,仍可能有据地复述错误,故高风险场景仍需配 Answer Correctness。"
+   },
+   {
+    "name": "上下文相关性",
+    "en": "Context Relevance",
+    "what": "(三角第一条·偏检索)检索回来的每块上下文,跟用户问题相关吗",
+    "detail": "用 LLM-as-judge 逐块给检索到的 chunk 打「与问题相关度」分,再聚合。它评的是「喂给生成器的料」干不干净——上下文里混入的无关信息可能被模型编进幻觉里。属于三角中偏检索质量的一条。",
+    "good_or_note": "通常追求 ≥0.7~0.8;偏低说明检索召回了噪声,应回去调 chunk 切分 / embedding / rerank,而不是改 prompt。"
+   },
+   {
+    "name": "有据性 / 忠实度",
+    "en": "Groundedness / Faithfulness",
+    "what": "(三角第二条·防幻觉核心)答案里的每句话,是否真能由检索内容支撑,而不是模型自己编的",
+    "detail": "主流做法分两步(claim-level):先让裁判 LLM 把答案拆成一条条独立的「原子声明 claim」,再逐条判断「这条能否从检索上下文中推出」。RAGAS 的 Faithfulness = 被上下文支撑的声明数 / 答案总声明数,取值 0~1。全部有据→1.0;凭空捏造的声明越多分越低(如 0.95 表示约 95% 的声明有据)。TruLens 的 Groundedness 思路一致,衡量「声明可回溯到源文本的程度」。",
+    "good_or_note": "防幻觉的头号指标,通常追求 ≥0.8~0.9(医疗/法律/金融等高风险域要更严)。注意:有据 ≠ 正确——若检索内容本身是错的,答案可以「很忠实地」重复一个错误,所以要和 Answer Correctness 一起看。"
+   },
+   {
+    "name": "答案相关性",
+    "en": "Answer Relevance / Response Relevancy",
+    "what": "(三角第三条·切题)最终答案有没有正面回答用户的问题,有没有跑题或塞废话",
+    "detail": "RAGAS 的巧妙做法是「反推」:让 LLM 从生成的答案里反推出若干个(默认约 3 个)它「本该在回答的问题」,再算这些反推问题与原始问题的 embedding 余弦相似度,取平均。答案越切题,反推出的问题越接近原问题,分越高;答案空泛、跑题或夹带冗余信息则分低。它衡量「切题/完整」,不直接衡量「对错(事实性)」。",
+    "good_or_note": "通常追求 ≥0.7~0.8。理论上余弦相似度范围是 −1~1,所以分数偶尔会越界,数学上不保证落在 0~1,一般近似当作 0~1 看。"
+   },
+   {
+    "name": "答案正确性",
+    "en": "Answer Correctness",
+    "what": "对照人工标注的标准答案(ground truth),答案到底对不对",
+    "detail": "需要有「标准答案」做参照(reference-based)。RAGAS 的实现把两部分加权:AnswerCorrectness = α × F1 + (1−α) × 语义相似度。F1 是声明级的事实重叠(把答案与标准答案的声明做 TP/FP/FN 比对,F1 = 2·P·R/(P+R)),语义相似度是两者 embedding 的余弦相似度。RAGAS 默认权重约 [0.75, 0.25](事实/语义)。注:新版 RAGAS 已把更纯粹的事实重叠拆为 FactualCorrectness 指标,Answer Correctness 仍可用。",
+    "good_or_note": "最接近「人类心中对错」的离线指标,但依赖高质量标注,贵且难规模化。适合做版本回归的黄金集;线上没标准答案时退而用 Faithfulness + Answer Relevance。"
+   },
+   {
+    "name": "上下文利用率 / 完整性",
+    "en": "Context Utilization / Completeness",
+    "what": "答案有没有把检索到的有用上下文「用全了」,该用的信息是否都进了答案",
+    "detail": "Context Utilization 是 context_precision 的「无参照(reference-free)」版本:不需要 ground truth,而用生成的答案来判断上下文里所有「与答案相关的条目」是否被排在前面、是否被用上。相关的还有 Context Recall(召回:答题所需信息是否都在检索结果里)、Context Entity Recall(实体召回:标准答案里的实体有多少被检索覆盖,适合旅游/历史问答这类事实型)。",
+    "good_or_note": "用来抓「上下文里有答案、但模型没用上 / 漏答」这类问题。偏低时常见原因:prompt 没引导模型综合多块上下文,或上下文过长被「迷失在中间(lost in the middle)」。"
+   },
+   {
+    "name": "噪声敏感度",
+    "en": "Noise Sensitivity",
+    "what": "(诊断行)当检索结果里混进无关文档时,系统多容易被带偏、答错",
+    "detail": "RAGAS 指标。逐条检查生成答案里的声明:是否正确(对照 ground truth)、以及是否能归因到「相关」还是「无关」的检索文档。分数 0~1,越低越好(越不容易被噪声带跑)。计算需要 user_input、reference(标准答案)、response 和 retrieved_contexts,因此属于需标注的离线诊断指标。",
+    "good_or_note": "诊断鲁棒性用,不是越高越好——这里是越低越好。与 Context Relevance 搭配看:检索噪声大 + 噪声敏感度高 = 容易幻觉。"
+   },
+   {
+    "name": "LLM-as-judge(方法)",
+    "en": "LLM-as-a-Judge",
+    "what": "用一个强大模型当「裁判」,按给定标准给答案打分或两两比较,替代昂贵的人工评分",
+    "detail": "两种主流形态:① 直接打分(给单条答案按 rubric 打 0~1 或 1~5);② 成对比较(A/B 哪个更好)。常配合思维链(CoT)让裁判先解释再打分(如 DeepEval 的 G-Eval:用 CoT 把自然语言标准转成 0~1 分,评任意自定义维度)。上面的 Faithfulness / Context Relevance / Answer Relevance 大多由 LLM-judge 实现。工程上多用阈值判定通过(如 DeepEval 各指标默认阈值 0.5,可按需上调)。",
+    "good_or_note": "优点:能懂语义、可扩展、相对人工更便宜更快。务必固定裁判模型与 prompt 版本、留少量人工对齐集校准,并报告裁判模型名(换模型分数会漂移)。"
+   },
+   {
+    "name": "LLM-judge 的偏差/局限",
+    "en": "LLM-judge biases",
+    "what": "(注意行)裁判模型本身带系统性偏见,分数不能当绝对真理",
+    "detail": "已被研究证实的常见偏差:位置偏差(成对比较时,仅交换 A/B 顺序就可能让准确率波动超过 10%)、冗长偏差(偏爱更长/更正式/更流畅的答案,无视实质质量)、自我偏好偏差(裁判偏爱与自己生成风格相近、低困惑度的答案)。即便是前沿模型,在不少偏见测试上失败率仍偏高。",
+    "good_or_note": "缓解(不能根除):随机化答案顺序、隐藏模型身份、显式惩罚长度、用 CoT、必要时微调裁判;关键是定期用人工标注抽检校准,把 LLM-judge 当「相对趋势 + 抽检」工具,而非绝对真值。"
+   },
+   {
+    "name": "BLEU / ROUGE(为何不够用)",
+    "en": "BLEU / ROUGE",
+    "what": "传统 n-gram 词面重叠指标,衡量生成文本与参考文本的字面相似度",
+    "detail": "BLEU 偏精确率(原用于机器翻译)、ROUGE 偏召回率(原用于摘要),都基于「n 元词组重叠」。对 RAG 不够用的原因:① 对改写/同义词不敏感——语义相同但用词不同会被打低分;② 看不懂语义,只算字面;③ 比的是「答案 vs 参考」,而非「答案 vs 检索上下文」,无法判断答案是否忠实于检索文档,查不出幻觉;④ 与人类对相关性/正确性的判断相关性弱。",
+    "good_or_note": "并非完全无用:计算便宜、可复现,适合快速回归、看流畅度/字面相近度。但不能作为 RAG 质量的主指标,应让位于 RAG Triad / LLM-judge 类语义指标。"
+   }
+  ],
+  "highlights": [
+   "先跑 RAG Triad 三件套(Context Relevance + Groundedness + Answer Relevance)做主体检:三条都过≈整体可信;哪条掉就修哪段——Context Relevance 低修检索(切分/embedding/rerank),Groundedness 低修生成(收紧 prompt、要求引用),Answer Relevance 低修指令/答案组织。三条都不需人工标准答案,可在线对采样流量跑。",
+   "把「有据(Groundedness)」和「正确(Answer Correctness)」分开看:答案可以很忠实地复述一个错误检索内容。线上无标准答案时用 Groundedness+Answer Relevance 兜底,离线回归用带 ground truth 的 Answer Correctness。",
+   "Groundedness 用 claim-level 拆句逐条核验,是性价比最高的反幻觉手段;高风险域(医疗/法律/金融)把阈值提到 0.9 以上,并要求答案给出来源引用以便回溯。",
+   "参考分数只是「通常/约」的经验线(多数项 ≥0.8,Context/Answer Relevance ≥0.7~0.8,Noise Sensitivity 越低越好),不是绝对真理;阈值应结合自己业务的人工对齐集来标定。",
+   "LLM-as-judge 要防偏差:成对比较随机化顺序、隐藏模型身份、惩罚冗长、固定裁判模型与 prompt 版本,并定期用小规模人工标注抽检校准——把它当相对趋势工具,而非绝对真值。",
+   "别再把 BLEU/ROUGE 当 RAG 主指标:它们查不出幻觉、对改写不敏感、比的是答案与参考而非答案与检索上下文、与人类判断相关性弱;可保留做便宜的流畅度/回归辅助,语义与事实交给 RAG Triad / LLM-judge。",
+   "工具落地:RAGAS、TruLens、DeepEval(G-Eval/各指标默认阈值 0.5)三套主流框架 2026 年都仍活跃维护并内置上述指标——RAGAS 偏无参照快速实验、DeepEval 偏 Pytest 式 CI 回归、TruLens 偏生产追踪监控;选一套固定下来,版本迭代时跑同一黄金集做回归对比。"
+  ],
+  "sources": [
+   "https://www.trulens.org/getting_started/core_concepts/rag_triad/",
+   "https://truera.com/ai-quality-education/generative-ai-rags/what-is-the-rag-triad/",
+   "https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/",
+   "https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/faithfulness/",
+   "https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/answer_relevance/",
+   "https://docs.ragas.io/en/v0.1.21/concepts/metrics/answer_correctness.html",
+   "https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/factual_correctness/",
+   "https://docs.ragas.io/en/latest/concepts/metrics/available_metrics/noise_sensitivity/",
+   "https://docs.ragas.io/en/v0.1.21/concepts/metrics/context_utilization.html",
+   "https://deepeval.com/docs/metrics-faithfulness",
+   "https://deepeval.com/docs/metrics-llm-evals",
+   "https://deepeval.com/docs/metrics-introduction",
+   "https://www.confident-ai.com/blog/rag-evaluation-metrics-answer-relevancy-faithfulness-and-more",
+   "https://arxiv.org/html/2410.21819v2",
+   "https://arxiv.org/pdf/2410.02736",
+   "https://www.adaline.ai/blog/llm-as-a-judge-reliability-bias",
+   "https://www.elastic.co/search-labs/blog/evaluating-rag-metrics",
+   "https://towardsai.net/p/machine-learning/llm-evaluation-is-broken-why-bleu-and-rouge-dont-measure-real-understanding",
+   "https://www.snowflake.com/en/blog/engineering/benchmarking-LLM-as-a-judge-RAG-triad-metrics/",
+   "https://atlan.com/know/llm-evaluation-frameworks-compared/"
+  ]
+ },
+ {
+  "key": "tools",
+  "title": "评测工具 / 框架 / 基准数据集",
+  "overview": "这一层回答的是\"我用什么去评 RAG\"。它不是某个单一指标,而是三类基础设施:(A)评测框架——帮你把 faithfulness / context precision 这类指标自动算出来、跑成 CI 门禁或线上监控的软件库;(B)检索/嵌入基准——别人已经标好、用来横向比\"哪个 embedding 模型/检索器更强\"的公开排行榜和数据集;(C)评测集从哪来——是花钱人工标一份高质量 golden set,还是用 LLM 自动合成 query+答案。对初学者最重要的认知:框架给你\"怎么算分\",基准给你\"和谁比\",评测集给你\"拿什么题考\"。三者缺一不可;而且 LLM-as-judge 类框架在医疗/法律/金融等专业领域会漏判\"看起来对其实错\"的内容,务必先在自己数据上做一次人工校准再信分数。",
+  "items": [
+   {
+    "name": "Ragas",
+    "en": "Ragas",
+    "what": "(A组·框架) 专为 RAG 设计的开源评测库,最早把'四件套'指标标准化",
+    "detail": "核心四指标:faithfulness(答案中能被检索内容支撑的声明占比,= 被支撑的声明数 / 声明总数)、answer relevancy(答案是否切题)、context precision(检索回来的相关 chunk 是否排在靠前位置)、context recall(回答问题所需的信息中,有多少被检索内容覆盖到),全部用 LLM-as-judge 计算。很多指标无需人工 ground-truth(reference-free,但 context recall 通常仍需参考答案)。还自带 TestsetGenerator,会先把文档语料构建成知识图谱(并做摘要/实体抽取/关系构建等富化),再据此合成不同难度/类型的 query+参考答案。",
+    "good_or_note": "适合做 RAG 专项、快速实验。2026 年仍是事实标准,被大量平台集成。注意:它是'库'不是'平台',可观测/监控要配 Phoenix、LangSmith 等。"
+   },
+   {
+    "name": "DeepEval",
+    "en": "DeepEval (Confident AI)",
+    "what": "(A组·框架) 类 Pytest 的通用 LLM 评测框架,主打写进 CI/CD 当回归门禁",
+    "detail": "提供 50+ 指标(含 RAG 四件套、G-Eval 自定义 LLM 评分、幻觉、毒性、偏见、工具调用等),用法像写单元测试:assert 一个指标 ≥ 阈值,不达标就让流水线红灯。支持自定义指标和 dataset,Apache-2.0 开源,可本地跑也可接 Confident AI 平台。",
+    "good_or_note": "适合有测试工程文化、想把'模型表现'纳入 CI 回归的团队。门禁阈值通常自己按基线设定(如 faithfulness ≥ 0.8 仅作示例),不要照抄绝对值。"
+   },
+   {
+    "name": "TruLens",
+    "en": "TruLens",
+    "what": "(A组·框架) 偏可观测/线上监控的评测工具,提出'RAG 三元组'心智模型",
+    "detail": "RAG Triad(三元组)= context relevance(检索内容与问题相关?)+ groundedness(答案是否扎根于检索内容、有没有瞎编?)+ answer relevance(答案是否切题?)。通过 instrument 你的链路记录每次调用并打分,近年叠加 OpenTelemetry tracing 做生产监控。",
+    "good_or_note": "适合 MLOps / 持续监控线上质量。三元组是初学者理解 RAG 评测最好用的入门框架(检索好不好、生成有没有瞎编、答得切不切题)。"
+   },
+   {
+    "name": "ARES",
+    "en": "ARES (Automated RAG Evaluation System)",
+    "what": "(A组·框架) 斯坦福提出的自动化 RAG 评测框架,用'微调小评委+少量人工校准'",
+    "detail": "沿 context relevance / answer faithfulness / answer relevance 三维评测。做法:用 LLM 从语料自动合成 QA 训练数据、微调轻量级 LM judge,再用一小批(论文约 150 条起、量级几百条)人工标注做 prediction-powered inference(PPI)来纠正预测偏差,从而在更少人工成本下给出带统计置信度的评分。论文 arXiv:2311.09476,NAACL 2024,GitHub: stanford-futuredata/ARES。",
+    "good_or_note": "适合需要可复现、带统计保证、且能接受先标一两百条人工数据的研究/严肃评测场景。比纯 LLM-judge 更抗领域漂移,但上手门槛比 Ragas 高。"
+   },
+   {
+    "name": "Phoenix(Arize)",
+    "en": "Arize Phoenix",
+    "what": "(A组·框架) 开源 AI 可观测+评测平台,基于 OpenTelemetry,可自托管",
+    "detail": "核心是 tracing(把检索→生成每一步的输入输出、耗时、token 都记录成 span)+ LLM evals(对每条 trace 跑相关性/幻觉等评估,内置 Hallucination、QA、Relevance、Toxicity 等评估器)。框架无关,支持 LlamaIndex、LangChain、Haystack、DSPy 等。常见组合:用 Phoenix 监控线上,再用 Ragas/Giskard 做深度指标分析。",
+    "good_or_note": "适合想要开源、可自托管、不锁定厂商的团队。是 LangSmith 的开源替代之一。强项是排障可视化(看到底是检索召回差还是生成幻觉)。"
+   },
+   {
+    "name": "LangSmith(LangChain)",
+    "en": "LangSmith",
+    "what": "(A组·框架) LangChain 团队做的可观测+评测平台,商业 SaaS",
+    "detail": "提供 tracing、数据集管理、在线/离线 evaluation、人工标注队列、prompt 实验对比等全生命周期工具。与 LangChain/LangGraph 生态深度集成,但也可独立用于任意应用(通过 SDK 上报 trace)。",
+    "good_or_note": "适合已用 LangChain 生态、想要一站式可观测+评测+标注的团队。框架无关但与 LC 集成最顺。商业产品,注意用量与数据合规。"
+   },
+   {
+    "name": "Giskard",
+    "en": "Giskard",
+    "what": "(A组·框架) 开源 Python 测试框架,强项是自动发现漏洞/偏见/安全问题",
+    "detail": "面向 LLM 与 RAG 的'质量与安全扫描':自动生成对抗/边界测试,系统性检测幻觉、敏感信息泄露、偏见、提示注入等(近年还支持 OWASP 分类的安全检查与多轮红队),给出红队风格的问题清单。有 RAGET(RAG Evaluation Toolkit)从知识库自动生成测试问题,针对 RAG 各组件定位失败原因。",
+    "good_or_note": "适合上线前做安全/合规/红队扫描,或受监管行业。和 Ragas/DeepEval 的'打分'互补——它更像'找 bug 和风险'。"
+   },
+   {
+    "name": "continuous-eval",
+    "en": "continuous-eval (Relari)",
+    "what": "(A组·框架) 开源、数据驱动的 LLM 应用评测库,主打'模块化+集成多种指标'",
+    "detail": "模块化评测:把 RAG 流水线拆成检索、重排、生成等模块,每个模块配专属指标分别测,便于定位是哪一段拖后腿。指标库覆盖 RAG、代码生成、Agent 工具调用等,可混搭 Deterministic(确定性)、Semantic(语义)、LLM-based 三类指标做集成(ensemble),也支持合成数据与利用用户反馈。",
+    "good_or_note": "适合想对流水线'分段精准定位'而非只看端到端总分的团队。集成式打分(多指标加权)可降低单一 LLM-judge 的噪声。"
+   },
+   {
+    "name": "MTEB(大规模文本嵌入基准)",
+    "en": "MTEB (Massive Text Embedding Benchmark)",
+    "what": "(B组·检索/嵌入基准) 横向比较 embedding 模型综合能力的事实标准排行榜",
+    "detail": "把多种 embedding 任务统一成一套评测:涵盖检索、重排、聚类、分类、句对分类、语义相似度(STS)、双语挖掘等多个任务族(原始论文 8 类任务、58 个数据集、112 种语言,现已扩展更多)。不同任务族主指标不同——检索用 nDCG@10(复用 BEIR 的数据与评测)、重排用 MAP、分类用 accuracy、聚类用 V-measure、STS 用 Spearman 相关。HuggingFace 上有公开 leaderboard。",
+    "good_or_note": "选 embedding 模型时第一站。注意别只看排行榜总分:务必看'检索'子任务、你的语言、你的领域;榜单可能被刷/过拟合,建议在自己数据上复测。"
+   },
+   {
+    "name": "BEIR(零样本检索基准)",
+    "en": "BEIR (Benchmarking IR)",
+    "what": "(B组·检索/嵌入基准) 评'检索器在没见过的数据上零样本表现'的异构基准",
+    "detail": "汇集 18 个不同领域、不同任务类型的检索数据集(问答、事实核查、论点检索、引文预测、重复问题检索等共 9 类任务),统一成 query→相关文档的格式,主指标 nDCG@10。核心精神:模型不在目标数据集上训练,直接零样本评测泛化检索能力(论文还发现 BM25 在跨域泛化上是很强的基线)。",
+    "good_or_note": "判断'换个领域还行不行'的关键基准,也是 MTEB 检索部分的来源。适合评估检索器/重排器的跨域鲁棒性。"
+   },
+   {
+    "name": "MS MARCO",
+    "en": "MS MARCO (Microsoft MAchine Reading COmprehension)",
+    "what": "(B组·检索/嵌入基准) 大规模真实搜索查询的段落排序/问答数据集,训练与评测两用",
+    "detail": "源自 Bing 搜索日志的真实 query + Bing 索引的段落。Passage Ranking 任务:从约 880 万段落里检索/重排,给定 query 排出最可能含答案的段落;提供约 50.3 万(502,939)条训练查询、约 6,980 条 dev 集。常用指标 MRR@10(及在其重标版 TREC DL 上用 nDCG)。",
+    "good_or_note": "训练稠密检索/重排模型的主力数据集之一,也是很多检索基准的基石。注意它是英文、通用网页域,垂直领域不能直接代表你的场景。"
+   },
+   {
+    "name": "RGB(RAG 基准)",
+    "en": "RGB (Retrieval-Augmented Generation Benchmark)",
+    "what": "(B组·RAG 专项基准) 中英双语,专门压测 LLM 在 RAG 场景下的四种基础能力",
+    "detail": "评四种能力:noise robustness(噪声鲁棒——检索里混入无关内容还答得对吗)、negative rejection(负拒绝——检索里没有答案时会不会老实说'不知道')、information integration(信息整合——需综合多段才能答)、counterfactual robustness(反事实鲁棒——检索内容有错时能否识别)。论文 arXiv:2309.01431,AAAI 2024。",
+    "good_or_note": "适合评 RAG 的'抗干扰与诚实度',尤其负拒绝是很多系统的软肋(检索没命中就乱编)。中英双语,中文场景友好。"
+   },
+   {
+    "name": "CRUD-RAG(RAG 基准)",
+    "en": "CRUD-RAG",
+    "what": "(B组·RAG 专项基准) 按 Create-Read-Update-Delete 四类操作划分场景的中文 RAG 基准",
+    "detail": "把 RAG 应用按 CRUD 四种工作流拆开评:Create(创作型,如文本续写)、Read(单/多文档问答)、Update(幻觉修正/信息纠错)、Delete(开放域多文档摘要)。覆盖比'只问答'更全的真实使用形态,并评测检索器、chunk 大小、embedding、LLM 等多个组件。论文见 arXiv:2401.17043(Chen et al., 2024)。",
+    "good_or_note": "适合想评 RAG 在'不止问答'的多类任务上的表现。与 RGB 互补——RGB 偏鲁棒性,CRUD-RAG 偏任务覆盖面。中文为主。"
+   },
+   {
+    "name": "Needle-in-a-Haystack(大海捞针)",
+    "en": "NIAH (Needle in a Haystack)",
+    "what": "(B组·长上下文压测) 测长上下文里'能否精确捞出被埋的关键句'的方法,不是固定数据集",
+    "detail": "Greg Kamradt 提出:把一句无关的'针'(如某个事实)插入很长的'草堆'(长文本)的不同深度位置,再问模型这句话的内容,画出'上下文长度 × 插入位置'的命中热力图。后续有 U-NIAH(arXiv:2503.00353)等扩展到多针、长针、针中针,并把它统一用于对比 LLM 与 RAG 的检索效果。",
+    "good_or_note": "判断长上下文模型/RAG 真实可用窗口的快捷方法。注意:它是合成探针、偏简单事实定位,通过不代表复杂推理也行;U-NIAH 等研究的常见结论是小模型从 RAG 中获益更明显(缓解'lost-in-the-middle')。"
+   },
+   {
+    "name": "人工标注 golden set",
+    "en": "Human-annotated golden / ground-truth set",
+    "what": "(C组·评测集来源) 由人手工写/审的高质量问答对,作为评测的'标准答案'",
+    "detail": "做法:领域专家针对你的真实文档写出 query、标注相关 chunk(用于算 context recall/precision)、写出参考答案(reference)。质量最高、最贴近真实业务,但贵、慢、规模小,且需定期维护以防与文档版本脱节。",
+    "good_or_note": "适合做'金标准'回归集和上线验收,尤其医疗/法律/金融等高风险域必须有人工 golden set 兜底。通常规模几十到几百条即可起步,重质不重量。"
+   },
+   {
+    "name": "LLM 合成评测集",
+    "en": "LLM-synthesized / synthetic test set",
+    "what": "(C组·评测集来源) 用 LLM 从你的文档语料自动批量生成 query+(参考)答案",
+    "detail": "Ragas(TestsetGenerator,会先构建文档知识图谱再生成不同难度/类型的问题)、continuous-eval、Giskard RAGET 等都能自动产出 user_input(问题)+ reference_contexts(支撑片段)+ reference(理想答案)。能把数据准备时间大幅压缩(有来源称可省约 90% 人工聚合时间,属厂商口径仅供参考)。",
+    "good_or_note": "适合快速起步、扩大覆盖面、冷启动还没人工集时。注意:合成题可能偏简单或带 LLM 偏好,务必抽样人工抽检、过滤噪声,理想做法是'合成打底 + 人工 golden 校准'两者结合。"
+   }
+  ],
+  "highlights": [
+   "三层各司其职、缺一不可:框架=怎么算分(Ragas/DeepEval/TruLens…),基准=和谁比(MTEB/BEIR/MS MARCO/RGB…),评测集=拿什么题考(人工 golden vs LLM 合成)。",
+   "选 embedding 别只看 MTEB 总分:看你的语言、你的领域、看'检索'子任务(主指标 nDCG@10),并在自己数据上复测一次——榜单存在过拟合/被刷分的风险。",
+   "LLM-as-judge 框架(Ragas/DeepEval/TruLens 等)在医疗/法律/金融等专业域会漏判'似是而非'的错误,上线前务必用一小批人工标注做领域校准再信分数。",
+   "入门记 TruLens 的'RAG 三元组':context relevance(检索准不准)、groundedness(有没有瞎编)、answer relevance(切不切题),覆盖 RAG 评测的三个最常见失败点。",
+   "推荐起步路径:用 Ragas/Giskard 自动合成一份评测集打底 → 人工抽检并精修成几十到几百条 golden set → 用 DeepEval 把指标写进 CI 当回归门禁 → 用 Phoenix/LangSmith 做线上 tracing 与监控。",
+   "RGB 重点考'负拒绝'(检索没命中时会不会老实说不知道)和噪声鲁棒,是很多 RAG 系统的真实软肋;中文场景可用 RGB + CRUD-RAG 组合评测。",
+   "区分'打分'与'找 bug':Ragas/DeepEval 给指标分,Giskard 偏红队/安全扫描,continuous-eval 偏分段定位是哪一段拖后腿——按目的选,别指望一个工具全包。",
+   "阈值用'通常/约/一般追求'的相对口径:先用你自己的基线版本跑一遍定基准线,再把回归门禁设在'不低于基线'上,不要照抄网上的绝对数字。"
+  ],
+  "sources": []
+ },
+ {
+  "key": "improve",
+  "title": "改进方法:症状→定位层→修法",
+  "overview": "这一维度评的不是\"分数高低\",而是\"出了问题怎么修\"。RAG(检索增强生成)就像一条流水线:切块→嵌入→(查询改写)→检索(BM25+向量)→重排→塞进提示词→生成。任何一环坏了,最终答案都会出毛病,但不同毛病往往指向不同的环节。这张诊断手册把常见的\"症状\"(用户看到的坏表现,通常用 RAGAS 这类指标量化)映射到\"最可能坏掉的层/根因\",再给\"对应到具体模块的修法\"。核心思路是:别一上来就换大模型,先用指标定位是检索坏了还是生成坏了——多项研究表明,RAG 给出坏答案时,检索层(没召回/召回了排太后/掺噪声)往往是首要瓶颈,出现频率明显高于\"上下文给对了模型仍硬编\"的纯生成幻觉,所以多数时候该先查检索层。",
+  "items": [
+   {
+    "name": "答案幻觉/编造",
+    "en": "Hallucination / low Faithfulness",
+    "what": "模型说了检索内容里根本没有的东西,事实站不住脚。对应RAGAS的Faithfulness(忠实度)偏低。",
+    "detail": "诊断:先把生成答案拆成一条条原子陈述,逐条核对是否被检索到的上下文支持(RAGAS Faithfulness = 被上下文支撑的陈述数 / 总陈述数)。修法分两种情况:(a)如果检索回来的上下文里其实有答案,但模型瞎编——改提示词/grounding:明确加上『只能依据给定资料回答,资料里没有就说不知道』,并要求引用来源句;也可换更听话的生成模型。(b)如果检索回来的上下文里压根没有正确信息,那这其实是检索层的病(见③context recall低),修检索而不是修提示词。",
+    "good_or_note": "Faithfulness 一般追求越高越好(常见目标 ≥0.9)。注意:幻觉常被误当成生成模型的锅,但很多其实是检索没给对料,所以要先看context recall再决定改哪层。"
+   },
+   {
+    "name": "答非所问",
+    "en": "Low Answer Relevance",
+    "what": "答案内容是真的、也有依据,但没回答用户真正问的问题(跑题、答了一半、答得太啰嗦)。对应RAGAS的Answer/Response Relevancy偏低。",
+    "detail": "诊断:RAGAS用『让模型根据生成答案反推出几个可能的原问题(默认约3个),再算这些反推问题与真实问题的嵌入余弦相似度均值』来量化。修法:(a)首选改提示词——把任务说清楚,要求『直接、完整地回答这个问题,不要展开无关内容』,给输出格式约束。(b)若问题本身含糊或多意图,加查询改写/查询分解,把复合问题拆成子问题分别回答再合并。(c)上下文太长导致模型抓错重点时,减少塞入的chunk数量(降k或重排后只留top-5),让模型聚焦。",
+    "good_or_note": "Answer Relevancy 高 ≠ 答案正确(它不查事实,只查切题与完整/冗余),要和Faithfulness一起看。先确认检索没问题,这通常是生成/提示词层的病。"
+   },
+   {
+    "name": "检索漏了关键信息",
+    "en": "Low Context Recall",
+    "what": "回答需要的那条关键资料,根本没被检索回来(召回不全)。对应RAGAS的Context Recall偏低,是幻觉的头号上游元凶。",
+    "detail": "诊断:Context Recall = 参考答案里能在检索到的上下文中找到支撑的陈述比例(把标准答案拆句,看每句是否被召回的上下文覆盖)。修法,从便宜到贵:(a)加大召回数量k(比如向量召回从top-5扩到top-20~50),先保证『料在篮子里』。(b)上查询改写——HyDE(先让模型生成一个假设性答案再拿去检索)、Multi-Query(生成3~4个不同角度的改写问句分别检索后去重合并),弥补提问和文档用词的差距。(c)换/微调更强的嵌入模型;检查切块是否把关键信息切碎了(见⑥)。(d)上混合检索(BM25+向量),覆盖语义和字面两类漏召。",
+    "good_or_note": "先扩k再说——这是定位『是没召回 vs 召回了排太后』的最快办法:扩大k后若答案变好,说明是召回问题;若把正确chunk扩进来了但仍排很后,则转去查重排(见⑤)。"
+   },
+   {
+    "name": "检索回来一堆不相关",
+    "en": "Low Context Precision",
+    "what": "召回的chunk里掺了大量无关内容,噪声多、信噪比低。对应RAGAS的Context Precision偏低,会拖累生成(把模型带跑、稀释正确信息、还烧token)。",
+    "detail": "诊断:Context Precision是排序敏感的指标,看『相关的chunk是否排在靠前位置』,按各位置 Precision@k 加权求和、再除以 top-K 内相关项数量(形式类似平均精度AP),排名越靠前的相关chunk得分越高。修法:(a)首推加重排(cross-encoder reranker,如BGE-Reranker、Cohere Rerank):先宽召回top-50,再精排只留top-5~10喂给模型,直接提升精度。(b)调高相似度阈值/降低k,『少而精胜过多而杂』,别动辄塞50篇进窗口。(c)优化切块,让每个chunk主题更聚焦(语义切块),减少一个chunk里塞多个话题。",
+    "good_or_note": "精度和召回常此消彼长:盲目扩k会提recall但伤precision。标准解法是『宽召回 + 重排收窄』,兼得两头。研究普遍报告重排能带来约+5~+15 NDCG@10的提升(具体依数据集/领域而定)。"
+   },
+   {
+    "name": "正确chunk召回了但排太后",
+    "en": "Ranking failure / rerank problem",
+    "what": "正确的资料确实在召回结果里(比如在top-50),但排序太靠后(没进最终塞给模型的top-5),于是模型看不到它。",
+    "detail": "诊断:这是判断『检索层 vs 重排层』的关键二分——看正确答案是否落在初召回top-50里:在→不是召回问题,是排序/重排问题(NDCG@5低但答案在top-50);不在→才是召回问题(见③)。修法:(a)加或换更强的cross-encoder重排器:它把query和每个chunk拼在一起做联合编码、全注意力联合打分,比向量(bi-encoder)各自独立编码再算相似度更准,能把对的chunk提到前面。(b)典型流水线:混合检索宽召回top-50 → 交叉编码器重排 → 取top-5给生成模型。(c)若已有重排仍不行,检查重排模型是否匹配你的语言/领域,或考虑领域微调。",
+    "good_or_note": "『lost in the middle』也会放大此症:就算对的chunk进了窗口但夹在中间,模型也容易忽略(Stanford 等2023年研究发现长上下文呈U型曲线,首尾命中好、中间显著掉点)——重排把它提到最前面正好缓解。重排是产线RAG里性价比最高的单点改进之一。"
+   },
+   {
+    "name": "长文档答案被截断/丢失",
+    "en": "Truncation / chunking & window issue",
+    "what": "答案分散在长文档里,或一段完整信息被切块切断,导致只取到半截、关键句丢失;也可能是塞进上下文窗口的内容太多被挤掉或被忽略。",
+    "detail": "诊断:看正确信息是否被切块切碎(跨chunk边界)或是否超出窗口/被『中间丢失』。修法:(a)调切块策略——chunk大小常用256~512 token、加10~20%重叠(50~100 token),让相邻chunk有交叠不切断关键句;优先用递归切块/语义切块而非死板定长。(b)给chunk加元数据(标题、章节)和上下文,缓解lost-in-the-middle。(c)需要跨段整合时用父文档检索/小块召回大块返回(small-to-big),召回用小块保精度、返回用大块保完整。(d)别一味把超长内容全塞进大窗口——『少而精』,高精度低召回比堆50篇更可靠。",
+    "good_or_note": "256~512 token + 10~20% overlap 是2026年常被引用的稳妥起点,但最优值依文档类型而定,要自己测(注意:有2026年研究发现在某些检索方法下overlap几乎无增益、只增成本,所以overlap也要实测而非默认开)。更大的上下文窗口不能替代好切块——长上下文里照样会丢中间信息。"
+   },
+   {
+    "name": "同义词/语义检索不到",
+    "en": "Vocabulary gap / semantic miss",
+    "what": "用户用的词和文档里的词不一样(同义词、口语 vs 术语、不同表述),纯关键词匹配抓不到,语义上明明相关却漏召。",
+    "detail": "诊断:换种说法重问若能召回,基本就是词汇鸿沟。修法:(a)确保用了语义(向量/dense)检索而不仅是关键词;若嵌入模型弱或不匹配领域,换更强的嵌入模型或做领域微调。(b)查询改写补足:Query Expansion(加同义词/相关词)、Multi-Query(多角度改写)、HyDE(对短/含糊问句尤其有用,把问句变成富含上下文的假设答案再检索)。(c)上混合检索同时跑BM25和向量,语义这一路由向量负责。",
+    "good_or_note": "嵌入模型擅长语义相似,这是它的主场。HyDE主要改善语义对齐;研究显示它在零样本下也能提升recall@k/NDCG,但代价是额外一次生成调用(增加延迟),且假设答案本身可能幻觉,适合文档长、问句短或表述不充分的场景,必要时配合重排做后验。"
+   },
+   {
+    "name": "精确词/编号检索不到",
+    "en": "Exact-match miss (BM25 needed)",
+    "what": "错误码、产品型号、API路由、人名、缩写、合同编号这类精确字面串检索不到——纯向量检索对精确标识符常表现不佳,会被语义相近但不对的内容盖过。",
+    "detail": "诊断:用一批含精确标识符的query专门测,看纯向量是否漏。修法:(a)上混合检索(BM25/稀疏 + 向量/稠密),用Reciprocal Rank Fusion(RRF,按排名而非分数融合,常用平滑常数k≈60)等方式融合两路结果——BM25负责字面精确匹配,向量负责语义,两者互补。研究普遍显示『混合检索 + 交叉编码器重排』相比纯向量能大幅降低检索失败:有的报告把检索失败率大致砍半(如从约35%降到约11%),也有相关框架报告幻觉率下降40%以上(具体数字依数据集而定)。(b)切块时保留并索引这些标识符(别被清洗/归一化抹掉);可加元数据/精确字段过滤。(c)对编号类查询配合重排进一步收紧。",
+    "good_or_note": "这是纯向量RAG最隐蔽的坑。最高ROI的诊断动作:上线前先专门构建一批『精确标识符对抗测试集』——很多团队没把这类query纳入评测,改了架构却发现编号类幻觉没降,问题其实是评测里压根没测它。"
+   },
+   {
+    "name": "(工具)RAGAS 评测框架",
+    "en": "RAGAS",
+    "what": "用来量化上述症状的开源RAG评测框架,大量用LLM-as-judge打分,核心四件套:Faithfulness、Answer/Response Relevancy、Context Precision、Context Recall。",
+    "detail": "用法:把『问题/检索到的上下文/生成答案/(可选)参考答案』喂进去,自动算各项指标。其中context precision/recall衡量检索质量,faithfulness/answer relevancy衡量生成质量——这正好把流水线一分为二,方便定位是检索层还是生成层的病。还提供Context Entities Recall、Noise Sensitivity、Factual Correctness(Fβ=(1+β²)PR/(β²P+R),默认mode=f1)等扩展指标,以及面向agent的Topic Adherence、Tool Call Accuracy等。",
+    "good_or_note": "分组看:检索类(precision/recall)和生成类(faithfulness/relevancy)分开评,能直接告诉你该修哪层。LLM评分有波动性,要固定评测集做回归、关注趋势而非单点绝对值。其他常见评测工具还有 DeepEval、TruLens(其RAG Triad三件套:context relevance/groundedness/answer relevance)、Braintrust 等。"
+   }
+  ],
+  "highlights": [
+   "评测驱动改进的总流程:先测(用RAGAS等把症状量化)→ 再定位(分检索层 vs 生成层)→ 再针对性改一层 → 回归测(在固定的golden评测集上跑,确认这一处改动没把别处弄坏)→ 把新发现的失败case回灌进评测集。一次只改一层、改完就回归,别同时动好几处否则归因不清。",
+   "先判断是检索病还是生成病,这是最省钱的第一刀:看RAGAS的context recall/precision(检索)对比faithfulness/answer relevancy(生成)。多项研究表明检索层往往是RAG首要瓶颈,坏答案多数源于检索(没召回/排太后/掺噪声)而非模型在拿到正确上下文后硬编——所以多数情况别先急着换大模型。",
+   "区分『没召回』和『召回了但排太后』的快捷诊断:正确答案在初召回top-50里吗?在→是排序/重排问题,加cross-encoder重排;不在→是召回问题,先扩大k、再上查询改写/混合检索/换嵌入模型。",
+   "改检索的标准组合拳是『宽召回 + 重排收窄』:混合检索(BM25+向量,用RRF融合)宽召回top-50,交叉编码器重排到top-5再喂模型。这样同时兼顾召回(别漏)和精度(别杂),也是性价比最高的单点改进。",
+   "上下文不是越多越好:『少而精胜过多而杂』。盲目把k开很大或把超长内容全塞进大窗口,会引入噪声、触发lost-in-the-middle、还烧token;高精度低召回往往更稳。",
+   "切块的稳妥起点(2026常见参考):256~512 token + 10~20% overlap,优先递归/语义切块,跨段整合用small-to-big(小块召回、大块返回)。但最优值依文档类型而定,overlap在某些检索方法下未必有增益,都要自己测。",
+   "上线前先建对抗评测集,尤其要纳入精确标识符类query(错误码、型号、API、缩写)——这是最高ROI的诊断投资。很多团队改了架构却发现编号类幻觉没降,根因是评测集里压根没测这类query。",
+   "建一个30~50条真实/拟真查询的golden dataset当回归测试套件,把生产里低分的query持续回灌进去。这个闭环才是长期稳定改进的发动机,也能防止模型/数据漂移悄悄拉低质量。"
+  ],
+  "sources": []
+ }
+]

@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>查询向量化白盒 · 检索第一步</title>
+<style>
+  :root{--bg:#fafaf7;--paper:#fff;--ink:#1a1a1a;--ink2:#4a4a4a;--muted:#8a8a8a;--line:#e8e6df;
+    --accent:#245f73;--accent2:#1f6f4f;--warn:#b84a36;--q:#b07b24;
+    --font:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    --mono:"SF Mono",ui-monospace,Menlo,monospace;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.7;font-size:15px}
+  .page{max-width:1040px;margin:0 auto;padding:32px 22px 80px}
+  h1{font-size:24px;margin:0 0 4px}.sub{color:var(--muted);margin:0 0 16px}a{color:var(--accent)}
+  .bar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+  button{font:inherit;font-weight:700;padding:8px 14px;border:1px solid var(--accent);border-radius:8px;background:var(--accent);color:#fff;cursor:pointer}
+  button.ghost{background:#fff;color:var(--accent)}button:disabled{opacity:.4}
+  input[type=text]{font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:7px;background:#fffdf8}
+  .status{font-size:13px;color:var(--ink2)}
+  .seg{margin-top:18px;background:var(--paper);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .seg-head{padding:12px 18px;border-bottom:1px solid var(--line);background:#f6f5ef}
+  .seg-head h2{margin:0;font-size:16px}.seg-head .algo{margin-top:3px;color:var(--ink2);font-size:13px}
+  .seg-body{padding:14px 18px}
+  .flow{font-size:14px}.flow .raw{background:#f1efe8;border-radius:6px;padding:2px 8px;font-family:var(--mono)}
+  .flow .pre{background:#f7efe0;color:var(--q);border-radius:6px;padding:2px 8px;font-weight:700}
+  .tok{display:inline-block;margin:2px;padding:2px 7px;border-radius:6px;background:#eef4f5;color:var(--accent);font-family:var(--mono);font-size:12px}
+  .tok.pre{background:#f7efe0;color:var(--q)}
+  .heat{display:flex;flex-wrap:wrap;gap:1px;margin-top:8px;line-height:0}.cell{width:10px;height:10px;border-radius:1px}
+  .statline{margin-top:8px;font-size:13px;color:var(--ink2)}.statline b{color:var(--ink)}
+  canvas{background:#fbfbf8;border:1px solid var(--line);border-radius:8px;width:100%;margin-top:6px}
+  table{border-collapse:collapse;font-size:13px;margin-top:6px}td,th{border:1px solid var(--line);padding:5px 9px;text-align:center}th{background:#f3f2ec}
+  .hint{font-size:12.5px;color:var(--muted);margin-top:8px}.err{color:var(--warn);font-weight:700}
+  .note{background:#f4f6f7;border:1px solid #e2ebec;border-radius:8px;padding:10px 12px;font-size:13.5px;color:var(--ink2);margin-top:6px}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>查询向量化白盒 · 检索的第一步</h1>
+  <p class="sub">检索从这里开始:把用户的查询也变成向量,落进和文档<b>同一个 512 维空间</b>。这一步<b>还不检索</b>,只把查询备成"可比较的向量"。注意 bge 的查询专属细节:<b>加指令前缀</b>。<a href="./rag-pipeline.html">流程总表</a> · <a href="./embedding-lab.html">文档向量化</a></p>
+
+  <div class="bar">
+    <button id="load">加载模型 + 准备文档空间</button>
+    <input type="text" id="q" value="诱导粉丝加微信私下交易" style="min-width:280px">
+    <button class="ghost" id="go" disabled>把这条查询向量化</button>
+    <span class="status" id="status">点按钮加载(同一个 bge 模型,和文档用的一模一样)。</span>
+  </div>
+
+  <div class="seg"><div class="seg-head"><h2>① 查询 → 加指令前缀 → 向量(bge 非对称的关键)</h2>
+    <div class="algo">bge 是"非对称"模型:文档直接嵌入;<b>查询要先拼上一句指令前缀</b>再嵌入。下面看实际送进模型的是什么、切成哪些 token、最终向量。</div></div>
+    <div class="seg-body">
+      <div class="flow">你输入的查询: <span class="raw" id="rawQ"></span></div>
+      <div class="flow" style="margin-top:6px">实际喂给模型的: <span class="pre" id="preLbl">前缀</span> <span class="raw" id="prefixedQ"></span></div>
+      <div id="tokQ" style="margin-top:10px"></div>
+      <div class="heat" id="heatQ"></div>
+      <div class="statline" id="statQ"></div>
+      <div class="note" id="ruleNote">⚠️ <b>铁律</b>:查询必须用<b>和建库时同一个模型</b>嵌入,否则两边向量不在一个坐标系,根本没法比。</div>
+    </div></div>
+
+  <div class="seg"><div class="seg-head"><h2>② 落进同一个空间(为下一步检索做好准备)</h2>
+    <div class="algo">查询向量化完,它就成了和文档同一空间里的一个点(⭐)。PCA 投影看它落在哪——靠近哪些文档,下一步检索就会召回谁(但检索是下一步,这里只是"就位")。</div></div>
+    <div class="seg-body"><canvas id="map" width="1000" height="460"></canvas>
+      <div class="hint">灰点=文档向量(建库时已嵌好) ⭐=刚向量化的查询。它已经"在场",但还没开始比距离——那是下一步。</div></div></div>
+
+  <div class="seg"><div class="seg-head"><h2>③ 前缀到底有没有用?(加 vs 不加)</h2>
+    <div class="algo">同一条查询,加前缀 / 不加前缀 各嵌一次,看它和几条文档的余弦谁更高。验证"查询加前缀"是不是真有用。</div></div>
+    <div class="seg-body"><div id="cmp"></div>
+      <div class="hint">bge 官方建议:检索时查询加前缀。差距小不奇怪(短查询影响有限),但方向上加前缀通常更稳。</div></div></div>
+</div>
+
+<script type="module">
+const $=s=>document.querySelector(s);
+const status=$('#status');
+const PREFIX='为这个句子生成表示以用于检索相关文章：';
+const DOCS=['主播在直播间诱导粉丝添加微信','短视频评论区留二维码引导去站外付款','账号发布虚假中奖要求先交保证金','冒充客服索要短信验证码解冻账户','评论曝光他人手机号和家庭住址','主播暗示用外挂脚本提升游戏排名','今天天气很好适合出去爬山','推荐一家性价比高的火锅店','刷单返佣需要先垫付本金','谐音薇信号引流到小号','人肉搜索披露身份证','自动抢券工具规避风控'];
+let M=null, docVecs=null;
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const color=v=>{const a=Math.min(1,Math.abs(v)*6);return v>=0?`rgba(184,74,54,${a})`:`rgba(36,95,115,${a})`;};
+
+async function ensure(){if(M)return M;$('#load').disabled=true;status.textContent='加载 bge 模型 + 嵌入文档…';
+  try{M=await import('./src/dense.js?v=2');await M.loadModel(e=>{if(e&&e.status)status.textContent='加载：'+(e.file||e.status);});}
+  catch(e){status.innerHTML='<span class="err">加载失败：'+String(e.message||e)+'</span>';$('#load').disabled=false;throw e;}return M;}
+function pca2(V){const n=V.length,d=V[0].length;const mean=new Float64Array(d);for(const v of V)for(let j=0;j<d;j++)mean[j]+=v[j];for(let j=0;j<d;j++)mean[j]/=n;
+  const X=V.map(v=>{const r=new Float64Array(d);for(let j=0;j<d;j++)r[j]=v[j]-mean[j];return r;});
+  const top=(X)=>{let v=new Float64Array(d).fill(1/Math.sqrt(d));for(let it=0;it<80;it++){const u=new Float64Array(n);for(let i=0;i<n;i++){let s=0;for(let j=0;j<d;j++)s+=X[i][j]*v[j];u[i]=s;}const w=new Float64Array(d);for(let i=0;i<n;i++){const ui=u[i];for(let j=0;j<d;j++)w[j]+=X[i][j]*ui;}let nn=0;for(let j=0;j<d;j++)nn+=w[j]*w[j];nn=Math.sqrt(nn)||1;for(let j=0;j<d;j++)w[j]/=nn;v=w;}return v;};
+  const p1=top(X);for(let i=0;i<n;i++){let p=0;for(let j=0;j<d;j++)p+=X[i][j]*p1[j];for(let j=0;j<d;j++)X[i][j]-=p*p1[j];}const p2=top(X);
+  return V.map(v=>{let x=0,y=0;for(let j=0;j<d;j++){const c=v[j]-mean[j];x+=c*p1[j];y+=c*p2[j];}return[x,y];});}
+
+async function tokensOf(text){try{const t=await import('https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2');
+  t.env.allowLocalModels=true;t.env.localModelPath='/assets/models/';t.env.allowRemoteModels=true;
+  const tok=await t.AutoTokenizer.from_pretrained('Xenova/bge-small-zh-v1.5');
+  return Array.from(tok(text).input_ids.data).map(Number).map(id=>tok.decode([id]));}catch(e){return null;}}
+
+async function go(){
+  const m=await ensure();const q=$('#q').value.trim();if(!q)return;status.textContent='查询向量化中…';
+  const prefixed=PREFIX+q;
+  $('#rawQ').textContent=q;$('#prefixedQ').textContent=q;$('#preLbl').textContent=PREFIX;
+  // tokens of prefixed (mark prefix part)
+  const preToks=await tokensOf(PREFIX);const allToks=await tokensOf(prefixed);
+  if(allToks){const np=preToks?preToks.length-1:0; // minus [SEP] overlap approx
+    $('#tokQ').innerHTML='<b style="font-size:13px">送入模型的 token(橙=指令前缀,蓝=你的查询):</b><br>'+allToks.map((tk,i)=>`<span class="tok ${i<np?'pre':''}">${esc(tk)}</span>`).join('');}
+  const qv=await m.embedQuery(q); // 带前缀嵌入
+  $('#heatQ').innerHTML=[...qv].map(x=>`<div class="cell" style="background:${color(x)}" title="${x.toFixed(3)}"></div>`).join('');
+  const norm=Math.sqrt([...qv].reduce((s,x)=>s+x*x,0));
+  $('#statQ').innerHTML=`查询向量:维度 <b>${qv.length}</b> · 长度 <b>${norm.toFixed(4)}</b>≈1 · 和文档向量同一个 512 维空间 ✓`;
+  // ② PCA 同空间
+  const all=[...docVecs, qv];const pts=pca2(all);const cv=$('#map'),ctx=cv.getContext('2d'),W=cv.width,H=cv.height,pad=60;
+  const xs=pts.map(p=>p[0]),ys=pts.map(p=>p[1]);const mnx=Math.min(...xs),mxx=Math.max(...xs),mny=Math.min(...ys),mxy=Math.max(...ys);
+  const sx=x=>pad+(x-mnx)/(mxx-mnx||1)*(W-2*pad),sy=y=>H-pad-(y-mny)/(mxy-mny||1)*(H-2*pad);
+  ctx.clearRect(0,0,W,H);ctx.font='12px sans-serif';
+  DOCS.forEach((d,i)=>{const x=sx(pts[i][0]),y=sy(pts[i][1]);ctx.beginPath();ctx.arc(x,y,5,0,7);ctx.fillStyle='#b8b4a8';ctx.fill();ctx.fillStyle='#555';ctx.fillText(d.slice(0,10),x+8,y+4);});
+  const qx=sx(pts[pts.length-1][0]),qy=sy(pts[pts.length-1][1]);ctx.fillStyle='#1a1a1a';ctx.font='22px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('★',qx,qy);
+  // ③ 前缀 on/off
+  const qvNo=await m.embed(q); // 不加前缀
+  const sims=DOCS.map((d,i)=>({d,withP:M.cosine(qv,docVecs[i]),noP:M.cosine(qvNo,docVecs[i])}));
+  sims.sort((a,b)=>b.withP-a.withP);
+  $('#cmp').innerHTML='<table><tr><th>文档</th><th>加前缀 cos</th><th>不加前缀 cos</th></tr>'+
+    sims.slice(0,5).map(r=>`<tr><td style="text-align:left">${esc(r.d)}</td><td><b>${r.withP.toFixed(3)}</b></td><td>${r.noP.toFixed(3)}</td></tr>`).join('')+'</table>';
+  status.textContent='查询向量化完成 ✓ 它已就位,等下一步检索。';
+}
+async function load(){const m=await ensure();status.textContent='嵌入 '+DOCS.length+' 条文档(建库)…';
+  docVecs=[];for(const d of DOCS)docVecs.push(Array.from(await m.embed(d)));
+  $('#go').disabled=false;status.textContent='文档空间就绪 ✓ 点"把查询向量化"。';go();}
+$('#load').onclick=load;$('#go').onclick=go;
+</script>
+<a id="home-fab" href="./knowledge-map.html" style="position:fixed;right:16px;bottom:16px;z-index:9999;background:#245f73;color:#fff;text-decoration:none;font:600 13px/1 -apple-system,BlinkMacSystemFont,sans-serif;padding:10px 14px;border-radius:24px;box-shadow:0 2px 10px rgba(0,0,0,.18)">🏠 总览</a>
+</body>
+</html>

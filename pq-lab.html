@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PQ 量化白盒 · 把512维向量压成几个编号</title>
+<style>
+  :root{--bg:#fafaf7;--paper:#fff;--ink:#1a1a1a;--ink2:#4a4a4a;--muted:#8a8a8a;--line:#e8e6df;
+    --accent:#245f73;--accent2:#1f6f4f;--warn:#b84a36;--pq:#6450a8;
+    --font:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    --mono:"SF Mono",ui-monospace,Menlo,monospace;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.7;font-size:15px}
+  .page{max-width:1040px;margin:0 auto;padding:32px 22px 80px}
+  h1{font-size:24px;margin:0 0 4px}
+  .sub{color:var(--muted);margin:0 0 16px}
+  a{color:var(--accent)}
+  .bar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+  button{font:inherit;font-weight:700;padding:8px 14px;border:1px solid var(--accent);border-radius:8px;background:var(--accent);color:#fff;cursor:pointer}
+  button:disabled{opacity:.4}
+  select,.ctl{font:inherit}
+  select{padding:6px 8px;border:1px solid var(--line);border-radius:7px;background:#fffdf8}
+  .ctl{display:flex;flex-direction:column;font-size:13px;color:var(--ink2)}
+  input[type=range]{width:120px}
+  .status{font-size:13px;color:var(--ink2)}
+  .seg{margin-top:18px;background:var(--paper);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .seg-head{padding:12px 18px;border-bottom:1px solid var(--line);background:#f6f5ef}
+  .seg-head h2{margin:0;font-size:16px}.seg-head .algo{margin-top:3px;color:var(--ink2);font-size:13px}
+  .seg-body{padding:14px 18px}
+  .mono{font-family:var(--mono);font-size:12px}
+  .vec{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+  .block{border-radius:6px;padding:6px 9px;font-family:var(--mono);font-size:11.5px;color:#fff;font-weight:700}
+  table{border-collapse:collapse;font-size:12.5px;width:100%;margin-top:6px}
+  td,th{border:1px solid var(--line);padding:5px 8px;text-align:center}
+  th{background:#f3f2ec}
+  .win{background:#efeaf8;font-weight:800;color:var(--pq)}
+  .code{font-family:var(--mono);font-size:18px;color:var(--pq);font-weight:800;letter-spacing:1px}
+  .store{background:#1f2328;color:#e6e6df;border-radius:8px;padding:12px 14px;font-family:var(--mono);font-size:12px;white-space:pre-wrap;margin-top:8px}
+  .store .k{color:#79c0e8}.store .n{color:#e0a849}.store .c{color:#8a8a8a}
+  .big{font-size:14px;margin-top:8px}.big b{font-size:17px}
+  .err{color:var(--warn);font-weight:700}.good{color:var(--accent2);font-weight:700}
+  .hint{font-size:12.5px;color:var(--muted);margin-top:8px}
+  .label{display:inline-block;font-size:11px;font-weight:800;color:#fff;background:var(--pq);border-radius:4px;padding:1px 7px}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>PQ 量化白盒 · 把 512 维向量压成几个编号</h1>
+  <p class="sub">PQ = 切段 → 每段用 k-means 学一本"字典" → 每段只记"最像哪个原型"的编号。选一条真实文本,看它怎么被压缩。<a href="./kmeans-lab.html">← k-means 可视化</a> · <a href="./index-build-lab.html">建索引白盒</a></p>
+
+  <div class="bar">
+    <button id="load">加载模型 + 向量化</button>
+    <label class="ctl">选要编码的文本：<select id="pick" disabled></select></label>
+    <label class="ctl">段数 m：<b><span id="mV">4</span></b><input type="range" id="m" min="2" max="8" step="2" value="4"></label>
+    <label class="ctl">每段原型数 K：<b><span id="kV">4</span></b><input type="range" id="k" min="2" max="8" value="4"></label>
+    <span class="status" id="status">点按钮:把 12 条文本向量化,然后挑一条看 PQ 编码。</span>
+  </div>
+
+  <div class="seg"><div class="seg-head"><h2>① 切段:512 维 → 切成 m 段</h2>
+    <div class="algo">把这条向量等分成 m 段,每段 512/m 维。后面每段独立处理。</div></div>
+    <div class="seg-body"><div id="splitInfo" class="mono"></div><div class="vec" id="vecBlocks"></div></div></div>
+
+  <div class="seg"><div class="seg-head"><h2>② 建字典:每段在全部12条上跑一次 k-means(复用你学过的!)</h2>
+    <div class="algo">对"第 i 段"这个位置,收集全部 12 条向量的第 i 段子向量 → 跑 k-means 得到 K 个"原型"。这就是第 i 段的字典。m 段 = m 本字典。</div></div>
+    <div class="seg-body"><div id="bookInfo" class="mono"></div>
+      <div class="hint">⚠️ 这里 12 条、K=很小,是玩具规模演示原理。真实是百万条、K=256(编号正好 1 字节)。</div></div></div>
+
+  <div class="seg"><div class="seg-head"><h2>③ 编码:每段找"最像的原型",记下编号</h2>
+    <div class="algo">对选中向量的每一段:算它到该段字典 K 个原型的距离,取最近的,记下原型编号。m 段 → m 个编号 = 这条向量的 PQ 编码。</div></div>
+    <div class="seg-body"><div id="encTable"></div>
+      <div style="margin-top:10px"><span class="label">这条向量的 PQ 编码</span> <span class="code" id="codeOut"></span></div></div></div>
+
+  <div class="seg"><div class="seg-head"><h2>④ 压缩了多少 + 还原误差(有损)</h2>
+    <div class="algo">原来存 512 个 float,现在只存 m 个编号。还原 = 把每段选中的原型拼起来(≈原向量,但不完全等于 → 有损)。</div></div>
+    <div class="seg-body"><div class="big" id="sizeOut"></div>
+      <div class="label" style="margin-top:10px;background:var(--accent2)">存储形态(库里这条向量的真实样子)</div>
+      <div class="store" id="storeOut"></div>
+      <div class="big" id="errOut"></div></div></div>
+</div>
+
+<script type="module">
+const $=s=>document.querySelector(s);
+const status=$('#status');
+const CHUNKS=['诱导粉丝加微信私下交易','虚假中奖要先交保证金','冒充客服索要验证码','曝光他人手机号和住址','外挂脚本提升游戏排名','今天天气好适合爬山','推荐一家火锅店','刷单返佣先垫付本金','留二维码引导到站外','人肉搜索披露身份证','自动抢券规避风控','谐音薇信号引流'];
+const SEGCOL=['#b94d2d','#6450a8','#207864','#b07b24','#2f6f9f','#8c4b71','#5c6f2f','#47606f'];
+let M=null, vecs=null;
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const colorJSON=j=>esc(j).replace(/"([a-zA-Z_]+)":/g,'"<span class="k">$1</span>":').replace(/(-?\d+\.?\d*)/g,'<span class="n">$1</span>').replace(/(\/\/.*)$/gm,'<span class="c">$1</span>');
+const L2=(a,b)=>{let s=0;for(let i=0;i<a.length;i++){const d=a[i]-b[i];s+=d*d;}return Math.sqrt(s);};
+function subKmeans(subs,K){let s=3;const r=()=>{s=(s*1103515245+12345)&0x7fffffff;return s/0x7fffffff;};
+  const d=subs[0].length;const cent=[];const used=new Set();
+  for(let i=0;i<K;i++){let idx;do{idx=Math.floor(r()*subs.length);}while(used.has(idx)&&used.size<subs.length);used.add(idx);cent.push(subs[idx].slice());}
+  for(let it=0;it<12;it++){const as=subs.map(v=>{let bd=1e9,bj=0;for(let j=0;j<K;j++){const dd=L2(v,cent[j]);if(dd<bd){bd=dd;bj=j;}}return bj;});
+    for(let j=0;j<K;j++){const acc=new Float64Array(d);let cnt=0;subs.forEach((v,i)=>{if(as[i]===j){for(let x=0;x<d;x++)acc[x]+=v[x];cnt++;}});if(cnt)for(let x=0;x<d;x++)cent[j][x]=acc[x]/cnt;}}
+  return cent;}
+
+async function ensure(){if(M)return M;$('#load').disabled=true;status.textContent='加载 bge 模型…';
+  try{M=await import('./src/dense.js?v=2');await M.loadModel(e=>{if(e&&e.status)status.textContent='加载：'+(e.file||e.status);});}
+  catch(e){status.innerHTML='<span class="err">加载失败：'+String(e.message||e)+'</span>';$('#load').disabled=false;throw e;}return M;}
+
+function render(){
+  const m=+$('#m').value, K=+$('#k').value, pick=+$('#pick').value, seg=512/m;
+  const v=vecs[pick];
+  // ① 切段
+  $('#splitInfo').innerHTML=`向量「${CHUNKS[pick]}」共 <b>512</b> 维,切成 <b>${m}</b> 段、每段 <b>${seg}</b> 维:`;
+  $('#vecBlocks').innerHTML=Array.from({length:m},(_,s)=>`<span class="block" style="background:${SEGCOL[s%8]}">第${s+1}段<br>维${s*seg}~${(s+1)*seg-1}</span>`).join('');
+  // ② 每段建字典
+  const books=[];for(let s=0;s<m;s++){const subs=vecs.map(x=>[...x.slice(s*seg,(s+1)*seg)]);books.push(subKmeans(subs,K));}
+  $('#bookInfo').innerHTML=`共训练 <b>${m}</b> 本字典,每本 <b>${K}</b> 个原型(每个原型是 ${seg} 维向量)。每本字典 = 对"该段位置"的 12 条子向量跑 k-means 的结果。`;
+  // ③ 编码
+  const code=[];let rows='<table><tr><th>段</th><th>该段子向量(前3维)</th>'+Array.from({length:K},(_,j)=>`<th>到原型${j}距离</th>`).join('')+'<th>选中</th></tr>';
+  let recErr=0;
+  for(let s=0;s<m;s++){const sub=[...v.slice(s*seg,(s+1)*seg)];const ds=books[s].map(p=>L2(sub,p));let bj=0;ds.forEach((d,j)=>{if(d<ds[bj])bj=j;});code.push(bj);recErr+=ds[bj]*ds[bj];
+    rows+=`<tr><td style="color:${SEGCOL[s%8]};font-weight:800">第${s+1}段</td><td class="mono">[${sub.slice(0,3).map(x=>x.toFixed(2)).join(',')}…]</td>`+
+      ds.map((d,j)=>`<td class="${j===bj?'win':''}">${d.toFixed(3)}</td>`).join('')+`<td class="win">原型 ${bj}</td></tr>`;}
+  $('#encTable').innerHTML=rows+'</table>';
+  $('#codeOut').textContent='['+code.join(', ')+']';
+  // ④ 压缩 + 误差
+  const before=512*4, after=m; // 每编号≤1字节
+  $('#sizeOut').innerHTML=`原始:<b>${before}</b> 字节(512×4) → PQ:<b>${after}</b> 字节(${m}个编号) · 压缩约 <b class="good">${Math.round(before/after)}×</b>`;
+  $('#storeOut').innerHTML=colorJSON(`{
+  "id": "d${String(pick+1).padStart(2,'0')}",
+  "text": "${CHUNKS[pick]}",          // 原文照常精确存,不受PQ影响
+  "pq_code": [${code.join(', ')}],     // 原来512个float,现在只剩这 ${m} 个编号
+  "codebooks": "${m}本字典 × ${K}原型(全库共用一份)"
+}`);
+  const origLen=Math.sqrt(v.reduce((s,x)=>s+x*x,0));
+  $('#errOut').innerHTML=`还原误差(原向量 vs 拼起来的原型):<b class="err">${Math.sqrt(recErr).toFixed(3)}</b>(向量自身长度≈${origLen.toFixed(2)})。<br><span class="hint">→ 这就是"有损":还原的不完全等于原向量,所以距离算得略偏、召回略降。K 越大、m 越大 → 误差越小但越占空间。</span>`;
+}
+async function load(){const m=await ensure();status.textContent='向量化 12 条…';
+  vecs=[];for(const c of CHUNKS)vecs.push(Array.from(await m.embed(c)));
+  $('#pick').innerHTML=CHUNKS.map((c,i)=>`<option value="${i}">d${String(i+1).padStart(2,'0')} · ${c}</option>`).join('');
+  $('#pick').disabled=false;render();status.textContent='完成 ✓ 改"段数m/原型数K/选哪条"看编码变化。';}
+$('#load').onclick=load;
+$('#m').oninput=()=>{$('#mV').textContent=$('#m').value;if(vecs)render();};
+$('#k').oninput=()=>{$('#kV').textContent=$('#k').value;if(vecs)render();};
+$('#pick').onchange=()=>{if(vecs)render();};
+</script>
+<a id="home-fab" href="./knowledge-map.html" style="position:fixed;right:16px;bottom:16px;z-index:9999;background:#245f73;color:#fff;text-decoration:none;font:600 13px/1 -apple-system,BlinkMacSystemFont,sans-serif;padding:10px 14px;border-radius:24px;box-shadow:0 2px 10px rgba(0,0,0,.18)">🏠 总览</a>
+</body>
+</html>

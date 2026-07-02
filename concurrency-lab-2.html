@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>并发编程 · 第2课:锁的本质 & 可见性</title>
+<style>
+  :root{--bg:#fafaf7;--paper:#fff;--ink:#1a1a1a;--ink2:#4a4a4a;--muted:#8a8a8a;--line:#e8e6df;
+    --accent:#245f73;--good:#1f6f4f;--warn:#b84a36;--gold:#8a5d1f;
+    --A:#2f6f9f;--Abg:#eaf3fa;--B:#c4702a;--Bbg:#fbf0e4;
+    --font:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    --mono:"SF Mono",ui-monospace,Menlo,monospace;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.7;font-size:15px}
+  .page{max-width:1000px;margin:0 auto;padding:30px 20px 110px}
+  h1{font-size:24px;margin:0 0 4px}.sub{color:var(--muted);margin:0 0 10px;font-size:13.5px}a{color:var(--accent)}
+  .reassure{background:#eef6f0;border:1px solid #cfe6d8;border-radius:10px;padding:12px 15px;font-size:13.5px;color:#155;margin:12px 0}
+  .reassure b{color:#0a4}
+  .toc{display:flex;flex-wrap:wrap;gap:7px;margin:12px 0}
+  .toc a{font-size:12.5px;background:#fff;border:1px solid var(--line);border-radius:20px;padding:4px 11px;text-decoration:none;color:var(--accent)}
+  .topic{margin-top:22px;background:var(--paper);border:1px solid var(--line);border-radius:12px;overflow:hidden;scroll-margin-top:12px}
+  .topic-h{padding:13px 18px;background:#f6f5ef;border-bottom:1px solid var(--line);display:flex;align-items:baseline;gap:10px}
+  .topic-h .num{font-family:var(--mono);font-weight:800;color:var(--muted)}
+  .topic-h h2{margin:0;font-size:17px}
+  .topic-h .lv{font-size:11px;font-weight:800;border-radius:5px;padding:1px 8px;color:#fff;margin-left:auto}
+  .lv.核心{background:var(--warn)}.lv.进阶{background:#6450a8}
+  .topic-b{padding:16px 18px}
+  .lead{font-size:14px;color:var(--ink2);margin:0 0 12px}
+  .lead b{color:var(--accent)}
+  code{font-family:var(--mono);font-size:12.5px;background:#f0eee8;padding:1px 5px;border-radius:4px}
+  .runblk{margin-top:14px;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .runblk-h{display:flex;align-items:center;gap:10px;padding:8px 12px;background:#1f2328;border-bottom:1px solid #333}
+  .runblk-h .t{font-size:12px;color:#9aa4ad;font-family:var(--mono)}
+  .runblk-h .va{font-size:11px;color:#e0a849;font-family:var(--mono);margin-left:auto}
+  .code{background:#1f2328;color:#cfd6dd;font-family:var(--mono);font-size:12px;line-height:1.55;padding:12px 14px;white-space:pre;overflow-x:auto;max-height:360px;overflow-y:auto}
+  .runbar{display:flex;align-items:center;gap:10px;padding:9px 12px;background:#181c20;border-top:1px solid #333}
+  .runbar button{font:inherit;font-weight:800;font-size:13px;padding:6px 16px;border:none;border-radius:7px;background:var(--good);color:#fff;cursor:pointer}
+  .runbar button:disabled{opacity:.5}
+  .runbar .hint{font-size:11.5px;color:#7c8893}
+  .take{font-size:13px;color:var(--gold);background:#fbf7ee;border:1px solid #ecdfc7;border-radius:8px;padding:9px 13px;margin-top:12px}
+  .take b{color:#5e3f12}
+  .out{font-family:var(--mono);font-size:12px;line-height:1.6;padding:12px 14px;white-space:pre-wrap;word-break:break-word;background:#11151a;color:#c7d0d8;min-height:24px;border-top:1px solid #333;display:none}
+  .out.show{display:block}.out.running{color:#e0a849}.out.err{color:#f0a08c}
+
+  /* 字节码 stepper */
+  .bc{display:flex;gap:14px;flex-wrap:wrap;margin-top:6px}
+  .bc-list{flex:1;min-width:280px;background:#1f2328;border-radius:10px;padding:10px;font-family:var(--mono);font-size:12.5px}
+  .bc-line{display:flex;gap:8px;padding:5px 8px;border-radius:6px;color:#9aa4ad;white-space:nowrap}
+  .bc-line .pc{color:#5f6b73;width:18px;text-align:right}
+  .bc-line .op{color:#cfd6dd;min-width:118px}
+  .bc-line .cm{color:#6f7a82}
+  .bc-line.on{background:#2f3e2f}
+  .bc-line.on .op{color:#9fe0bb}
+  .bc-right{flex:0 0 230px;display:flex;flex-direction:column;gap:10px}
+  .stackbox,.fieldbox{border:1px solid var(--line);border-radius:9px;background:#fff;padding:8px 10px}
+  .stackbox .lab,.fieldbox .lab{font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:5px}
+  .stk-cells{display:flex;flex-direction:column-reverse;gap:4px;min-height:64px;justify-content:flex-start}
+  .stk-cell{background:#eef6f9;border:1.5px solid var(--accent);border-radius:6px;text-align:center;font-family:var(--mono);font-weight:800;color:var(--accent);padding:4px;font-size:14px}
+  .stk-empty{font-size:11.5px;color:var(--muted);text-align:center;padding:8px 0}
+  .fieldbox .fv{font-family:var(--mono);font-weight:800;font-size:22px;color:var(--ink)}
+  .bc-narr{margin-top:10px;padding:11px 14px;background:#11151a;color:#d6dee5;font-size:13px;border-radius:9px;min-height:40px}
+  .bc-ctl{display:flex;gap:8px;margin-top:10px}
+  .bc-ctl button{font:inherit;font-weight:800;font-size:12.5px;padding:5px 13px;border:none;border-radius:7px;cursor:pointer}
+  .bc-ctl .nx{background:var(--good);color:#fff}.bc-ctl .sec{background:#e8e6df;color:var(--ink2)}
+  .bc-ctl button:disabled{opacity:.45;cursor:default}
+
+  /* synchronized 锁谁 */
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin:4px 0 12px}
+  .seg button{font:inherit;font-size:12.5px;font-weight:800;padding:6px 14px;border:none;background:#fff;color:var(--ink2);cursor:pointer}
+  .seg button.on{background:var(--accent);color:#fff}
+  .lockscene{display:flex;align-items:center;gap:10px;justify-content:center;padding:18px 10px;background:#fbfaf6;border:1px solid var(--line);border-radius:11px;flex-wrap:wrap}
+  .actor{border:2px solid var(--line);border-radius:11px;padding:10px 12px;text-align:center;min-width:96px;background:#fff}
+  .actor.A{border-color:#cfe0ee}.actor.B{border-color:#eedcc6}
+  .actor .nm{font-weight:800;font-size:12.5px}.actor.A .nm{color:var(--A)}.actor.B .nm{color:var(--B)}
+  .actor .key{font-size:22px;margin-top:3px}
+  .obj{min-width:120px;border:2.5px dashed #d6a93a;border-radius:11px;padding:12px;text-align:center;background:#fff7e6}
+  .obj .ttl{font-size:11.5px;color:#8a5d1f;font-family:var(--mono)}
+  .obj .lk{font-size:26px}
+  .obj .cnt{font-family:var(--mono);font-weight:800;font-size:20px;color:var(--accent);margin-top:3px}
+  .verdict{text-align:center;font-size:13.5px;font-weight:800;margin-top:10px;padding:8px;border-radius:8px}
+  .verdict.bad{background:#fbeae6;color:var(--warn)}.verdict.good{background:#e9f5ee;color:var(--good)}
+  .ways{width:100%;border-collapse:collapse;margin-top:12px;font-size:12.5px}
+  .ways th,.ways td{border:1px solid var(--line);padding:7px 9px;text-align:left}
+  .ways th{background:#f6f5ef;font-weight:800;color:var(--ink2)}
+  .ways code{font-size:11.5px}
+
+  /* 可见性 stepper (复用 sim) */
+  .sim{border:1px solid var(--line);border-radius:11px;overflow:hidden;margin-top:6px}
+  .sim-top{display:flex;gap:8px;padding:10px 12px;background:#f6f5ef;border-bottom:1px solid var(--line);align-items:center;flex-wrap:wrap}
+  .sim-stage{display:flex;align-items:stretch;gap:12px;padding:20px 16px;background:#fbfaf6}
+  .mcol{flex:1;border:2px solid var(--line);border-radius:11px;padding:12px;background:#fff;text-align:center;position:relative;transition:.15s}
+  .mcol .ct{font-weight:800;font-size:12.5px;margin-bottom:8px}
+  .mcol.worker{border-color:#cfe0ee}.mcol.worker .ct{color:var(--A)}
+  .mcol.main2{border-color:#d6c79a}.mcol.main2 .ct{color:#8a5d1f}
+  .mval{font-family:var(--mono);font-size:13px;background:#f7f7f4;border:1px solid var(--line);border-radius:7px;padding:8px;min-height:34px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:2px}
+  .mval b{font-size:18px}
+  .mval .t{color:#1f6f4f}.mval .f{color:#b84a36}
+  .spin{font-size:11.5px;margin-top:7px;font-weight:800;color:var(--muted)}
+  .spin.run{color:var(--A)}.spin.stop{color:var(--good)}.spin.stuck{color:var(--warn)}
+  .midmem{flex:0 0 150px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px}
+  .membox{width:120px;border-radius:13px;border:3px solid #8a5d1f;background:#fff7e6;padding:10px;text-align:center}
+  .membox .cl{font-size:11px;color:#8a5d1f;font-family:var(--mono)}
+  .membox .cv{font-size:18px;font-weight:800;font-family:var(--mono);line-height:1.2}
+  .membox .cv.t{color:#1f6f4f}.membox .cv.f{color:#b84a36}
+  .narr{padding:13px 16px;background:#11151a;color:#d6dee5;font-size:13.5px;line-height:1.65;min-height:46px;border-top:1px solid #2a2f35}
+  .narr.danger{color:#f3b0a0}.narr.good{color:#9fe0bb}.narr.warn{color:#f0cf8c}
+  .sim-ctl{display:flex;align-items:center;gap:8px;padding:10px 12px;background:#181c20;border-top:1px solid #2a2f35;flex-wrap:wrap}
+  .sim-ctl button{font:inherit;font-weight:800;font-size:13px;padding:6px 14px;border:none;border-radius:7px;cursor:pointer}
+  .sim-ctl .nx{background:var(--good);color:#fff}.sim-ctl .sec{background:#2a2f35;color:#cfd6dd}
+  .sim-ctl button:disabled{opacity:.4;cursor:default}
+  .sim-ctl .pg{font-size:11.5px;color:#8a949c;font-family:var(--mono);margin-left:auto}
+  .honest{font-size:12px;color:var(--ink2);margin-top:10px;padding:9px 12px;background:#f4f6f7;border:1px solid #e2ebec;border-radius:8px}
+  .note{font-size:12.5px;color:var(--ink2);margin-top:22px;padding:11px 14px;background:#f4f6f7;border:1px solid #e2ebec;border-radius:8px}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>并发编程 · 第 2 课</h1>
+  <p class="sub">count++ 的字节码三步 · synchronized 到底锁谁 · 可见性与 volatile　|　<a href="./concurrency-lab.html">← 第1课</a> · <a href="./concurrency-lab-3.html">第3课:线程池 →</a> · <a href="./knowledge-map.html">知识地图</a></p>
+
+  <div class="reassure">😌 <b>接着第 1 课往下追。</b> 第 1 课你看到了"丢更新"和"加锁能修"。这一课把三个"为什么"讲透:① <b>为什么 count++ 是三步</b>(看真实字节码)② <b>synchronized 到底锁的是什么</b>(锁错了照样出错)③ <b>另一种并发 bug:看不见</b>(没 volatile 会永远卡死)。还是<b>能点的图 + 能真跑的代码</b>为主。</div>
+
+  <div class="toc" id="toc"></div>
+
+  <!-- ① 字节码三步 -->
+  <div class="topic" id="t-bc">
+    <div class="topic-h"><span class="num">①</span><h2>为什么 count++ 是"三步"?看真实字节码</h2><span class="lv 核心">核心</span></div>
+    <div class="topic-b">
+      <p class="lead">第 1 课说 <code>count++</code> 其实是「读→+1→写回」三步。不是我编的——下面是<b>这台机器上 <code>javap -c</code> 反编译出来的真实字节码</b>。Java 跑的时候用一个叫<b>操作数栈</b>的小本子做临时计算。点「下一步 ▶」,看每条指令怎么动这个小本子和 count:</p>
+      <div class="bc">
+        <div class="bc-list" id="bcList"></div>
+        <div class="bc-right">
+          <div class="stackbox"><div class="lab">操作数栈(临时算草稿)</div><div class="stk-cells" id="stkCells"></div></div>
+          <div class="fieldbox"><div class="lab">静态字段 count(共享)</div><div class="fv" id="bcCount">5</div></div>
+        </div>
+      </div>
+      <div class="bc-narr" id="bcNarr"></div>
+      <div class="bc-ctl">
+        <button class="sec" id="bcPrev">◀ 上一步</button>
+        <button class="nx" id="bcNext">下一步 ▶</button>
+        <button class="sec" id="bcReset">↺ 重置</button>
+        <span style="font-size:11.5px;color:var(--muted);align-self:center" id="bcPg"></span>
+      </div>
+      <div class="take">📌 <b>关键:</b>这 4 条指令之间的<b>任何一个缝隙</b>,操作系统都可能把 CPU 切给另一个线程。第 1 课的"丢更新",本质就是两个线程的这几条指令<b>交错</b>了。所以"看着像一步"的 <code>count++</code>,在并发下根本不安全。</div>
+    </div>
+  </div>
+
+  <!-- ② synchronized 锁谁 -->
+  <div class="topic" id="t-lock">
+    <div class="topic-h"><span class="num">②</span><h2>synchronized 到底锁的是"谁"?</h2><span class="lv 核心">核心</span></div>
+    <div class="topic-b">
+      <p class="lead">最容易踩的坑:以为"加了 synchronized 就安全"。<b>错。</b> synchronized 锁的不是"代码",是<b>一个对象</b>(每个 Java 对象身上都自带一把锁,叫 monitor)。两个线程必须<b>抢同一个对象的锁</b>才会互斥;如果各锁各的对象,就是<b>两把钥匙、互不干扰</b>,照样撞车。切下面的开关看区别:</p>
+      <div class="seg" id="lockSeg">
+        <button data-l="diff" class="on">🔑🔑 两个线程锁【不同对象】</button>
+        <button data-l="same">🔑 两个线程锁【同一对象】</button>
+      </div>
+      <div class="lockscene" id="lockScene"></div>
+      <div class="verdict" id="lockVerdict"></div>
+
+      <div class="runblk">
+        <div class="runblk-h"><span class="t" id="lockCodeTitle">▶ 真跑:看锁不同对象会不会出错</span><span class="va">无特殊参数</span></div>
+        <div class="code" id="code-lock"></div>
+        <div class="runbar"><button data-run="lock">▶ 运行</button><span class="hint" id="lockHint"></span></div>
+        <div class="out" id="out-lock"></div>
+      </div>
+
+      <p class="lead" style="margin-top:16px">synchronized 三种写法,锁的分别是不同对象 —— 一定要搞清你锁的是哪个:</p>
+      <table class="ways">
+        <tr><th>写法</th><th>锁的是哪个对象</th></tr>
+        <tr><td><code>synchronized void f(){}</code>(实例方法)</td><td>当前对象 <code>this</code></td></tr>
+        <tr><td><code>static synchronized void f(){}</code>(静态方法)</td><td>这个类的 <code>Class</code> 对象(全类唯一)</td></tr>
+        <tr><td><code>synchronized(obj){ }</code>(同步块)</td><td>你括号里写的那个 <code>obj</code></td></tr>
+      </table>
+      <div class="take">📌 <b>记住:</b>锁是"挂在对象上的一把钥匙"。<b>只有抢同一把钥匙的线程之间才互斥。</b> 第 1 课的 <code>static synchronized inc()</code> 之所以对,是因为静态方法锁的是<b>同一个 Class 对象</b>,两个线程抢的是同一把钥匙。</div>
+    </div>
+  </div>
+
+  <!-- ③ 可见性 / volatile -->
+  <div class="topic" id="t-vis">
+    <div class="topic-h"><span class="num">③</span><h2>另一种 bug:改了,别人却"看不见"(volatile)</h2><span class="lv 进阶">进阶</span></div>
+    <div class="topic-b">
+      <p class="lead">前面的 bug 是"算错"(丢更新)。这里是<b>另一种 bug:看不见</b>。每个线程为了快,会把变量<b>缓存一份在自己手边</b>(可以想成"本地副本")。结果:主线程把 <code>running</code> 改成 false,工作线程却一直读自己手边的旧副本 = true,于是<b>永远停不下来</b>。点「下一步 ▶」,两种模式对比着看:</p>
+      <div class="sim" id="vsim">
+        <div class="sim-top">
+          <span style="font-size:12.5px;font-weight:700;color:var(--ink2)">看哪种:</span>
+          <div class="seg" id="vsegMode" style="margin:0">
+            <button data-mode="novol" class="on">❌ 普通变量(看不见 → 卡死)</button>
+            <button data-mode="vol">⚡ 加 volatile(立刻看见)</button>
+          </div>
+        </div>
+        <div class="sim-stage">
+          <div class="mcol worker" id="vWorker">
+            <div class="ct">工作线程 worker(在 while(running) 里转圈)</div>
+            <div class="mval" id="vWorkerVal"></div>
+            <div class="spin" id="vSpin">— 还没开始 —</div>
+          </div>
+          <div class="midmem">
+            <div class="membox" id="vMem"><span class="cl">主内存 running</span><span class="cv t" id="vMemVal">true</span></div>
+            <div style="font-size:11px;color:var(--muted);text-align:center" id="vMemNote"></div>
+          </div>
+          <div class="mcol main2">
+            <div class="ct">主线程 main</div>
+            <div class="mval" id="vMainVal">准备睡 1 秒后<br>把 running 改成 false</div>
+          </div>
+        </div>
+        <div class="narr" id="vNarr"></div>
+        <div class="sim-ctl">
+          <button class="sec" id="vPrev">◀ 上一步</button>
+          <button class="nx" id="vNext">下一步 ▶</button>
+          <button class="sec" id="vReset">↺ 重置</button>
+          <span class="pg" id="vPg"></span>
+        </div>
+      </div>
+
+      <div class="runblk">
+        <div class="runblk-h"><span class="t">▶ 普通变量:这个会"卡住",约 20 秒后被后端强制结束 —— 那个超时就是 bug</span><span class="va">无特殊参数</span></div>
+        <div class="code" id="code-visbug"></div>
+        <div class="runbar"><button data-run="visbug">▶ 运行(会卡 ~20 秒)</button><span class="hint">⚠️ 看到"⏱ 运行超时"别慌——这正说明 worker 永远没看到 false</span></div>
+        <div class="out" id="out-visbug"></div>
+      </div>
+      <div class="runblk">
+        <div class="runblk-h"><span class="t">▶ 加一个 volatile 关键字:worker 立刻看见、秒停</span><span class="va">无特殊参数</span></div>
+        <div class="code" id="code-visfix"></div>
+        <div class="runbar"><button data-run="visfix">▶ 运行</button><span class="hint">几乎瞬间结束,还会告诉你它转了几十亿次才看到</span></div>
+        <div class="out" id="out-visfix"></div>
+      </div>
+
+      <div class="honest">🔍 <b>说人话 vs 真相:</b>"本地副本"是个方便的比喻。真实原因是 CPU 各核有自己的<b>高速缓存</b>,加上 JIT 编译器为了快,会把 <code>while(running)</code> 里的 <code>running</code> <b>提到 CPU 寄存器里只读一次</b>,后面循环根本不再回内存看。<code>volatile</code> 的作用就是命令 JVM:<b>这个变量每次都老老实实读写主内存,不许偷懒缓存</b>。</div>
+      <div class="take">📌 <b>两类并发 bug 收齐了:</b>(1)<b>原子性</b>问题 = 丢更新(第1课,用锁/原子类修);(2)<b>可见性</b>问题 = 改了看不见(本课,用 volatile 修)。⚠️ 注意:<code>volatile</code> 只保证"看得见",<b>不保证"算得对"</b>—— 它修不了 count++ 的丢更新(那是原子性问题)。两件事别搞混。</div>
+    </div>
+  </div>
+
+  <div class="note">👉 <b><a href="./concurrency-lab-3.html">进入第 3 课:线程池 →</a></b>　既然手写 <code>new Thread()</code> 这么容易踩坑,真实项目里都用<b>线程池</b>:为什么不能每次 new、任务进来怎么安排(可点的模拟器)、参数配错就是线上事故。本页所有 Java 都在你本机真实运行。</div>
+</div>
+
+<a id="home-fab" href="./knowledge-map.html" style="position:fixed;right:16px;bottom:16px;z-index:9999;background:#245f73;color:#fff;text-decoration:none;font:600 13px/1 -apple-system,BlinkMacSystemFont,sans-serif;padding:10px 14px;border-radius:24px;box-shadow:0 2px 10px rgba(0,0,0,.18)">🏠 总览</a>
+
+<script>
+const $=s=>document.querySelector(s);
+$('#toc').innerHTML=[['t-bc','① 字节码三步'],['t-lock','② 锁的是谁'],['t-vis','③ 可见性 volatile']]
+  .map(([id,t])=>`<a href="#${id}">${t}</a>`).join('');
+
+/* ===== 可运行代码 ===== */
+const CODE={
+lock:`public class LockDiff {
+  static int count = 0;
+  static Object lockA = new Object(), lockB = new Object();   // 两个不同的锁对象
+  public static void main(String[] a) throws Exception {
+    // 线程 A 锁 lockA,线程 B 锁 lockB —— 各锁各的,互不挡
+    Runnable jobA = () -> { for(int i=0;i<100000;i++) synchronized(lockA){ count++; } };
+    Runnable jobB = () -> { for(int i=0;i<100000;i++) synchronized(lockB){ count++; } };
+    Thread t1=new Thread(jobA), t2=new Thread(jobB);
+    t1.start(); t2.start(); t1.join(); t2.join();
+    System.out.println("锁【不同对象】 count = " + count + "   ← 还是错!锁没起到互斥作用");
+  }
+}`,
+lockSame:`public class LockSame {
+  static int count = 0;
+  static Object lock = new Object();                          // 只有一个锁对象
+  public static void main(String[] a) throws Exception {
+    // 两个线程抢的是【同一把】钥匙 lock → 真正互斥
+    Runnable job = () -> { for(int i=0;i<100000;i++) synchronized(lock){ count++; } };
+    Thread t1=new Thread(job), t2=new Thread(job);
+    t1.start(); t2.start(); t1.join(); t2.join();
+    System.out.println("锁【同一对象】 count = " + count + "   ← 对了!200000");
+  }
+}`,
+visbug:`public class VisBug {
+  static boolean running = true;             // ← 普通变量,没有 volatile
+  public static void main(String[] a) throws Exception {
+    Thread worker = new Thread(() -> {
+      long n = 0;
+      while (running) { n++; }                 // 一直转,直到"看见" running=false
+      System.out.println("worker 停了,循环了 " + n + " 次");
+    });
+    worker.start();
+    Thread.sleep(1000);
+    running = false;                           // 主线程把它改成 false
+    System.out.println("主线程已把 running 改为 false,等 worker 停…");
+    worker.join();                             // ← 没 volatile:worker 看不见,这里永远等下去
+    System.out.println("全部结束");
+  }
+}`,
+visfix:`public class VisFix {
+  static volatile boolean running = true;    // ← 只加了一个 volatile,其它一字不改
+  public static void main(String[] a) throws Exception {
+    Thread worker = new Thread(() -> {
+      long n = 0;
+      while (running) { n++; }
+      System.out.println("worker 停了!循环了 " + n + " 次才看到 false");
+    });
+    worker.start();
+    Thread.sleep(1000);
+    running = false;
+    System.out.println("主线程已把 running 改为 false,等 worker 停…");
+    worker.join();
+    System.out.println("全部结束(秒停)");
+  }
+}`
+};
+function curLockCode(){ return lockMode==='same'?CODE.lockSame:CODE.lock; }
+async function runJava(key, outEl, btn){
+  btn.disabled=true;const old=btn.textContent;btn.textContent='运行中…';
+  outEl.className='out show running';outEl.textContent='⏳ 正在本机编译 + 运行 Java…';
+  const code = key==='lock'? curLockCode() : CODE[key];
+  try{
+    const r=await fetch('/api/run-java',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({code})}).then(r=>r.json());
+    outEl.textContent=r.output||'(无输出)';
+    outEl.className='out show '+(r.ok?'':'err');
+  }catch(e){ outEl.textContent='运行失败:'+(e.message||e)+'\n(本地 8001 后端没在跑?)';outEl.className='out show err'; }
+  btn.disabled=false;btn.textContent=old;
+}
+document.getElementById('code-visbug').textContent=CODE.visbug;
+document.getElementById('code-visfix').textContent=CODE.visfix;
+document.querySelectorAll('button[data-run]').forEach(btn=>{
+  const key=btn.getAttribute('data-run');
+  btn.onclick=()=>runJava(key, document.getElementById('out-'+key), btn);
+});
+
+/* ===== ① 字节码 stepper ===== */
+const BCODE=[
+ {pc:'0',op:'getstatic count',cm:'// 读 count 压栈'},
+ {pc:'3',op:'iconst_1',cm:'// 常数 1 压栈'},
+ {pc:'4',op:'iadd',cm:'// 弹两个相加,结果压回'},
+ {pc:'5',op:'putstatic count',cm:'// 弹栈顶写回 count'},
+];
+const BCSTEP=[
+ {hl:-1,stack:[],count:5,n:'起点:count = 5,操作数栈是空的。准备执行 count++(对应下面 4 条字节码)。'},
+ {hl:0, stack:[5],count:5,n:'① getstatic:把 count 当前的值 5 读出来,压进操作数栈。(count 本身还没变)'},
+ {hl:1, stack:[5,1],count:5,n:'② iconst_1:把常数 1 也压进操作数栈。现在栈里有 5 和 1。'},
+ {hl:2, stack:[6],count:5,n:'③ iadd:弹出栈顶两个数 5、1,相加得 6,把 6 压回栈。(count 还是 5!)'},
+ {hl:3, stack:[],count:6,n:'④ putstatic:弹出栈顶的 6,写回 count。到这一步 count 才真正变成 6。'},
+];
+let bcI=0;
+function bcRender(){
+  const s=BCSTEP[bcI];
+  $('#bcList').innerHTML=BCODE.map((b,i)=>
+    `<div class="bc-line ${s.hl===i?'on':''}"><span class="pc">${b.pc}</span><span class="op">${b.op}</span><span class="cm">${b.cm}</span></div>`
+  ).join('');
+  $('#stkCells').innerHTML = s.stack.length
+    ? s.stack.map(v=>`<div class="stk-cell">${v}</div>`).join('')
+    : '<div class="stk-empty">(空)</div>';
+  $('#bcCount').textContent=s.count;
+  $('#bcNarr').textContent=s.n;
+  $('#bcPg').textContent='第 '+(bcI)+' / '+(BCSTEP.length-1)+' 步';
+  $('#bcPrev').disabled=bcI===0; $('#bcNext').disabled=bcI===BCSTEP.length-1;
+}
+$('#bcNext').onclick=()=>{bcI=Math.min(BCSTEP.length-1,bcI+1);bcRender();};
+$('#bcPrev').onclick=()=>{bcI=Math.max(0,bcI-1);bcRender();};
+$('#bcReset').onclick=()=>{bcI=0;bcRender();};
+bcRender();
+
+/* ===== ② 锁谁 ===== */
+let lockMode='diff';
+function lockRender(){
+  const same=lockMode==='same';
+  $('#lockScene').innerHTML = same
+    ? `<div class="actor A"><div class="nm">线程 A</div><div class="key">🔑</div></div>
+       <div class="obj"><div class="ttl">同一个 lock 对象</div><div class="lk">🔒</div><div class="cnt">200000</div></div>
+       <div class="actor B"><div class="nm">线程 B</div><div class="key">🔑</div></div>`
+    : `<div class="actor A"><div class="nm">线程 A</div><div class="key">🔑</div></div>
+       <div class="obj" style="border-color:#cfe0ee;background:#eef3fa"><div class="ttl">lockA</div><div class="lk">🔒</div></div>
+       <div class="obj" style="border-color:#eedcc6;background:#fbf0e4"><div class="ttl">lockB</div><div class="lk">🔒</div></div>
+       <div class="actor B"><div class="nm">线程 B</div><div class="key">🔑</div></div>`;
+  const v=$('#lockVerdict');
+  if(same){ v.className='verdict good'; v.textContent='✅ 同一把钥匙 → 一次只有一个线程能进 → count = 200000(对)'; }
+  else { v.className='verdict bad'; v.textContent='❌ 两把不同钥匙,谁也挡不住谁 → 照样交错 → count ≈ 19万(错)'; }
+  $('#lockCodeTitle').textContent = same ? '▶ 真跑:两个线程锁同一对象' : '▶ 真跑:两个线程锁不同对象';
+  $('#lockHint').innerHTML = same ? '稳稳 200000' : '本机实测 ≈ 192784,<b style="color:#e0a849">还是错的</b>';
+  // 切模式后清空旧输出
+  const out=$('#out-lock'); out.className='out'; out.textContent='';
+  $('#code-lock').textContent = curLockCode();
+}
+$('#lockSeg').querySelectorAll('button').forEach(b=>{
+  b.onclick=()=>{
+    $('#lockSeg').querySelectorAll('button').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on'); lockMode=b.getAttribute('data-l'); lockRender();
+  };
+});
+lockRender();
+
+/* ===== ③ 可见性 stepper ===== */
+const VSEQ={
+novol:[
+ {mem:'true',copy:'—',spin:'idle',spinTxt:'— 还没开始 —',main:'准备睡 1 秒…',n:'初始:主内存里 running = true。worker 还没开始,主线程准备等 1 秒再动手。'},
+ {mem:'true',copy:'true',spin:'run',spinTxt:'🌀 疯狂转圈中…',main:'睡 1 秒中…',n:'worker 启动:它读了一次 running=true,缓存成自己的【本地副本】,然后进入 while(running) 疯狂转圈。'},
+ {mem:'false',copy:'true',spin:'run',spinTxt:'🌀 还在转圈…',main:'running = false ✅',n:'⚠️ 主线程把【主内存】running 改成 false 了。但 worker 一直只看自己手边的【本地副本】(还是 true),压根没回主内存看!',cls:'warn'},
+ {mem:'false',copy:'true',spin:'stuck',spinTxt:'💥 永远转圈(卡死)',main:'卡在 worker.join() 等它…',n:'💥 worker 的本地副本永远是 true → while(running) 永远成立 → 永远停不下来。连主线程的 worker.join() 也跟着一起卡死。',cls:'danger'},
+],
+vol:[
+ {mem:'true',copy:'(直接读主内存)',spin:'idle',spinTxt:'— 还没开始 —',main:'准备睡 1 秒…',n:'初始:running = true,而且这次它是 volatile。worker 还没开始。'},
+ {mem:'true',copy:'直读=true',spin:'run',spinTxt:'🌀 转圈中(每次都查主内存)',main:'睡 1 秒中…',n:'worker 启动 while(running)。因为 running 是 volatile,它【每次循环都直接读主内存】,现在读到 true,转圈。'},
+ {mem:'false',copy:'直读=true',spin:'run',spinTxt:'🌀 即将下一次查主内存',main:'running = false ✅',n:'主线程把主内存 running 改成 false(volatile 写会立刻刷进主内存,谁都挡不住)。'},
+ {mem:'false',copy:'直读=false',spin:'stop',spinTxt:'✅ 看到 false,停!',main:'worker.join() 顺利返回',n:'✅ worker 下一圈又去读主内存 → 这回读到 false → while 条件不成立 → 立刻停下。主线程也顺利结束。',cls:'good'},
+]};
+let vMode='novol', vI=0;
+function vRender(){
+  const s=VSEQ[vMode][vI];
+  const memCls = s.mem==='true'?'t':'f';
+  $('#vMemVal').textContent=s.mem; $('#vMemVal').className='cv '+memCls;
+  $('#vMemNote').textContent = vMode==='vol' ? '(volatile:谁都直接读写这里)' : '(每个线程可能各缓存一份)';
+  const cv = s.copy==='true'||s.copy==='直读=true' ? 't' : (s.copy==='false'||s.copy==='直读=false'?'f':'');
+  $('#vWorkerVal').innerHTML = '本地看到的 running:<br><b class="'+cv+'">'+s.copy+'</b>';
+  const sp=$('#vSpin'); sp.textContent=s.spinTxt;
+  sp.className='spin '+(s.spin==='run'?'run':s.spin==='stop'?'stop':s.spin==='stuck'?'stuck':'');
+  $('#vMainVal').innerHTML=s.main;
+  const narr=$('#vNarr'); narr.textContent=s.n; narr.className='narr'+(s.cls?(' '+s.cls):'');
+  $('#vPg').textContent='第 '+(vI+1)+' / '+VSEQ[vMode].length+' 步';
+  $('#vPrev').disabled=vI===0; $('#vNext').disabled=vI===VSEQ[vMode].length-1;
+}
+$('#vNext').onclick=()=>{vI=Math.min(VSEQ[vMode].length-1,vI+1);vRender();};
+$('#vPrev').onclick=()=>{vI=Math.max(0,vI-1);vRender();};
+$('#vReset').onclick=()=>{vI=0;vRender();};
+$('#vsegMode').querySelectorAll('button').forEach(b=>{
+  b.onclick=()=>{
+    $('#vsegMode').querySelectorAll('button').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on'); vMode=b.getAttribute('data-mode'); vI=0; vRender();
+  };
+});
+vRender();
+</script>
+<script>
+if(!/^(localhost|127\.)/.test(location.hostname)){
+  var _b=document.createElement('div');
+  _b.style.cssText='position:sticky;top:0;z-index:9998;background:#fdf6e6;border-bottom:1px solid #e6d3a6;color:#8a5d1f;font:12.5px/1.6 -apple-system,BlinkMacSystemFont,sans-serif;padding:7px 14px;text-align:center';
+  _b.innerHTML='🌐 线上版:「▶ 运行」需要本地 Java 后端(localhost 才能真跑);讲解与交互动画不受影响';
+  document.body.prepend(_b);
+}
+</script>
+</body>
+</html>

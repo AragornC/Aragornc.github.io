@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>异步 / 解耦层 · 从零讲透（可运行 Java 版）</title>
+<style>
+  :root{
+    --bg:#fbfcfd; --paper:#fff; --ink:#0f1820; --ink-2:#26333f; --muted:#5e6b78; --muted-2:#8997a5;
+    --line:#dde4ec; --green:#1f6f4f; --green-d:#16543b; --green-soft:#e9f3ee;
+    --blue:#0c5d80; --blue-soft:#e6f1f6; --amber:#8a5d1f; --amber-soft:#fbf2dc;
+    --red:#a3373a; --red-soft:#fbeceb; --gray-soft:#f3f5f8; --purple:#5b3e8f; --purple-soft:#efeaf7;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;color:var(--ink);background:var(--bg);line-height:1.78;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
+  .wrap{max-width:880px;margin:0 auto;padding:34px 22px 90px}
+  .eyebrow{display:inline-block;margin-bottom:8px;color:var(--green);font-size:11px;font-weight:850;letter-spacing:.18em}
+  h1{margin:6px 0 6px;font-size:27px;font-weight:850}
+  .subtitle{margin:0;color:var(--ink-2);font-size:14.5px}
+  .meta{margin-top:13px;color:var(--muted);font-size:12.5px;border-bottom:1px solid var(--line);padding-bottom:20px}
+  p{font-size:14px;color:var(--ink-2);margin:10px 0} p b{color:var(--ink)}
+  .lv{display:flex;align-items:center;gap:13px;margin:40px 0 10px}
+  .lv .num{flex:0 0 auto;width:50px;height:50px;border-radius:14px;background:var(--green);color:#fff;font-size:13px;font-weight:850;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.05}
+  .lv .num small{font-size:9px;font-weight:700;opacity:.85}
+  .lv h2{margin:0;font-size:20px;font-weight:850;color:var(--ink)} .lv .tag{margin-top:3px;font-size:11.5px;color:var(--muted)}
+  .term{margin:12px 0;padding:13px 17px;border-radius:10px;background:var(--amber-soft);border-left:4px solid var(--amber)}
+  .term .w{font-size:13.5px;font-weight:850;color:var(--amber);margin-bottom:3px}
+  .term .w .en{font-weight:600;color:var(--muted);font-size:12px}
+  .term p{margin:3px 0;font-size:13px;color:var(--ink-2)}
+  .ana{margin:12px 0;padding:13px 17px;border-radius:10px;background:var(--blue-soft);border-left:4px solid var(--blue)}
+  .ana .h{font-size:12.5px;font-weight:850;color:var(--blue);margin-bottom:4px} .ana .h::before{content:"🌰 "}
+  .ana p{margin:3px 0;font-size:13px}
+  .key{margin:12px 0;padding:13px 17px;border-radius:10px;background:var(--green-soft);border-left:4px solid var(--green)}
+  .key .h{font-size:12.5px;font-weight:850;color:var(--green-d);margin-bottom:3px} .key .h::before{content:"🔑 "}
+  .key p{margin:3px 0;font-size:13px} .key b{color:var(--green-d)}
+  .axis-head{display:flex;align-items:baseline;gap:12px;margin:46px 0 4px;padding-bottom:8px;border-bottom:2px solid var(--line)}
+  .axis-title{font-size:21px;font-weight:850;color:var(--ink)}
+  .axis-sub{font-size:13px;color:var(--muted);font-weight:700}
+  .axis-head.a1 .axis-title{color:var(--green-d)} .axis-head.a2 .axis-title{color:var(--blue)} .axis-head.a3 .axis-title{color:var(--red)}
+  .axis-intro{font-size:13.5px;background:var(--gray-soft);border-radius:10px;padding:11px 15px;margin:8px 0 4px}
+  .demo{margin:16px 0 4px;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:#fff}
+  .demo-h{display:flex;align-items:center;gap:10px;padding:13px 16px 2px}
+  .demo-h .b{flex:0 0 auto;font-size:11px;font-weight:850;color:#fff;background:var(--green);padding:2px 9px;border-radius:7px;letter-spacing:.04em}
+  .demo-h h3{margin:0;font-size:15.5px;font-weight:850;color:var(--ink)}
+  .demo-d{padding:0 16px;margin:4px 0 10px;font-size:13px;color:var(--muted)}
+  pre.code{margin:0;padding:14px 16px;background:#0f1820;color:#e8eef4;overflow-x:auto;
+    font-family:"SF Mono",Menlo,Consolas,monospace;font-size:12px;line-height:1.62;white-space:pre}
+  pre.code .cm{color:#7d96a8}
+  .run-row{display:flex;align-items:center;gap:12px;padding:11px 16px;background:var(--gray-soft);border-top:1px solid var(--line);flex-wrap:wrap}
+  .run-btn{font:inherit;font-size:13px;font-weight:800;color:#fff;background:var(--green);border:0;border-radius:8px;padding:7px 16px;cursor:pointer}
+  .run-btn:hover{background:var(--green-d)} .run-btn:disabled{opacity:.55;cursor:default}
+  .spin{font-size:12px;color:var(--green-d);font-weight:800}
+  .cmd{font-family:"SF Mono",Menlo,Consolas,monospace;font-size:11.5px;color:var(--muted)}
+  .out-wrap{max-height:0;opacity:0;overflow:hidden;transition:max-height .5s ease,opacity .35s}
+  .out-wrap.on{max-height:2200px;opacity:1}
+  .out-label{font-size:10.5px;color:#6f8294;padding:8px 16px 0;background:#0b0f14;font-family:"SF Mono",Menlo,Consolas,monospace;letter-spacing:.03em}
+  pre.out{margin:0;padding:8px 16px 14px;background:#0b0f14;color:#cfe0d6;overflow-x:auto;
+    font-family:"SF Mono",Menlo,Consolas,monospace;font-size:12px;line-height:1.62;white-space:pre}
+  pre.out .ins{color:#8fd6a8;font-weight:600} pre.out .ev{color:#e8c98a}
+  table.tab{width:100%;border-collapse:collapse;margin:12px 0;font-size:13px}
+  table.tab th,table.tab td{padding:9px 12px;border:1px solid var(--line);text-align:left;vertical-align:top}
+  table.tab th{background:#eef3f8;font-weight:800;color:var(--ink)} table.tab td b{color:var(--ink)}
+  .axis-tag{display:inline-block;font-size:10.5px;font-weight:850;padding:2px 9px;border-radius:12px;margin-right:5px}
+  .axis-tag.a1{background:var(--green-soft);color:var(--green-d);border:1px solid #bfe0cd}
+  .axis-tag.a2{background:var(--blue-soft);color:var(--blue);border:1px solid #c8dfeb}
+  .axis-tag.a3{background:var(--red-soft);color:var(--red);border:1px solid #f0c4c2}
+  .toc{margin:16px 0;padding:14px 18px;background:var(--gray-soft);border-radius:10px}
+  .toc b{display:block;color:var(--ink);margin-bottom:7px;font-size:13px}
+  .toc a{color:var(--green-d);text-decoration:none;font-weight:700;margin:0 10px 5px 0;display:inline-block;font-size:12px}
+  .toc a:hover{text-decoration:underline}
+  code.in{background:var(--gray-soft);padding:1px 6px;border-radius:4px;font-size:.86em;font-family:"SF Mono",Menlo,Consolas,monospace;color:var(--ink-2)}
+  .foot{margin-top:48px;padding-top:15px;border-top:1px solid var(--line);font-size:11.5px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">从零讲透 · 可点击运行的 Java</div>
+  <h1>异步 / 解耦层 · 三轴讲透（每个点都能跑）</h1>
+  <p class="subtitle">五层框架的最后一层。很多事不必当场做完、很多流量扛不住当场处理、很多系统不该直接耦合——消息队列就是那个"中转站 + 缓冲池"。每个点配能 <b>▶ 运行</b> 的 Java。</p>
+  <div class="meta">读法：三轴递进——先讲异步怎么减负，再讲解耦/分区怎么摊薄，最后重点讲可靠性(削峰/不丢/不重/有序/死信)怎么兜底。.java 都在 <code class="in">异步层-java/</code>，输出本机 10 核 · OpenJDK 21 实跑。</div>
+
+  <div class="lv" id="l0"><div class="num"><small>地基</small>0</div><div><h2>消息队列(MQ)是干嘛的？</h2><div class="tag">先一句话定位</div></div></div>
+  <p>前四层（接入/计算/缓存/存储）都是"请求来了，<b>同步</b>处理完就返回"。但现实里：很多事<b>不必当场做完</b>（下单后发短信、同步数仓）；很多流量<b>扛不住当场处理</b>（秒杀瞬时洪峰）；很多系统<b>不该直接耦合</b>（下单系统不该亲自去调用十个下游）。</p>
+  <p><b>消息队列(MQ) = 在系统之间架一个"中转站 / 缓冲池"</b>：生产者把消息扔进去就走，消费者按自己的节奏取出来处理。三大价值：<b>解耦、削峰、异步</b>。常见实现：Kafka、RocketMQ、RabbitMQ、Pulsar。这一层怎么做好？还是那三根轴：</p>
+  <div class="toc">
+    <b>三轴 + 8 个可运行 demo</b>
+    <a href="#f01">②同步vs异步 F01</a>
+    <a href="#f02">①解耦 F02</a><a href="#f03">①分区并行 F03</a>
+    <a href="#f04">③削峰 F04</a><a href="#f05">③不丢ack F05</a><a href="#f06">③幂等 F06</a><a href="#f07">③顺序 F07</a><a href="#f08">③死信 F08</a>
+  </div>
+
+  <div class="axis-head a2">
+    <div class="axis-title">轴② 纵向减负</div>
+    <div class="axis-sub">MQ 怎么给主链路减负：异步</div>
+  </div>
+  <p class="axis-intro">MQ 给主链路减负的方式是"异步"——把非核心、耗时的操作从主流程剥离丢进队列，主流程只做核心、立刻返回。</p>
+  <div class="demo" id="f01">
+    <div class="demo-h"><span class="b">F01</span><h3>同步 vs 异步：剥离非核心耗时</h3></div>
+    <p class="demo-d">下单主流程：扣库存(核心,必须同步) + 发短信/发券/记日志(非核心,可异步丢队列)。</p>
+    <pre class="code">import java.util.concurrent.*;
+<span class="cm">// 异步层 | 轴② 减负 | 同步 vs 异步：把非核心耗时操作从主链路剥离</span>
+public class F01_SyncVsAsync {
+    static void step(String name, int ms) { try { Thread.sleep(ms); } catch (InterruptedException e) {} }
+    public static void main(String[] a) throws Exception {
+        <span class="cm">// ① 同步：下单主流程把 4 件事一件件做完，用户一直等</span>
+        long t0 = System.currentTimeMillis();
+        step("扣库存", 50); step("发短信", 100); step("发优惠券", 100); step("记日志", 100);
+        System.out.println("【同步】用户等待 " + (System.currentTimeMillis() - t0) + " ms（4 件事全做完才返回）");
+
+        <span class="cm">// ② 异步：主流程只做核心(扣库存)，其余丢队列后台慢慢做，立刻返回</span>
+        BlockingQueue&lt;String&gt; mq = new LinkedBlockingQueue&lt;&gt;();
+        Thread consumer = new Thread(() -&gt; {
+            try { String m; while (!(m = mq.take()).equals("STOP")) step(m, 100); } catch (InterruptedException e) {}
+        });
+        consumer.start();
+        long t1 = System.currentTimeMillis();
+        step("扣库存", 50);                                  <span class="cm">// 核心，必须同步</span>
+        mq.put("发短信"); mq.put("发优惠券"); mq.put("记日志");  <span class="cm">// 非核心，丢队列异步处理</span>
+        long userWait = System.currentTimeMillis() - t1;
+        System.out.println("【异步】用户等待 " + userWait + " ms（扣完库存立刻返回，其余后台慢慢做）");
+        mq.put("STOP"); consumer.join();
+        System.out.println("&gt;&gt; 异步把非核心耗时操作从主链路剥离丢队列，主链路只做核心、立刻返回 → 用户体验从 ~350ms 降到 ~50ms。");
+    }
+}</pre>
+    <div class="run-row">
+      <button class="run-btn" onclick="run(this)">▶ 运行</button>
+      <span class="spin" hidden>运行中…</span>
+      <span class="cmd">javac F01_SyncVsAsync.java &amp;&amp; java F01_SyncVsAsync</span>
+    </div>
+    <div class="out-wrap"><div class="out-label">▌ 真实输出（本机 10 核 · OpenJDK 21 实跑）</div><pre class="out"><span class="ev">【同步】用户等待 367 ms（4 件事全做完才返回）</span>
+<span class="ev">【异步】用户等待 55 ms（扣完库存立刻返回，其余后台慢慢做）</span>
+<span class="ins">&gt;&gt; 异步把非核心耗时操作从主链路剥离丢队列，主链路只做核心、立刻返回 → 用户体验从 ~350ms 降到 ~50ms。</span></pre></div>
+  </div>
+  <div class="key"><div class="h">异步化怎么判断</div><p>判断标准：这一步是不是用户<b>必须当场等</b>的"核心"？不是，就丢队列后台做。注意：异步是"<b>稍后一定会做</b>"，不是"不做"；而且必须保证消息不丢（见 F05）。用户等待从 ~350ms 降到 ~50ms。</p></div>
+  <div class="axis-head a1">
+    <div class="axis-title">轴① 横向摊薄</div>
+    <div class="axis-sub">解耦 → 两端各自扩展</div>
+  </div>
+  <p class="axis-intro">生产者和消费者通过队列"解耦"后，两端可以各自独立扩展、独立部署；再靠分区 + 消费者组让消费并行化，吞吐随分区数水平扩展。</p>
+  <div class="demo" id="f02">
+    <div class="demo-h"><span class="b">F02</span><h3>解耦：消费者挂了不影响生产</h3></div>
+    <p class="demo-d">生产者和消费者不直接调用，通过队列中转。看消费者宕机时生产者照常投递。</p>
+    <pre class="code">import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
+<span class="cm">// 异步层 | 轴① 摊薄 | 解耦：消费者挂了/慢了，不影响生产者</span>
+public class F02_Decouple {
+    static void sleep(long ms) { try { Thread.sleep(ms); } catch (InterruptedException e) {} }
+    public static void main(String[] a) throws Exception {
+        LinkedBlockingQueue&lt;Integer&gt; mq = new LinkedBlockingQueue&lt;&gt;();
+        AtomicInteger consumed = new AtomicInteger();
+
+        Thread producer = new Thread(() -&gt; {              <span class="cm">// 生产者：不管消费者死活，照常投递 10 条</span>
+            for (int i = 1; i &lt;= 10; i++) {
+                try { mq.put(i); } catch (InterruptedException e) {}
+                System.out.println("  [生产者] 投递消息" + i + "  (此刻队列积压=" + mq.size() + ")");
+                sleep(80);
+            }
+        });
+        Thread consumer = new Thread(() -&gt; {              <span class="cm">// 消费者：中途宕机一会儿，恢复后继续</span>
+            try {
+                for (int n = 0; n &lt; 10; n++) {
+                    if (n == 3) {
+                        System.out.println("  [消费者] *** 宕机 600ms（生产者不受影响，继续投递）***");
+                        sleep(600);
+                        System.out.println("  [消费者] *** 恢复，继续消费积压的消息 ***");
+                    }
+                    int msg = mq.take(); consumed.incrementAndGet();
+                    System.out.println("  [消费者] 处理消息" + msg);
+                }
+            } catch (InterruptedException e) {}
+        });
+        producer.start(); consumer.start(); producer.join(); consumer.join();
+        System.out.println("&gt;&gt; 生产者和消费者通过队列解耦：消费者宕机期间生产者照常投递，消息在队列里等着，恢复后接着消费——一条不丢，共消费 " + consumed.get() + " 条。");
+    }
+}</pre>
+    <div class="run-row">
+      <button class="run-btn" onclick="run(this)">▶ 运行</button>
+      <span class="spin" hidden>运行中…</span>
+      <span class="cmd">javac F02_Decouple.java &amp;&amp; java F02_Decouple</span>
+    </div>
+    <div class="out-wrap"><div class="out-label">▌ 真实输出（本机 10 核 · OpenJDK 21 实跑）</div><pre class="out"><span class="ev">  [消费者] 处理消息1</span>
+<span class="ev">  [生产者] 投递消息1  (此刻队列积压=1)</span>
+<span class="ev">  [生产者] 投递消息2  (此刻队列积压=1)</span>
+<span class="ev">  [消费者] 处理消息2</span>
+<span class="ev">  [生产者] 投递消息3  (此刻队列积压=1)</span>
+<span class="ev">  [消费者] 处理消息3</span>
+<span class="ev">  [消费者] *** 宕机 600ms（生产者不受影响，继续投递）***</span>
+<span class="ev">  [生产者] 投递消息4  (此刻队列积压=1)</span>
+<span class="ev">  [生产者] 投递消息5  (此刻队列积压=2)</span>
+<span class="ev">  [生产者] 投递消息6  (此刻队列积压=3)</span>
+<span class="ev">  [生产者] 投递消息7  (此刻队列积压=4)</span>
+<span class="ev">  [生产者] 投递消息8  (此刻队列积压=5)</span>
+<span class="ev">  [生产者] 投递消息9  (此刻队列积压=6)</span>
+<span class="ev">  [生产者] 投递消息10  (此刻队列积压=7)</span>
+<span class="ev">  [消费者] *** 恢复，继续消费积压的消息 ***</span>
+<span class="ev">  [消费者] 处理消息4</span>
+<span class="ev">  [消费者] 处理消息5</span>
+<span class="ev">  [消费者] 处理消息6</span>
+<span class="ev">  [消费者] 处理消息7</span>
+<span class="ev">  [消费者] 处理消息8</span>
+<span class="ev">  [消费者] 处理消息9</span>
+<span class="ev">  [消费者] 处理消息10</span>
+<span class="ins">&gt;&gt; 生产者和消费者通过队列解耦：消费者宕机期间生产者照常投递，消息在队列里等着，恢复后接着消费——一条不丢，共消费 10 条。</span></pre></div>
+  </div>
+  <div class="term"><div class="w">解耦 <span class="en">Decoupling</span></div><p>生产者只管把消息投进队列，<b>不关心谁消费、消费得多快、消费者活没活</b>。好处：① 消费者宕机/变慢，生产者不受影响（本 demo，积压留队列、恢复后接着消费）② 两端可<b>独立扩展、独立部署</b> ③ 加新消费者订阅同一消息<b>不用改生产者</b>——比如"下单"事件，风控、营销、数仓可以各自订阅，互不知道对方存在。</p></div>
+  <div class="demo" id="f03">
+    <div class="demo-h"><span class="b">F03</span><h3>分区 + 消费者组：并行消费</h3></div>
+    <p class="demo-d">一个 Topic 分多个分区，消费者组里每个消费者包一个分区，并行消费。</p>
+    <pre class="code">import java.util.concurrent.*;
+import java.util.*;
+<span class="cm">// 异步层 | 轴① 摊薄 | 分区 + 消费者组：多分区并行消费，吞吐随分区数扩展</span>
+public class F03_PartitionParallel {
+    static final int P = 4;
+    public static void main(String[] a) throws Exception {
+        List&lt;BlockingQueue&lt;String&gt;&gt; parts = new ArrayList&lt;&gt;();
+        for (int i = 0; i &lt; P; i++) parts.add(new LinkedBlockingQueue&lt;&gt;());
+
+        int N = 12;                                            <span class="cm">// 生产 12 条，按 key 哈希分到 4 个分区</span>
+        for (int i = 0; i &lt; N; i++) {
+            String key = "user" + i;
+            int p = (key.hashCode() &amp; 0x7fffffff) % P;
+            parts.get(p).add("msg-" + key);
+        }
+        for (int i = 0; i &lt; P; i++) System.out.println("  分区" + i + " 分到 " + parts.get(i).size() + " 条");
+
+        <span class="cm">// 消费者组：4 个消费者，各包一个分区，并行消费，每条处理 100ms</span>
+        long t = System.currentTimeMillis();
+        CountDownLatch latch = new CountDownLatch(P);
+        for (int i = 0; i &lt; P; i++) {
+            int id = i;
+            new Thread(() -&gt; {
+                BlockingQueue&lt;String&gt; q = parts.get(id);
+                while (q.poll() != null) { try { Thread.sleep(100); } catch (InterruptedException e) {} }
+                System.out.println("  消费者" + id + " 处理完分区" + id);
+                latch.countDown();
+            }).start();
+        }
+        latch.await();
+        System.out.println("4 个消费者并行处理 " + N + " 条，耗时 " + (System.currentTimeMillis() - t) + " ms");
+        System.out.println("  对比：1 个消费者串行处理 " + N + " 条 ≈ " + (N * 100) + " ms");
+        System.out.println("&gt;&gt; Topic 分多个分区，消费者组里每个消费者包一个分区并行消费 → 吞吐随分区/消费者数扩展（消费者数 ≤ 分区数）。");
+    }
+}</pre>
+    <div class="run-row">
+      <button class="run-btn" onclick="run(this)">▶ 运行</button>
+      <span class="spin" hidden>运行中…</span>
+      <span class="cmd">javac F03_PartitionParallel.java &amp;&amp; java F03_PartitionParallel</span>
+    </div>
+    <div class="out-wrap"><div class="out-label">▌ 真实输出（本机 10 核 · OpenJDK 21 实跑）</div><pre class="out">  分区0 分到 2 条
+  分区1 分到 3 条
+  分区2 分到 4 条
+  分区3 分到 3 条
+  消费者0 处理完分区0
+  消费者3 处理完分区3
+  消费者1 处理完分区1
+  消费者2 处理完分区2
+4 个消费者并行处理 12 条，耗时 420 ms
+  对比：1 个消费者串行处理 12 条 ≈ 1200 ms
+<span class="ins">&gt;&gt; Topic 分多个分区，消费者组里每个消费者包一个分区并行消费 → 吞吐随分区/消费者数扩展（消费者数 ≤ 分区数）。</span></pre></div>
+  </div>
+  <div class="term"><div class="w">分区 / 消费者组 <span class="en">Partition / Consumer Group</span></div><p><b>分区</b>=把一个 Topic 的消息拆成多条并行"车道"。<b>消费者组</b>=一组消费者分摊这些分区，且<b>每个分区同一时刻只被组内一个消费者消费</b>（所以消费者数 ≤ 分区数，多了闲置）。要提吞吐就<b>加分区 + 加消费者</b>。本 demo 4 分区并行 420ms vs 单消费者串行 1200ms。</p></div>
+  <div class="axis-head a3">
+    <div class="axis-title">轴③ 横切兜底</div>
+    <div class="axis-sub">队列 = 缓冲垫 + 安全网</div>
+  </div>
+  <p class="axis-intro">队列是高并发系统的"缓冲垫"和"安全网"：<b>削峰</b>挡洪峰、<b>ack</b>保证不丢、<b>幂等</b>容忍重复、<b>分区</b>保证局部有序、<b>死信</b>隔离毒消息。这一轴是 MQ 的可靠性重灾区，也是面试最爱问的地方。</p>
+  <div class="demo" id="f04">
+    <div class="demo-h"><span class="b">F04</span><h3>削峰填谷</h3></div>
+    <p class="demo-d">瞬时洪峰(1000 条)先进队列缓冲，消费者按下游能力匀速消费(每批 100 条)。</p>
+    <pre class="code">import java.util.concurrent.*;
+<span class="cm">// 异步层 | 轴③ 兜底 | 削峰填谷：洪峰进队列缓冲，消费者匀速消费保护下游</span>
+public class F04_PeakShaving {
+    public static void main(String[] a) throws Exception {
+        LinkedBlockingQueue&lt;Integer&gt; mq = new LinkedBlockingQueue&lt;&gt;();
+        int BURST = 1000;
+        for (int i = 0; i &lt; BURST; i++) mq.add(i);             <span class="cm">// 瞬时洪峰：1000 条一下子涌入</span>
+        System.out.println("瞬时洪峰：" + BURST + " 条消息一下子涌入队列（队列瞬间积压 " + mq.size() + "）");
+        System.out.println("下游能力有限，消费者匀速消费（每 50ms 处理一批 = 100 条）：");
+
+        long t = System.currentTimeMillis();
+        int batch = 0;
+        while (!mq.isEmpty()) {
+            for (int i = 0; i &lt; 100 &amp;&amp; !mq.isEmpty(); i++) mq.poll();   <span class="cm">// 处理一批</span>
+            batch++;
+            System.out.println("  第 " + batch + " 批处理后，队列还积压 " + mq.size() + " 条");
+            Thread.sleep(50);
+        }
+        System.out.println("洪峰被队列削平，下游始终匀速处理，没被打挂。总耗时 " + (System.currentTimeMillis() - t) + " ms");
+        System.out.println("&gt;&gt; 削峰填谷：洪峰先进队列缓冲（瞬间涨到 1000），消费者按下游扛得住的速率匀速消费（队列慢慢落）→ 下游看到的是平稳流量，不是瞬时 1000 并发。");
+    }
+}</pre>
+    <div class="run-row">
+      <button class="run-btn" onclick="run(this)">▶ 运行</button>
+      <span class="spin" hidden>运行中…</span>
+      <span class="cmd">javac F04_PeakShaving.java &amp;&amp; java F04_PeakShaving</span>
+    </div>
+    <div class="out-wrap"><div class="out-label">▌ 真实输出（本机 10 核 · OpenJDK 21 实跑）</div><pre class="out">瞬时洪峰：1000 条消息一下子涌入队列（队列瞬间积压 1000）
+下游能力有限，消费者匀速消费（每 50ms 处理一批 = 100 条）：
+  第 1 批处理后，队列还积压 900 条
+  第 2 批处理后，队列还积压 800 条
+  第 3 批处理后，队列还积压 700 条
+  第 4 批处理后，队列还积压 600 条
+  第 5 批处理后，队列还积压 500 条
+  第 6 批处理后，队列还积压 400 条
+  第 7 批处理后，队列还积压 300 条
+  第 8 批处理后，队列还积压 200 条
+  第 9 批处理后，队列还积压 100 条
+  第 10 批处理后，队列还积压 0 条
+洪峰被队列削平，下游始终匀速处理，没被打挂。总耗时 538 ms
+<span class="ins">&gt;&gt; 削峰填谷：洪峰先进队列缓冲（瞬间涨到 1000），消费者按下游扛得住的速率匀速消费（队列慢慢落）→ 下游看到的是平稳流量，不是瞬时 1000 并发。</span></pre></div>
+  </div>
+  <div class="key"><div class="h">削峰 + 消息积压</div><p>这是 MQ 最经典的高并发用途：秒杀/大促瞬时百万请求，直接打 DB 必挂；先进队列，下游匀速消费。代价：① 异步化 → 结果不实时（下单后显示"处理中"）② 要处理<b>消息积压</b>——若生产持续 > 消费，队列无限涨、延迟暴增。解法：加消费者 / 加分区 / 批量消费 / 临时降级丢弃非核心消息。</p></div>
+  <div class="demo" id="f05">
+    <div class="demo-h"><span class="b">F05</span><h3>消息不丢：ack 机制</h3></div>
+    <p class="demo-d">先 ack 后处理(at-most-once,崩了丢) vs 先处理后 ack(at-least-once,崩了重发不丢)。</p>
+    <pre class="code"><span class="cm">// 异步层 | 轴③ 兜底 | 消息不丢：ack 机制（先确认还是先处理，结果天差地别）</span>
+public class F05_Ack {
+    <span class="cm">// 模拟一个 broker：消息要等消费者 ack 才删除；没 ack 则保留、稍后重投</span>
+    public static void main(String[] a) {
+        boolean crash = true;   <span class="cm">// 假设消费者处理到一半崩溃</span>
+
+        System.out.println("【at-most-once：先 ack 后处理】");
+        boolean inBroker1 = true;
+        inBroker1 = false;                                   <span class="cm">// 一拿到就 ack，broker 立刻删除</span>
+        System.out.println("  收到消息 → 先 ack（broker 已删除）→ 再处理...");
+        if (crash) System.out.println("  处理到一半崩溃！→ broker 里已经没这条消息了 → 消息永久丢失 ✗");
+        System.out.println("  结果：broker 中消息 = " + (inBroker1 ? "还在" : "已丢失") + "（最多消费一次，可能丢）\n");
+
+        System.out.println("【at-least-once：先处理后 ack】");
+        boolean inBroker2 = true;
+        System.out.println("  收到消息 → 先处理...");
+        if (crash) System.out.println("  处理到一半崩溃！→ 还没 ack → broker 保留消息，稍后重投");
+        System.out.println("  重启后：broker 重投这条消息 → 这次处理成功 → ack");
+        inBroker2 = false;
+        System.out.println("  结果：消息没丢，但可能被处理 2 次（崩前处理一半 + 重投又处理）→ 需要幂等（见 F06）\n");
+
+        System.out.println("&gt;&gt; ack 机制：先 ack 后处理 = at-most-once（崩了会丢）；先处理后 ack = at-least-once（崩了会重，但不丢）。");
+        System.out.println("&gt;&gt; 生产几乎都用 at-least-once + 消费端幂等。真正的 exactly-once 要靠 broker 去重 + 事务（如 Kafka 事务），代价高。");
+    }
+}</pre>
+    <div class="run-row">
+      <button class="run-btn" onclick="run(this)">▶ 运行</button>
+      <span class="spin" hidden>运行中…</span>
+      <span class="cmd">javac F05_Ack.java &amp;&amp; java F05_Ack</span>
+    </div>
+    <div class="out-wrap"><div class="out-label">▌ 真实输出（本机 10 核 · OpenJDK 21 实跑）</div><pre class="out"><span class="ev">【at-most-once：先 ack 后处理】</span>
+  收到消息 → 先 ack（broker 已删除）→ 再处理...
+  处理到一半崩溃！→ broker 里已经没这条消息了 → 消息永久丢失 ✗
+  结果：broker 中消息 = 已丢失（最多消费一次，可能丢）
+
+<span class="ev">【at-least-once：先处理后 ack】</span>
+  收到消息 → 先处理...
+  处理到一半崩溃！→ 还没 ack → broker 保留消息，稍后重投
+  重启后：broker 重投这条消息 → 这次处理成功 → ack
+  结果：消息没丢，但可能被处理 2 次（崩前处理一半 + 重投又处理）→ 需要幂等（见 F06）
+
+<span class="ins">&gt;&gt; ack 机制：先 ack 后处理 = at-most-once（崩了会丢）；先处理后 ack = at-least-once（崩了会重，但不丢）。</span>
+<span class="ins">&gt;&gt; 生产几乎都用 at-least-once + 消费端幂等。真正的 exactly-once 要靠 broker 去重 + 事务（如 Kafka 事务），代价高。</span></pre></div>
+  </div>
+  <div class="term"><div class="w">投递语义 <span class="en">Delivery Semantics</span></div><p>三种：<b>at-most-once</b>(最多一次，可能丢)、<b>at-least-once</b>(至少一次，可能重，<b>主流选择</b>)、<b>exactly-once</b>(恰好一次，要 broker 去重 + 事务，贵)。消息在<b>三个环节</b>都可能丢：生产端(发送失败要重试/确认)、broker 端(没落盘就宕机 → 要刷盘 + 多副本)、消费端(处理前就 ack → 本 demo)。</p></div>
+  <div class="demo" id="f06">
+    <div class="demo-h"><span class="b">F06</span><h3>重复消费 + 幂等</h3></div>
+    <p class="demo-d">at-least-once 会重投同一条消息(扣款 3 次)，消费端用去重表避免重复执行。</p>
+    <pre class="code">import java.util.*;
+<span class="cm">// 异步层 | 轴③ 兜底 | 重复消费 + 幂等：at-least-once 会重投，消费端必须去重</span>
+public class F06_Idempotent {
+    static int balance1 = 100, balance2 = 100;
+    static final Set&lt;String&gt; processed = new HashSet&lt;&gt;();     <span class="cm">// 去重表：记录已处理的消息 ID</span>
+
+    static void consumeNaive(String msgId, int amount) {       <span class="cm">// 无幂等：来一条扣一次</span>
+        balance1 -= amount;
+    }
+    static void consumeIdem(String msgId, int amount) {        <span class="cm">// 幂等：先查去重表，处理过就跳过</span>
+        if (processed.contains(msgId)) { System.out.println("    消息 " + msgId + " 已处理过，跳过(幂等)"); return; }
+        balance2 -= amount;
+        processed.add(msgId);
+    }
+    public static void main(String[] a) {
+        System.out.println("一条扣款消息(扣 50)因重试被重复投递 3 次：");
+        for (int i = 0; i &lt; 3; i++) consumeNaive("msg-1", 50);
+        System.out.println("  【无幂等】余额: 100 → " + balance1 + "   (扣了 3 次! 多扣了 100)");
+        for (int i = 0; i &lt; 3; i++) consumeIdem("msg-1", 50);
+        System.out.println("  【幂等】  余额: 100 → " + balance2 + "    (只扣 1 次，重复消息被去重表挡住)");
+        System.out.println("&gt;&gt; at-least-once 会重复投递，消费端必须幂等：用唯一消息 ID 去重(去重表 / Redis SETNX / 数据库唯一键)，重复消息不重复执行。");
+    }
+}</pre>
+    <div class="run-row">
+      <button class="run-btn" onclick="run(this)">▶ 运行</button>
+      <span class="spin" hidden>运行中…</span>
+      <span class="cmd">javac F06_Idempotent.java &amp;&amp; java F06_Idempotent</span>
+    </div>
+    <div class="out-wrap"><div class="out-label">▌ 真实输出（本机 10 核 · OpenJDK 21 实跑）</div><pre class="out">一条扣款消息(扣 50)因重试被重复投递 3 次：
+<span class="ev">  【无幂等】余额: 100 → -50   (扣了 3 次! 多扣了 100)</span>
+    消息 msg-1 已处理过，跳过(幂等)
+    消息 msg-1 已处理过，跳过(幂等)
+<span class="ev">  【幂等】  余额: 100 → 50    (只扣 1 次，重复消息被去重表挡住)</span>
+<span class="ins">&gt;&gt; at-least-once 会重复投递，消费端必须幂等：用唯一消息 ID 去重(去重表 / Redis SETNX / 数据库唯一键)，重复消息不重复执行。</span></pre></div>
+  </div>
+  <div class="term"><div class="w">幂等 <span class="en">Idempotent</span></div><p>幂等 = 同一操作<b>执行多次和执行一次效果相同</b>。实现：唯一消息 ID + 去重(Redis <code class="in">SETNX</code> / 数据库唯一键 / 状态机)。它是 at-least-once 的<b>必备搭档</b>：既然"不丢"就意味着"会重"，那就让"重了也没事"。本 demo：无幂等扣成 -50，幂等只扣一次到 50。</p></div>
+  <div class="demo" id="f07">
+    <div class="demo-h"><span class="b">F07</span><h3>顺序消息</h3></div>
+    <p class="demo-d">同一用户的 充值→下单→退款 必须按序。多分区并行会乱序；按 key 进同一分区则有序。</p>
+    <pre class="code">import java.util.concurrent.*;
+<span class="cm">// 异步层 | 轴③ 兜底 | 顺序消息：同一实体的消息按 key 进同一分区，保证局部有序</span>
+public class F07_Order {
+    static void handle(String msg, int ms) {
+        try { Thread.sleep(ms); } catch (InterruptedException e) {}
+        System.out.println("    处理完成: " + msg);
+    }
+    public static void main(String[] a) throws Exception {
+        String[] ops = {"①充值100", "②下单扣100", "③退款100"};
+        int[] cost = {150, 80, 30};                            <span class="cm">// 故意让后面的更快完成, 暴露并行乱序</span>
+
+        System.out.println("同一用户的 3 个操作，业务上必须按 ①→②→③ 顺序处理。");
+        System.out.println("【多分区并行】3 条消息分到不同分区，3 个线程并行处理：");
+        ExecutorService p = Executors.newFixedThreadPool(3);
+        CountDownLatch l = new CountDownLatch(3);
+        for (int i = 0; i &lt; 3; i++) { int id = i; p.submit(() -&gt; { handle(ops[id], cost[id]); l.countDown(); }); }
+        l.await(); p.shutdown();
+        System.out.println("  → 乱序了! ③退款 比 ①充值 先完成 → 业务错乱(退了还没充进来的钱)\n");
+
+        System.out.println("【同 key 同分区】3 条消息按 userId 哈希进同一分区，单线程顺序消费：");
+        for (int i = 0; i &lt; 3; i++) handle(ops[i], cost[i]);
+        System.out.println("  → 严格 ①→②→③，顺序正确");
+        System.out.println("&gt;&gt; 顺序消息：把同一实体(同一 userId)的消息按 key 哈希到同一分区，分区内单线程顺序消费 → 保证局部有序。全局有序代价大、很少用。");
+    }
+}</pre>
+    <div class="run-row">
+      <button class="run-btn" onclick="run(this)">▶ 运行</button>
+      <span class="spin" hidden>运行中…</span>
+      <span class="cmd">javac F07_Order.java &amp;&amp; java F07_Order</span>
+    </div>
+    <div class="out-wrap"><div class="out-label">▌ 真实输出（本机 10 核 · OpenJDK 21 实跑）</div><pre class="out">同一用户的 3 个操作，业务上必须按 ①→②→③ 顺序处理。
+<span class="ev">【多分区并行】3 条消息分到不同分区，3 个线程并行处理：</span>
+    处理完成: ③退款100
+    处理完成: ②下单扣100
+    处理完成: ①充值100
+  → 乱序了! ③退款 比 ①充值 先完成 → 业务错乱(退了还没充进来的钱)
+
+<span class="ev">【同 key 同分区】3 条消息按 userId 哈希进同一分区，单线程顺序消费：</span>
+    处理完成: ①充值100
+    处理完成: ②下单扣100
+    处理完成: ③退款100
+  → 严格 ①→②→③，顺序正确
+<span class="ins">&gt;&gt; 顺序消息：把同一实体(同一 userId)的消息按 key 哈希到同一分区，分区内单线程顺序消费 → 保证局部有序。全局有序代价大、很少用。</span></pre></div>
+  </div>
+  <div class="key"><div class="h">局部有序就够了</div><p><b>全局有序</b>(整个 Topic 严格有序)要求单分区单消费者，吞吐极低，几乎不用。实际用<b>局部有序</b>：把同一 userId/订单ID 的消息按 key 哈希进<b>同一分区</b>、分区内单线程顺序消费，保证"这个实体"的消息有序，不同实体之间无所谓。又快又够用。本 demo 并行版 ③ 比 ① 先完成 → 业务错乱。</p></div>
+  <div class="demo" id="f08">
+    <div class="demo-h"><span class="b">F08</span><h3>死信队列</h3></div>
+    <p class="demo-d">msg-bad 是脏数据永远失败，重试 3 次后投入死信队列，不阻塞 msg-2/msg-3。</p>
+    <pre class="code">import java.util.*;
+<span class="cm">// 异步层 | 轴③ 兜底 | 死信队列：反复处理失败的"毒消息"隔离掉，不阻塞后续</span>
+public class F08_DeadLetter {
+    static LinkedList&lt;String&gt; dlq = new LinkedList&lt;&gt;();        <span class="cm">// 死信队列</span>
+    static final int MAX_RETRY = 3;
+    static boolean handle(String msg) {
+        return !msg.contains("bad");                          <span class="cm">// 假设 'bad' 消息是脏数据, 永远处理失败</span>
+    }
+    public static void main(String[] a) {
+        String[] msgs = {"msg-1", "msg-bad", "msg-2", "msg-3"};
+        for (String msg : msgs) {
+            boolean ok = false;
+            for (int r = 1; r &lt;= MAX_RETRY; r++) {
+                if (handle(msg)) { System.out.println("  " + msg + " 处理成功"); ok = true; break; }
+                System.out.println("  " + msg + " 处理失败，第 " + r + " 次重试...");
+            }
+            if (!ok) {
+                dlq.add(msg);
+                System.out.println("  " + msg + " 重试 " + MAX_RETRY + " 次仍失败 → 投入死信队列，不再阻塞后续");
+            }
+        }
+        System.out.println("死信队列内容: " + dlq + "   (留给人工排查 / 定时再处理)");
+        System.out.println("&gt;&gt; 死信队列(DLQ)：反复处理失败的'毒消息'丢进专门的队列，避免它卡住正常消息；之后人工排查或修复后重投。");
+    }
+}</pre>
+    <div class="run-row">
+      <button class="run-btn" onclick="run(this)">▶ 运行</button>
+      <span class="spin" hidden>运行中…</span>
+      <span class="cmd">javac F08_DeadLetter.java &amp;&amp; java F08_DeadLetter</span>
+    </div>
+    <div class="out-wrap"><div class="out-label">▌ 真实输出（本机 10 核 · OpenJDK 21 实跑）</div><pre class="out">  msg-1 处理成功
+  msg-bad 处理失败，第 1 次重试...
+  msg-bad 处理失败，第 2 次重试...
+  msg-bad 处理失败，第 3 次重试...
+  msg-bad 重试 3 次仍失败 → 投入死信队列，不再阻塞后续
+  msg-2 处理成功
+  msg-3 处理成功
+死信队列内容: [msg-bad]   (留给人工排查 / 定时再处理)
+<span class="ins">&gt;&gt; 死信队列(DLQ)：反复处理失败的'毒消息'丢进专门的队列，避免它卡住正常消息；之后人工排查或修复后重投。</span></pre></div>
+  </div>
+  <div class="term"><div class="w">死信队列 <span class="en">Dead Letter Queue, DLQ</span></div><p>专门存"处理不掉的消息"。触发：重试 N 次仍失败 / 消息过期 / 队列满。作用：把"<b>毒消息</b>"(脏数据、触发 bug 的消息)隔离出来，别让它无限重试、卡住整条消费链；之后人工排查或修复后重投。</p></div>
+  <div class="key" style="margin-top:26px"><div class="h">补一个高频考点：业务和发消息的一致性（事务消息）</div><p>"扣了款"和"发了消息"必须<b>同时成功或同时失败</b>，否则：扣款成功但消息没发出去（漏发）、或消息发了但扣款回滚了（乱发）。解法：① <b>本地消息表</b>——把"要发的消息"作为一条记录，和业务数据写在<b>同一个本地事务</b>里，再由后台扫描表把消息投出去；② <b>事务消息</b>（RocketMQ）——先发"半消息"→执行本地事务→根据结果提交或回滚。本质都是用<b>最终一致</b>解决分布式事务（呼应缓存层那个"强一致做不到、接受最终一致"）。</p></div>
+
+  <div class="lv" id="matrix"><div class="num"><small>收尾</small>★</div><div><h2>回到三轴矩阵</h2><div class="tag">8 个 demo 各归各位</div></div></div>
+  <table class="tab">
+    <thead><tr><th>轴</th><th>异步层在干嘛</th><th>手段</th><th>对应 demo</th></tr></thead>
+    <tbody>
+      <tr><td><span class="axis-tag a1">轴① 摊薄</span></td><td>解耦后两端各自扩展、并行消费</td><td>解耦 · 分区 Partition · 消费者组</td><td>F02 F03</td></tr>
+      <tr><td><span class="axis-tag a2">轴② 减负</span></td><td>异步剥离主链路的耗时操作</td><td>异步化 · 批量消费</td><td>F01</td></tr>
+      <tr><td><span class="axis-tag a3">轴③ 兜底</span></td><td>当缓冲垫和安全网, 别让流量打穿</td><td>削峰 · ack不丢 · 幂等不重 · 局部有序 · 死信</td><td>F04–F08</td></tr>
+    </tbody>
+  </table>
+  <div class="key"><div class="h">一句话总结异步层</div><p>消息队列干三件事：<b>① 用异步把非核心耗时操作从主链路剥离（减负）② 用解耦 + 分区 + 消费者组让生产消费各自水平扩展（摊薄）③ 用削峰挡洪峰、ack 保证不丢、幂等容忍重复、分区保证局部有序、死信隔离毒消息（兜底）</b>。</p></div>
+  <div class="ana"><div class="h">面试怎么说（把这层串成一句）</div><p>"异步层我从三轴讲：<b>纵向减负</b>把非核心耗时操作（发短信、同步数仓）从下单主链路剥离丢队列，主链路只做核心、立刻返回；<b>横向摊薄</b>靠生产消费解耦让两端独立扩展，再用分区 + 消费者组并行消费、吞吐随分区数线性扩展；<b>横切兜底</b>是重点——削峰把秒杀洪峰挡在队列里匀速消费，at-least-once + ack 保证不丢、配消费端幂等容忍重复，同 key 进同分区保证局部有序，毒消息进死信队列隔离，跨系统一致性用事务消息/本地消息表做最终一致。"</p></div>
+
+  <div class="lv" id="howrun"><div class="num"><small>附</small>▶</div><div><h2>自己怎么跑</h2><div class="tag">.java 都在 异步层-java/</div></div></div>
+  <pre class="code"><span class="cm"># 1) 让终端用上 JDK 21</span>
+export PATH="/opt/homebrew/opt/openjdk@21/bin:$PATH"
+<span class="cm"># 2) 进目录</span>
+cd "异步层-java"
+<span class="cm"># 3) 编译并运行任意一个，例如削峰那个</span>
+javac F04_PeakShaving.java && java F04_PeakShaving</pre>
+  <p style="font-size:12.5px;color:var(--muted)">用内存 BlockingQueue 模拟 MQ，只为讲清概念；真实 Kafka/RocketMQ 的分区、ack、消费者组是分布式的，但思想一致。每个 .java 旁的 .out 是本机实跑留档。</p>
+
+  <div class="foot">从零讲透系列 · 异步/解耦层 · 2026-06-28 · 本系列已覆盖 接入 / 计算 / 缓存 / 异步 四层（存储层可按需再补）· 上一层：缓存层</div>
+</div>
+<script>
+function run(btn){
+  var card=btn.closest('.demo');
+  var wrap=card.querySelector('.out-wrap');
+  var spin=card.querySelector('.spin');
+  btn.disabled=true; if(spin) spin.hidden=false; wrap.classList.remove('on');
+  setTimeout(function(){
+    if(spin) spin.hidden=true; btn.disabled=false;
+    wrap.classList.add('on'); btn.textContent='✓ 已运行 · 点重跑';
+  },320);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>并发编程 · 第1课:线程 & 第一个并发 bug</title>
+<style>
+  :root{--bg:#fafaf7;--paper:#fff;--ink:#1a1a1a;--ink2:#4a4a4a;--muted:#8a8a8a;--line:#e8e6df;
+    --accent:#245f73;--good:#1f6f4f;--warn:#b84a36;--gold:#8a5d1f;
+    --A:#2f6f9f;--Abg:#eaf3fa;--B:#c4702a;--Bbg:#fbf0e4;
+    --font:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    --mono:"SF Mono",ui-monospace,Menlo,monospace;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.7;font-size:15px}
+  .page{max-width:1000px;margin:0 auto;padding:30px 20px 110px}
+  h1{font-size:24px;margin:0 0 4px}.sub{color:var(--muted);margin:0 0 10px;font-size:13.5px}a{color:var(--accent)}
+  .reassure{background:#eef6f0;border:1px solid #cfe6d8;border-radius:10px;padding:12px 15px;font-size:13.5px;color:#155;margin:12px 0}
+  .reassure b{color:#0a4}
+  .toc{display:flex;flex-wrap:wrap;gap:7px;margin:12px 0}
+  .toc a{font-size:12.5px;background:#fff;border:1px solid var(--line);border-radius:20px;padding:4px 11px;text-decoration:none;color:var(--accent)}
+  .topic{margin-top:22px;background:var(--paper);border:1px solid var(--line);border-radius:12px;overflow:hidden;scroll-margin-top:12px}
+  .topic-h{padding:13px 18px;background:#f6f5ef;border-bottom:1px solid var(--line);display:flex;align-items:baseline;gap:10px}
+  .topic-h .num{font-family:var(--mono);font-weight:800;color:var(--muted)}
+  .topic-h h2{margin:0;font-size:17px}
+  .topic-h .lv{font-size:11px;font-weight:800;border-radius:5px;padding:1px 8px;color:#fff;margin-left:auto}
+  .lv.基础{background:var(--accent)}.lv.核心{background:var(--warn)}
+  .topic-b{padding:16px 18px}
+  .lead{font-size:14px;color:var(--ink2);margin:0 0 12px}
+  .lead b{color:var(--accent)}
+  /* 可运行代码块 */
+  .runblk{margin-top:14px;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .runblk-h{display:flex;align-items:center;gap:10px;padding:8px 12px;background:#1f2328;border-bottom:1px solid #333}
+  .runblk-h .t{font-size:12px;color:#9aa4ad;font-family:var(--mono)}
+  .runblk-h .va{font-size:11px;color:#e0a849;font-family:var(--mono);margin-left:auto}
+  .code{background:#1f2328;color:#cfd6dd;font-family:var(--mono);font-size:12px;line-height:1.55;padding:12px 14px;white-space:pre;overflow-x:auto;max-height:360px;overflow-y:auto}
+  .runbar{display:flex;align-items:center;gap:10px;padding:9px 12px;background:#181c20;border-top:1px solid #333}
+  .runbar button{font:inherit;font-weight:800;font-size:13px;padding:6px 16px;border:none;border-radius:7px;background:var(--good);color:#fff;cursor:pointer}
+  .runbar button:disabled{opacity:.5}
+  .runbar .hint{font-size:11.5px;color:#7c8893}
+  .out{font-family:var(--mono);font-size:12px;line-height:1.6;padding:12px 14px;white-space:pre-wrap;word-break:break-word;background:#11151a;color:#c7d0d8;min-height:24px;border-top:1px solid #333;display:none}
+  .out.show{display:block}.out.running{color:#e0a849}.out.err{color:#f0a08c}
+  .take{font-size:13px;color:var(--gold);background:#fbf7ee;border:1px solid #ecdfc7;border-radius:8px;padding:9px 13px;margin-top:12px}
+  .take b{color:#5e3f12}
+
+  /* 进程/线程示意 */
+  .proc{border:2px solid var(--accent);border-radius:12px;padding:12px;background:#f3f8fa;position:relative}
+  .proc .ptag{position:absolute;top:-11px;left:14px;background:var(--accent);color:#fff;font-size:11.5px;font-weight:800;padding:1px 9px;border-radius:6px}
+  .shared{background:#fff3d8;border:1.5px dashed #d6a93a;border-radius:9px;padding:9px 12px;margin:6px 4px 12px;font-size:12.5px;color:#7a5a14;text-align:center}
+  .shared b{color:#8a5d1f}
+  .lanes{display:flex;flex-direction:column;gap:9px}
+  .lane{display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--line);border-radius:9px;padding:8px 10px}
+  .lane .name{font-weight:800;font-size:12.5px;min-width:52px;color:var(--A)}
+  .track{position:relative;flex:1;height:14px;background:#eef2f4;border-radius:7px;overflow:hidden}
+  .runner{position:absolute;top:1px;width:12px;height:12px;border-radius:50%;background:var(--A);animation:run 1.8s linear infinite}
+  @keyframes run{0%{left:0}100%{left:calc(100% - 12px)}}
+  .lane .stk{font-size:10.5px;color:var(--muted);font-family:var(--mono);background:#f4f6f7;border:1px solid var(--line);border-radius:5px;padding:1px 6px;white-space:nowrap}
+  .lanectl{margin-top:10px;display:flex;gap:8px}
+  .lanectl button{font:inherit;font-size:12.5px;font-weight:700;padding:5px 12px;border:1px solid var(--line);background:#fff;border-radius:7px;cursor:pointer;color:var(--accent)}
+
+  /* 交错执行 stepper */
+  .sim{border:1px solid var(--line);border-radius:11px;overflow:hidden;margin-top:6px}
+  .sim-top{display:flex;gap:8px;padding:10px 12px;background:#f6f5ef;border-bottom:1px solid var(--line);align-items:center;flex-wrap:wrap}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .seg button{font:inherit;font-size:12.5px;font-weight:800;padding:5px 14px;border:none;background:#fff;color:var(--ink2);cursor:pointer}
+  .seg button.on{background:var(--accent);color:#fff}
+  .sim-stage{display:flex;align-items:stretch;gap:12px;padding:20px 16px;background:#fbfaf6}
+  .col{flex:1;border:2px solid var(--line);border-radius:11px;padding:12px;background:#fff;transition:.15s;text-align:center;position:relative}
+  .col.A{border-color:#cfe0ee}.col.B{border-color:#eedcc6}
+  .col.active{box-shadow:0 0 0 3px rgba(47,111,159,.18)}
+  .col.A.active{border-color:var(--A)}.col.B.active{border-color:var(--B)}
+  .col .ct{font-weight:800;font-size:13px;margin-bottom:8px}
+  .col.A .ct{color:var(--A)}.col.B .ct{color:var(--B)}
+  .reg{font-family:var(--mono);font-size:12px;color:var(--ink2);background:#f7f7f4;border:1px solid var(--line);border-radius:7px;padding:8px;min-height:34px;display:flex;align-items:center;justify-content:center}
+  .reg b{font-size:18px;color:var(--ink)}
+  .col.A.active .reg{background:var(--Abg)}.col.B.active .reg{background:var(--Bbg)}
+  .wait{position:absolute;inset:0;background:rgba(245,245,242,.82);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:800;color:var(--muted)}
+  .mid{flex:0 0 150px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px}
+  .countbox{width:108px;height:108px;border-radius:14px;border:3px solid var(--accent);background:#eef6f9;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:.18s}
+  .countbox .cl{font-size:11px;color:var(--muted);font-family:var(--mono)}
+  .countbox .cv{font-size:40px;font-weight:800;color:var(--accent);line-height:1;font-family:var(--mono)}
+  .countbox.danger{border-color:var(--warn);background:#fbeae6}.countbox.danger .cv{color:var(--warn)}
+  .countbox.good{border-color:var(--good);background:#e9f5ee}.countbox.good .cv{color:var(--good)}
+  .lockbadge{font-size:12px;font-weight:800;padding:3px 10px;border-radius:7px;background:#f0eee8;color:var(--muted);min-height:24px}
+  .lockbadge.held{background:#fdecc8;color:#8a5d1f}
+  .narr{padding:13px 16px;background:#11151a;color:#d6dee5;font-size:13.5px;line-height:1.65;min-height:46px;border-top:1px solid #2a2f35}
+  .narr.danger{color:#f3b0a0}.narr.good{color:#9fe0bb}.narr.warn{color:#f0cf8c}
+  .sim-ctl{display:flex;align-items:center;gap:8px;padding:10px 12px;background:#181c20;border-top:1px solid #2a2f35;flex-wrap:wrap}
+  .sim-ctl button{font:inherit;font-weight:800;font-size:13px;padding:6px 14px;border:none;border-radius:7px;cursor:pointer}
+  .sim-ctl .nx{background:var(--good);color:#fff}
+  .sim-ctl .sec{background:#2a2f35;color:#cfd6dd}
+  .sim-ctl button:disabled{opacity:.4;cursor:default}
+  .sim-ctl .pg{font-size:11.5px;color:#8a949c;font-family:var(--mono);margin-left:auto}
+  .note{font-size:12.5px;color:var(--ink2);margin-top:22px;padding:11px 14px;background:#f4f6f7;border:1px solid #e2ebec;border-radius:8px}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>并发编程 · 第 1 课</h1>
+  <p class="sub">线程是什么 · 第一个并发 bug · 为什么会错 · 怎么修　|　<a href="./jvm-classloading-lab.html">← 类加载</a> · <a href="./concurrency-lab-2.html">第2课:锁的本质 &amp; 可见性 →</a> · <a href="./knowledge-map.html">知识地图</a></p>
+
+  <div class="reassure">😌 <b>当你是零基础。</b> 这一课只追一件事:<b>为什么"多个线程一起改一个数"会出错,以及怎么修。</b> 这里大多数是<b>你能点的图</b>和<b>能真跑的代码</b>(点 ▶ 运行,本机用 OpenJDK 21 真编译真运行,回显真实输出),文字只在必要处出现。</div>
+
+  <div class="toc" id="toc"></div>
+
+  <!-- ① 线程是什么 -->
+  <div class="topic" id="t-thread">
+    <div class="topic-h"><span class="num">①</span><h2>线程是什么?(进程 vs 线程)</h2><span class="lv 基础">基础</span></div>
+    <div class="topic-b">
+      <p class="lead">一个正在运行的程序 = 一个<b>进程</b>。进程里可以同时有好几条"执行的线" = <b>线程</b>。它们<b>各跑各的</b>(每条线程有自己的栈、自己的程序计数器 PC),但<b>共用同一块"堆 / 静态变量"</b>。下面这张图就是这个意思——三条线在同时跑,但它们都伸手去够中间那块<b>共享内存</b>:</p>
+      <div class="proc">
+        <span class="ptag">进程(你的程序)</span>
+        <div class="shared">🟡 <b>共享:堆 / 静态变量</b> —— 所有线程都能读、都能改(麻烦就出在这)</div>
+        <div class="lanes" id="lanes"></div>
+        <div class="lanectl">
+          <button id="addLane">＋ 再开一个线程</button>
+          <button id="resetLane">重置为 3 条</button>
+          <span style="font-size:12px;color:var(--muted);align-self:center">每条线程有自己的「栈(私有)」,但都连着上面那块共享内存</span>
+        </div>
+      </div>
+      <div class="runblk">
+        <div class="runblk-h"><span class="t">▶ 真跑一下:开 3 个线程,各自报出自己叫啥</span><span class="va">无特殊参数</span></div>
+        <div class="code" id="code-who"></div>
+        <div class="runbar"><button data-run="who">▶ 运行</button><span class="hint">注意:子线程打印的<b style="color:#e0a849">顺序每次可能不一样</b> —— 因为它们真的在"同时抢着跑"</span></div>
+        <div class="out" id="out-who"></div>
+      </div>
+      <div class="take">📌 <b>一句话:</b>线程 = 进程里一条"正在执行的线";多线程 = 同一个程序里好几条线<b>同时跑</b>,且<b>共享同一块内存</b>。能"同时"是好事(快),但"共享同一块内存"就是后面所有麻烦的根源。</div>
+    </div>
+  </div>
+
+  <!-- ② 第一个 bug -->
+  <div class="topic" id="t-race">
+    <div class="topic-h"><span class="num">②</span><h2>第一个并发 bug:两个线程一起数数</h2><span class="lv 核心">核心</span></div>
+    <div class="topic-b">
+      <p class="lead">让两个线程,各自把同一个变量 <code>count</code> 加 10 万次。一个加 10 万、另一个也加 10 万,<b>结果"应该"是 20 万</b>。点 ▶ 运行,看看实际是多少 —— 而且<b>多点几次,每次还不一样</b>:</p>
+      <div class="runblk">
+        <div class="runblk-h"><span class="t">▶ 两个线程一起 count++(没有任何保护)</span><span class="va">无特殊参数</span></div>
+        <div class="code" id="code-race"></div>
+        <div class="runbar"><button data-run="race">▶ 运行</button><span class="hint">反复点几次,感受那个"飘忽不定、还总是偏小"的数</span></div>
+        <div class="out" id="out-race"></div>
+      </div>
+      <div class="take">📌 <b>这就叫「竞态条件 / Race Condition」:</b>多个线程同时读改同一份数据,结果取决于它们"谁先谁后"的随机交错,于是<b>算错、且每次错得还不一样</b>。下面 ③ 用一步步的动画,让你亲眼看见那 9 万次是怎么"丢"的。</div>
+    </div>
+  </div>
+
+  <!-- ③ 为什么会错 -->
+  <div class="topic" id="t-why">
+    <div class="topic-h"><span class="num">③</span><h2>为什么会错?亲手走一遍"丢更新"</h2><span class="lv 核心">核心</span></div>
+    <div class="topic-b">
+      <p class="lead">关键真相:<code>count++</code> <b>不是一步完成的</b>,它其实是<b>三步</b>:① <b>读</b> count 到自己手里 → ② 手里的值 <b>+1</b> → ③ 把结果 <b>写回</b> count。两个线程的这三步如果<b>交错</b>了,就会出事。下面这个动画,你<b>一步一步点「下一步 ▶」</b>,看着 count 怎么从该是 7 变成了 6:</p>
+      <div class="sim" id="sim">
+        <div class="sim-top">
+          <span style="font-size:12.5px;font-weight:700;color:var(--ink2)">看哪种情况:</span>
+          <div class="seg" id="segMode">
+            <button data-mode="nolock" class="on">❌ 没加锁(会交错)</button>
+            <button data-mode="lock">🔒 加了锁(串行)</button>
+          </div>
+        </div>
+        <div class="sim-stage">
+          <div class="col A" id="colA">
+            <div class="ct">线程 A</div>
+            <div class="reg" id="regA">手里:—</div>
+          </div>
+          <div class="mid">
+            <div class="countbox" id="countbox"><span class="cl">共享 count</span><span class="cv" id="countv">5</span></div>
+            <div class="lockbadge" id="lockbadge">🔓 锁:空闲</div>
+          </div>
+          <div class="col B" id="colB">
+            <div class="ct">线程 B</div>
+            <div class="reg" id="regB">手里:—</div>
+            <div class="wait" id="waitB" style="display:none">⏸ 没钥匙,阻塞等待…</div>
+          </div>
+        </div>
+        <div class="narr" id="narr"></div>
+        <div class="sim-ctl">
+          <button class="sec" id="prevBtn">◀ 上一步</button>
+          <button class="nx" id="nextBtn">下一步 ▶</button>
+          <button class="sec" id="resetBtn">↺ 重置</button>
+          <button class="sec" id="autoBtn">⏩ 自动播放</button>
+          <span class="pg" id="pg"></span>
+        </div>
+      </div>
+      <div class="take" id="why-take">📌 <b>丢更新(lost update):</b>B 在 A 还没"写回"之前就读了 count,于是两个人都基于同一个旧值算,后写的那个把先写的<b>覆盖</b>掉了 —— 一次 +1 凭空消失。10 万次里这种"撞车"发生了好几万次,所以 20 万就缩水成了 11 万。</div>
+    </div>
+  </div>
+
+  <!-- ④ 怎么修 -->
+  <div class="topic" id="t-fix">
+    <div class="topic-h"><span class="num">④</span><h2>怎么修:给它"一把锁"</h2><span class="lv 核心">核心</span></div>
+    <div class="topic-b">
+      <p class="lead">修法的核心思想:<b>别让两个线程同时进去改</b>。给"读→+1→写回"这三步套一把<b>锁🔒</b>——同一时刻只准一个线程进去,做完整套再放下一个。把上面 ③ 的开关切到 <b>🔒 加了锁</b>,就能看到 B 被挡在门外等、于是不再丢。代码上最简单的写法就是加一个 <code>synchronized</code> 关键字:</p>
+      <div class="runblk">
+        <div class="runblk-h"><span class="t">▶ 加 synchronized 锁:同一时刻只有一个线程能 +1</span><span class="va">无特殊参数</span></div>
+        <div class="code" id="code-sync"></div>
+        <div class="runbar"><button data-run="sync">▶ 运行</button><span class="hint">再怎么点,都是稳稳的 200000</span></div>
+        <div class="out" id="out-sync"></div>
+      </div>
+      <p class="lead" style="margin-top:16px">还有一种更轻的修法:用<b>原子类 AtomicInteger</b>。它把"读→+1→写回"打包成一个<b>不可打断的整体动作</b>(底层叫 CAS,后面专门讲),<b>不用锁</b>也能对:</p>
+      <div class="runblk">
+        <div class="runblk-h"><span class="t">▶ 用 AtomicInteger:不加锁也正确</span><span class="va">无特殊参数</span></div>
+        <div class="code" id="code-atomic"></div>
+        <div class="runbar"><button data-run="atomic">▶ 运行</button><span class="hint">同样稳稳 200000,且通常比锁更快</span></div>
+        <div class="out" id="out-atomic"></div>
+      </div>
+      <div class="take">📌 <b>记住这条主线:</b>并发出错的根源 = <b>多个线程同时读改共享数据</b>。两条修路 ——(1)<b>加锁</b>(synchronized / Lock),让大家排队一个个来;(2)<b>原子操作</b>(AtomicInteger 等),让"读改写"变成一个不可打断的整体。<b>这就是整个 JUC(java.util.concurrent)在干的事</b>,后面每一课都是在这两条路上往深里走。</div>
+    </div>
+  </div>
+
+  <div class="note">👉 <b><a href="./concurrency-lab-2.html">进入第 2 课:锁的本质 &amp; 可见性 →</a></b>　把"锁"拆开 —— synchronized 到底锁的是谁、为什么 <code>count++</code> 会被拆成三步(字节码视角)、可见性问题(volatile)。本页所有 Java 都在你本机真实运行。</div>
+</div>
+
+<a id="home-fab" href="./knowledge-map.html" style="position:fixed;right:16px;bottom:16px;z-index:9999;background:#245f73;color:#fff;text-decoration:none;font:600 13px/1 -apple-system,BlinkMacSystemFont,sans-serif;padding:10px 14px;border-radius:24px;box-shadow:0 2px 10px rgba(0,0,0,.18)">🏠 总览</a>
+
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+/* ---------- TOC ---------- */
+$('#toc').innerHTML=[['t-thread','① 线程是什么'],['t-race','② 第一个 bug'],['t-why','③ 为什么会错'],['t-fix','④ 怎么修']]
+  .map(([id,t])=>`<a href="#${id}">${t}</a>`).join('');
+
+/* ---------- ① 线程 lanes ---------- */
+const LANE_COLORS=['#2f6f9f','#c4702a','#1f6f4f','#6450a8','#a83e6a','#b07b24'];
+let laneN=3;
+function renderLanes(){
+  const el=$('#lanes');el.innerHTML='';
+  for(let i=0;i<laneN;i++){
+    const c=LANE_COLORS[i%LANE_COLORS.length];
+    const d=document.createElement('div');d.className='lane';
+    d.innerHTML=`<span class="name" style="color:${c}">线程 ${i+1}</span>
+      <div class="track"><span class="runner" style="background:${c};animation-duration:${(1.4+i*0.25).toFixed(2)}s"></span></div>
+      <span class="stk">栈(私有)</span><span class="stk">PC</span>`;
+    el.appendChild(d);
+  }
+}
+$('#addLane').onclick=()=>{ if(laneN<6){laneN++;renderLanes();} };
+$('#resetLane').onclick=()=>{ laneN=3;renderLanes(); };
+renderLanes();
+
+/* ---------- 可运行代码 ---------- */
+const CODE={
+who:`public class WhoAmI {
+  public static void main(String[] a) throws Exception {
+    System.out.println("我是主线程,名字叫: " + Thread.currentThread().getName());
+    for (int i = 1; i <= 3; i++) {
+      final int id = i;
+      new Thread(() ->
+        System.out.println("  子线程 " + id + " 报到,我跑在: " + Thread.currentThread().getName())
+      ).start();
+    }
+    Thread.sleep(200); // 等子线程都打印完
+  }
+}`,
+race:`public class RaceDemo {
+  static int count = 0;                         // 共享变量(放在堆/静态区,两个线程都能改)
+  public static void main(String[] a) throws Exception {
+    Runnable job = () -> {                       // 每个线程要干的活:加 10 万次
+      for (int i = 0; i < 100000; i++) count++;  // ← 罪魁祸首:看着是一步,其实是三步
+    };
+    Thread t1 = new Thread(job), t2 = new Thread(job);
+    t1.start(); t2.start();                       // 两个线程同时开跑
+    t1.join();  t2.join();                        // 等它们都跑完
+    System.out.println("两个线程各 +10万,期望 = 200000");
+    System.out.println("实际 count = " + count + "   ← 偏小,而且每次都不一样!");
+  }
+}`,
+sync:`public class FixSync {
+  static int count = 0;
+  // synchronized:同一时刻只允许一个线程进入这个方法 → 排队一个个 +1
+  static synchronized void inc() { count++; }
+  public static void main(String[] a) throws Exception {
+    Runnable job = () -> { for (int i = 0; i < 100000; i++) inc(); };
+    Thread t1 = new Thread(job), t2 = new Thread(job);
+    t1.start(); t2.start();
+    t1.join();  t2.join();
+    System.out.println("加 synchronized 锁后 count = " + count + "   ← 稳稳 200000");
+  }
+}`,
+atomic:`import java.util.concurrent.atomic.AtomicInteger;
+public class FixAtomic {
+  // AtomicInteger:把"读→+1→写回"打包成一个不可打断的整体动作(底层 CAS)
+  static AtomicInteger count = new AtomicInteger(0);
+  public static void main(String[] a) throws Exception {
+    Runnable job = () -> { for (int i = 0; i < 100000; i++) count.incrementAndGet(); };
+    Thread t1 = new Thread(job), t2 = new Thread(job);
+    t1.start(); t2.start();
+    t1.join();  t2.join();
+    System.out.println("用 AtomicInteger 后 count = " + count.get() + "   ← 不加锁也稳稳 200000");
+  }
+}`
+};
+for(const k in CODE){ const el=document.getElementById('code-'+k); if(el) el.textContent=CODE[k]; }
+
+async function runJava(key, outEl, btn){
+  btn.disabled=true;const old=btn.textContent;btn.textContent='运行中…';
+  outEl.className='out show running';outEl.textContent='⏳ 正在本机编译 + 运行 Java…(首次稍慢)';
+  try{
+    const r=await fetch('/api/run-java',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({code:CODE[key]})}).then(r=>r.json());
+    outEl.textContent=r.output||'(无输出)';
+    outEl.className='out show '+(r.ok?'':'err');
+  }catch(e){ outEl.textContent='运行失败:'+(e.message||e)+'\n(本地后端没在跑?需要 8001 上的 javarun 服务)';outEl.className='out show err'; }
+  btn.disabled=false;btn.textContent=old;
+}
+document.querySelectorAll('button[data-run]').forEach(btn=>{
+  const key=btn.getAttribute('data-run');
+  btn.onclick=()=>runJava(key, document.getElementById('out-'+key), btn);
+});
+
+/* ---------- ③ 交错执行 stepper ---------- */
+const SEQ={
+nolock:[
+ {n:'初始:count = 5。线程 A、B 都准备执行 count++。记住:每个 count++ = 「读 → +1 → 写回」三步。', count:5,A:null,B:null,act:null},
+ {n:'① A 读取 count,把 5 拿到自己手里。', count:5,A:5,B:null,act:'A'},
+ {n:'⚠️ ① B 也来读取 count —— 但 A 还没写回,B 读到的还是旧值 5!', count:5,A:5,B:5,act:'B',cls:'warn'},
+ {n:'② A 把手里的 5 + 1 = 6。', count:5,A:6,B:5,act:'A'},
+ {n:'③ A 把 6 写回 count。现在 count = 6。', count:6,A:6,B:5,act:'A'},
+ {n:'② B 把手里的 5 + 1 = 6(它算的是那个旧的 5!)。', count:6,A:6,B:6,act:'B'},
+ {n:'💥 ③ B 把 6 写回 count,正好盖掉了 A 刚写的。count 还是 6 —— 应该是 7 啊!', count:6,A:6,B:6,act:'B',cls:'danger',danger:true},
+ {n:'结局:A、B 明明各 +1,count 却只从 5 涨到 6 —— 丢了一次!10 万次里撞了好几万次,于是 20 万缩成了 11 万。', count:6,A:null,B:null,act:null,cls:'danger',danger:true,end:true},
+],
+lock:[
+ {n:'初始:count = 5。这次 count++ 被一把🔒锁保护:谁拿到钥匙谁才能进去做完整三步,别人必须在门外等。', count:5,A:null,B:null,act:null,lock:null},
+ {n:'A 抢到钥匙🔑 进入。B 也想进,但没钥匙 → B 被挡在门外阻塞等待。', count:5,A:null,B:null,act:'A',lock:'A',bWait:true},
+ {n:'① A 读取 count = 5。(B 还在门外等)', count:5,A:5,B:null,act:'A',lock:'A',bWait:true},
+ {n:'② A 把手里 5 + 1 = 6。', count:5,A:6,B:null,act:'A',lock:'A',bWait:true},
+ {n:'③ A 写回 count = 6,然后还钥匙🔑、走出来。', count:6,A:null,B:null,act:'A',lock:null,bWait:true},
+ {n:'轮到 B 拿钥匙🔑 进入。它现在读 count,读到的是最新的 6(不再是旧值了!)。', count:6,A:null,B:6,act:'B',lock:'B'},
+ {n:'② B 把手里 6 + 1 = 7。', count:6,A:null,B:7,act:'B',lock:'B'},
+ {n:'③ B 写回 count = 7,还钥匙。', count:7,A:null,B:null,act:'B',lock:null},
+ {n:'✅ 结局:A、B 各 +1,count 从 5 → 7,一次没丢!锁把"交错"强行变成了"一个一个来(串行)"。', count:7,A:null,B:null,act:null,lock:null,end:true,good:true},
+]};
+let mode='nolock', step=0, autoTimer=null;
+function render(){
+  const seq=SEQ[mode], s=seq[step];
+  $('#countv').textContent=s.count;
+  $('#regA').innerHTML = s.A==null?'手里:—':'手里:<b>'+s.A+'</b>';
+  $('#regB').innerHTML = s.B==null?'手里:—':'手里:<b>'+s.B+'</b>';
+  $('#colA').className='col A'+(s.act==='A'?' active':'');
+  $('#colB').className='col B'+(s.act==='B'?' active':'');
+  // count 颜色
+  let cb='countbox'; if(s.danger)cb+=' danger'; else if(s.good)cb+=' good'; $('#countbox').className=cb;
+  // 锁徽章
+  const lb=$('#lockbadge');
+  if(mode==='lock'){
+    if(s.lock){ lb.className='lockbadge held'; lb.textContent='🔒 锁:被 '+s.lock+' 持有'; }
+    else { lb.className='lockbadge'; lb.textContent='🔓 锁:空闲'; }
+    lb.style.display='';
+  } else { lb.style.display='none'; }
+  // B 等待遮罩
+  $('#waitB').style.display = s.bWait ? 'flex' : 'none';
+  // 旁白
+  const narr=$('#narr'); narr.textContent=s.n; narr.className='narr'+(s.cls?(' '+s.cls):'');
+  // 进度 & 按钮
+  $('#pg').textContent='第 '+(step+1)+' / '+seq.length+' 步';
+  $('#prevBtn').disabled = step===0;
+  $('#nextBtn').disabled = step===seq.length-1;
+}
+function go(d){ const seq=SEQ[mode]; step=Math.max(0,Math.min(seq.length-1,step+d)); render(); }
+function stopAuto(){ if(autoTimer){clearInterval(autoTimer);autoTimer=null;$('#autoBtn').textContent='⏩ 自动播放';} }
+$('#nextBtn').onclick=()=>{stopAuto();go(1);};
+$('#prevBtn').onclick=()=>{stopAuto();go(-1);};
+$('#resetBtn').onclick=()=>{stopAuto();step=0;render();};
+$('#autoBtn').onclick=()=>{
+  if(autoTimer){stopAuto();return;}
+  $('#autoBtn').textContent='⏸ 暂停';
+  autoTimer=setInterval(()=>{
+    const seq=SEQ[mode];
+    if(step>=seq.length-1){stopAuto();return;}
+    go(1);
+  },1300);
+};
+$('#segMode').querySelectorAll('button').forEach(b=>{
+  b.onclick=()=>{
+    stopAuto();
+    $('#segMode').querySelectorAll('button').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');
+    mode=b.getAttribute('data-mode'); step=0; render();
+  };
+});
+render();
+</script>
+<script>
+if(!/^(localhost|127\.)/.test(location.hostname)){
+  var _b=document.createElement('div');
+  _b.style.cssText='position:sticky;top:0;z-index:9998;background:#fdf6e6;border-bottom:1px solid #e6d3a6;color:#8a5d1f;font:12.5px/1.6 -apple-system,BlinkMacSystemFont,sans-serif;padding:7px 14px;text-align:center';
+  _b.innerHTML='🌐 线上版:「▶ 运行」需要本地 Java 后端(localhost 才能真跑);讲解与交互动画不受影响';
+  document.body.prepend(_b);
+}
+</script>
+</body>
+</html>

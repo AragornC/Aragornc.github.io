@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>生成白盒 · 把检索结果喂给 LLM(真模型)</title>
+<style>
+  :root{--bg:#fafaf7;--paper:#fff;--ink:#1a1a1a;--ink2:#4a4a4a;--muted:#8a8a8a;--line:#e8e6df;
+    --accent:#245f73;--good:#1f6f4f;--warn:#b84a36;--gold:#8a5d1f;--mem:#8a5d1f;--rag:#1f6f4f;
+    --font:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    --mono:"SF Mono",ui-monospace,Menlo,monospace;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.65;font-size:15px}
+  .page{max-width:980px;margin:0 auto;padding:30px 20px 90px}
+  h1{font-size:23px;margin:0 0 4px}.sub{color:var(--muted);margin:0 0 10px}a{color:var(--accent)}
+  .reassure{background:#eef6f0;border:1px solid #cfe6d8;border-radius:10px;padding:11px 15px;font-size:13.5px;color:#1f6f4f;margin:12px 0}
+  .reassure b{color:#155}
+  .bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:10px 0}
+  button{font:inherit;font-weight:700;padding:8px 13px;border:1px solid var(--accent);border-radius:8px;background:var(--accent);color:#fff;cursor:pointer}button:disabled{opacity:.4}
+  button.ghost{background:#fff;color:var(--accent);font-size:12px;padding:5px 9px}
+  input[type=text]{font:inherit;padding:9px 11px;border:1px solid var(--line);border-radius:7px;background:#fffdf8;flex:1;min-width:240px}
+  .status{font-size:13px;color:var(--ink2)}
+  .step{margin-top:18px;background:var(--paper);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .step-h{padding:11px 16px;background:#f6f5ef;border-bottom:1px solid var(--line)}
+  .step-h h2{margin:0;font-size:15.5px}.step-h .q{margin-top:2px;font-size:12.5px;color:var(--ink2)}
+  .step-b{padding:14px 16px}
+  .kb .chunk{border:1px solid var(--line);border-radius:8px;padding:8px 11px;margin:6px 0;font-size:13px;background:#fff}
+  .kb .chunk .src{font-family:var(--mono);font-size:11px;color:var(--gold)}
+  .kb .chunk .cid{font-family:var(--mono);font-weight:800;color:var(--accent);margin-right:6px}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media(max-width:760px){.two{grid-template-columns:1fr}}
+  .pane{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff}
+  .pane>h3{margin:0;font-size:13.5px;padding:8px 12px;color:#fff}
+  .pane.mem>h3{background:var(--mem)}.pane.rag>h3{background:var(--rag)}
+  .pane .pdesc{font-size:11.5px;color:var(--muted);padding:5px 12px;border-bottom:1px solid var(--line)}
+  .prompt{background:#1f2328;color:#cfd6dd;font-family:var(--mono);font-size:11.5px;white-space:pre-wrap;word-break:break-word;padding:11px 12px;line-height:1.55;max-height:340px;overflow:auto}
+  .prompt .sys{color:#e0a849}.prompt .lbl{color:#79c0e8;font-weight:700}.prompt .src{color:#b6d99a}.prompt .qq{color:#f0b8a4}
+  .ans{padding:11px 12px;font-size:13.5px;min-height:48px;white-space:pre-wrap}
+  .ans.empty{color:#bbb}
+  .runbar{display:flex;gap:8px;padding:8px 12px;border-top:1px solid var(--line);align-items:center}
+  .cite{background:#e9f4ec;color:#1f6f4f;border-radius:4px;padding:0 4px;font-family:var(--mono);font-size:11px;font-weight:700}
+  .note{font-size:12.5px;color:var(--ink2);margin-top:14px;padding:11px 14px;background:#f4f6f7;border:1px solid #e2ebec;border-radius:8px}
+  .note b{color:var(--accent)}.warnote{background:#fbf7ee;border-color:#ecdfc7}.warnote b{color:#5e3f12}
+  .err{color:var(--warn);font-weight:700}
+  .presets{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}
+  .pipeline{font-family:var(--mono);font-size:11.5px;color:var(--ink2);background:#f6f5ef;border-radius:7px;padding:8px 11px;margin:8px 0}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>生成白盒 · 把检索结果喂给 LLM 作答(真模型)</h1>
+  <p class="sub">RAG 最后一步 ⑨:把召回+重排选出的 top-k 连同<b>出处</b>塞进提示词,让大模型据此回答。本地真跑 Qwen2.5-0.5B。<a href="./rerank-lab.html">← 重排</a> · <a href="./">导航</a></p>
+
+  <div class="reassure">🧩 <b>RAG 的本质,到这一步终于合龙</b>:大模型的"脑内知识"是<b>泛泛的、会过时、还可能瞎编</b>。RAG 干的事 = 把检索到的<b>准确事实当"开卷资料"塞给它</b>,让它照着答、还标出处。下面用一个<b>它脑子里绝不可能有的事实</b>(一家虚构公司的内部规定)来对比"不给资料 vs 给资料"。</div>
+
+  <div class="pipeline">整条链:① 切块 → ② 向量化 → ③ 建索引 → ⑤ 查询向量化 → ⑥ 召回 → ⑦ 混合 → ⑧ 重排 → <b>⑨ 生成(本页)</b></div>
+
+  <div class="bar"><button id="load">加载本地 LLM(Qwen2.5-0.5B,~488MB)</button><span class="status" id="status">先点"拼提示词"看输入长啥样(不用加载);要真作答再点这个加载。</span></div>
+
+  <div class="presets"><span style="font-size:12px;color:#888;align-self:center">问题:</span>
+    <button class="ghost" data-q="明远科技正式员工每年有几天带薪年假?">年假几天(资料里有→会照答)</button>
+    <button class="ghost" data-q="病假怎么请?">病假怎么请(资料里有→会照答)</button>
+    <button class="ghost" data-q="公司给不给租房补贴?">租房补贴(资料没有→看拒答,小模型常翻车)</button>
+  </div>
+  <div class="bar"><input type="text" id="q" value="明远科技正式员工每年有几天带薪年假?"><button id="build">拼提示词</button></div>
+
+  <!-- 知识库 -->
+  <div class="step"><div class="step-h"><h2>① 检索已选出的资料(top-k,带出处)</h2>
+    <div class="q">假设上游召回+重排已经为这个问题挑出下面几条 chunk(每条都带来源,这是出处可溯源的关键)。</div></div>
+    <div class="step-b"><div class="kb" id="kb"></div></div></div>
+
+  <!-- 提示词对照 -->
+  <div class="step"><div class="step-h"><h2>② 拼提示词:不给资料 vs 给资料(这串就是真喂给 LLM 的)</h2>
+    <div class="q">左:只把问题丢给模型。右:加上一段"只准照资料答+标出处+没有就说不知道"的指令 + 检索到的资料。</div></div>
+    <div class="step-b">
+      <div class="two">
+        <div class="pane mem"><h3>A · 不给资料(纯靠模型记忆)</h3><div class="pdesc">模型只能凭脑内知识答。</div>
+          <div class="prompt" id="promptMem"></div>
+          <div class="runbar"><button id="runMem" disabled>让 LLM 作答</button><span class="status" id="stMem"></span></div>
+          <div class="ans empty" id="ansMem">(点上面"让 LLM 作答")</div></div>
+        <div class="pane rag"><h3>B · 给资料(RAG)</h3><div class="pdesc">指令 + 检索资料 + 问题。</div>
+          <div class="prompt" id="promptRag"></div>
+          <div class="runbar"><button id="runRag" disabled>让 LLM 作答</button><span class="status" id="stRag"></span></div>
+          <div class="ans empty" id="ansRag">(点上面"让 LLM 作答")</div></div>
+      </div>
+    </div></div>
+
+  <div class="note warnote">⚠️ <b>关于这个 0.5B 小模型(诚实交代)</b>:它是为了能在你浏览器里<b>真跑</b>而选的"迷你款",能力远不如线上大模型。实测下来:<b>"年假/病假"这种资料里有的,它能照着资料答(grounding 成功);"不给资料"时则会自信地瞎编</b>(比如编出"国家电网10天")——<b>这个对比是这页的核心,真实可见</b>。但它有个明显短板:<b>"资料里没有就拒答"它做不稳</b>,经常不说"不知道"反而硬编(试"租房补贴"那个就会看到)。这恰好说明:<b>可靠的 grounding、标出处[来源]、拒答,都需要更大的模型</b>(GPT/Claude 这类),小模型只能演示骨架。</div>
+
+  <div class="note" id="insight">点"拼提示词",先看两种输入的差别。</div>
+</div>
+
+<script type="module">
+const $=s=>document.querySelector(s);
+const status=$('#status');
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+let LLM=null;
+
+// 虚构公司的知识库(模型脑子里绝不可能有 → 适合演示 grounding)
+const KB=[
+  {id:'1', src:'明远科技2025员工手册 §3.2', text:'明远科技正式员工每年享有15天带薪年假。'},
+  {id:'2', src:'明远科技2025员工手册 §4.1', text:'病假需提前在 OA 系统提交申请,并在三个工作日内补交医院证明,否则按事假处理。'},
+  {id:'3', src:'明远科技2025员工手册 §2.3', text:'公司实行每周五天工作制,标准工时为每天8小时,弹性上下班时间为上午8:30至10:00之间。'},
+  {id:'4', src:'明远科技2024年报', text:'2024年公司营收同比增长18%,主要增长来自云计算业务线。'},
+];
+const SYS_RAG='你是阅读理解助手。根据下面的【参考资料】用一句话直接回答【问题】,只说答案,不展开。资料里没有就回答"根据现有资料无法回答"。';
+const SYS_MEM='你是问答助手,用一句话简洁回答。';
+
+function buildRagUser(q){
+  let s='【参考资料】\n';
+  KB.forEach(c=>{s+=`·(来源:${c.src})${c.text}\n`;});
+  s+=`\n【问题】${q}`;
+  return s;
+}
+
+function renderKB(){
+  $('#kb').innerHTML=KB.map(c=>`<div class="chunk"><span class="cid">[${c.id}]</span><span class="src">来源:${esc(c.src)}</span><br>${esc(c.text)}</div>`).join('');
+}
+
+function colorPrompt(sys,user){
+  // 简单着色
+  let u=esc(user)
+    .replace(/(【参考资料】|【问题】)/g,'<span class="lbl">$1</span>')
+    .replace(/(来源:[^)]+)/g,'<span class="src">$1</span>');
+  return `<span class="sys">[system]\n${esc(sys)}</span>\n\n[user]\n${u}`;
+}
+
+function buildPrompts(){
+  const q=$('#q').value.trim();if(!q)return;
+  renderKB();
+  $('#promptMem').innerHTML=colorPrompt(SYS_MEM,q);
+  $('#promptRag').innerHTML=colorPrompt(SYS_RAG,buildRagUser(q));
+  $('#insight').innerHTML='左右两串<b>就是真正发给 LLM 的文字</b>。差别一目了然:左边模型只有问题,只能靠脑内记忆(对虚构公司 → 只能瞎猜);右边把<b>检索到的事实 + "照资料答/标出处/没有就拒答"的指令</b>一起给了它。加载模型后点"让 LLM 作答"对比真实输出。';
+}
+
+async function ensureLLM(){
+  if(LLM)return LLM;$('#load').disabled=true;
+  status.textContent='加载 Qwen2.5-0.5B(~488MB,首次较久)…';
+  try{
+    const mod=await import('./src/generate.js?v=1');
+    await mod.loadLLM(e=>{if(e&&e.status)status.textContent='LLM:'+(e.file||e.status)+(e.progress?(' '+Math.round(e.progress)+'%'):'');});
+    LLM=mod;status.textContent='LLM 就绪 ✓ 点任一侧"让 LLM 作答"。';
+    $('#runMem').disabled=false;$('#runRag').disabled=false;
+  }catch(e){status.innerHTML='<span class="err">LLM 加载失败:'+esc(e.message||e)+'</span>';$('#load').disabled=false;throw e;}
+  return LLM;
+}
+
+function highlightCites(t){return esc(t).replace(/\[(\d+)\]/g,'<span class="cite">[$1]</span>');}
+
+async function answer(mode){
+  const q=$('#q').value.trim();if(!q)return;
+  const mod=await ensureLLM();
+  const isRag=mode==='rag';
+  const st=$(isRag?'#stRag':'#stMem'), ans=$(isRag?'#ansRag':'#ansMem'), btn=$(isRag?'#runRag':'#runMem');
+  btn.disabled=true;st.textContent='生成中(小模型较慢,稍等)…';ans.className='ans empty';ans.textContent='…';
+  try{
+    const sys=isRag?SYS_RAG:SYS_MEM;
+    const user=isRag?buildRagUser(q):q;
+    const t0=performance.now();
+    const out=await mod.generate(sys,user,{max_new_tokens:60});
+    const secs=((performance.now()-t0)/1000).toFixed(1);
+    ans.className='ans';ans.innerHTML=highlightCites(out||'(空)');
+    st.textContent='完成 ✓ '+secs+'s';
+  }catch(e){ans.className='ans';ans.innerHTML='<span class="err">生成出错:'+esc(e.message||e)+'</span>';st.textContent='';}
+  btn.disabled=false;
+}
+
+$('#build').onclick=buildPrompts;
+$('#load').onclick=()=>ensureLLM().catch(()=>{});
+$('#runMem').onclick=()=>answer('mem');
+$('#runRag').onclick=()=>answer('rag');
+document.querySelectorAll('.presets button').forEach(b=>b.onclick=()=>{$('#q').value=b.dataset.q;buildPrompts();});
+buildPrompts();
+</script>
+<a id="home-fab" href="./knowledge-map.html" style="position:fixed;right:16px;bottom:16px;z-index:9999;background:#245f73;color:#fff;text-decoration:none;font:600 13px/1 -apple-system,BlinkMacSystemFont,sans-serif;padding:10px 14px;border-radius:24px;box-shadow:0 2px 10px rgba(0,0,0,.18)">🏠 总览</a>
+</body>
+</html>

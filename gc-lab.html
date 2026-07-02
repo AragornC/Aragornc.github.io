@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>GC 垃圾回收 · 能真跑的白盒</title>
+<style>
+  :root{--bg:#fafaf7;--paper:#fff;--ink:#1a1a1a;--ink2:#4a4a4a;--muted:#8a8a8a;--line:#e8e6df;
+    --accent:#245f73;--good:#1f6f4f;--warn:#b84a36;--gold:#8a5d1f;
+    --font:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    --mono:"SF Mono",ui-monospace,Menlo,monospace;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.7;font-size:15px}
+  .page{max-width:1000px;margin:0 auto;padding:30px 20px 90px}
+  h1{font-size:24px;margin:0 0 4px}.sub{color:var(--muted);margin:0 0 10px}a{color:var(--accent)}
+  .reassure{background:#eef6f0;border:1px solid #cfe6d8;border-radius:10px;padding:12px 15px;font-size:13.5px;color:#155;margin:12px 0}
+  .reassure b{color:#0a4}
+  .toc{display:flex;flex-wrap:wrap;gap:7px;margin:12px 0}
+  .toc a{font-size:12.5px;background:#fff;border:1px solid var(--line);border-radius:20px;padding:4px 11px;text-decoration:none;color:var(--accent)}
+  .topic{margin-top:20px;background:var(--paper);border:1px solid var(--line);border-radius:12px;overflow:hidden;scroll-margin-top:12px}
+  .topic-h{padding:13px 18px;background:#f6f5ef;border-bottom:1px solid var(--line);display:flex;align-items:baseline;gap:10px}
+  .topic-h .num{font-family:var(--mono);font-weight:800;color:var(--muted)}
+  .topic-h h2{margin:0;font-size:17px}
+  .topic-h .lv{font-size:11px;font-weight:800;border-radius:5px;padding:1px 8px;color:#fff;margin-left:auto}
+  .lv.基础{background:var(--accent)}.lv.核心{background:var(--warn)}.lv.进阶{background:#6450a8}
+  .topic-b{padding:16px 18px}
+  .explain{font-size:14px;color:var(--ink);white-space:pre-wrap;line-height:1.75;background:#fbfaf6;border:1px solid var(--line);border-radius:9px;padding:13px 15px}
+  .explain b{color:var(--accent)}
+  .runblk{margin-top:14px;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .runblk-h{display:flex;align-items:center;gap:10px;padding:8px 12px;background:#1f2328;border-bottom:1px solid #333}
+  .runblk-h .t{font-size:12px;color:#9aa4ad;font-family:var(--mono)}
+  .runblk-h .va{font-size:11px;color:#e0a849;font-family:var(--mono);margin-left:auto}
+  .code{background:#1f2328;color:#cfd6dd;font-family:var(--mono);font-size:12px;line-height:1.55;padding:12px 14px;white-space:pre;overflow-x:auto;max-height:340px;overflow-y:auto}
+  .runbar{display:flex;align-items:center;gap:10px;padding:9px 12px;background:#181c20;border-top:1px solid #333}
+  .runbar button{font:inherit;font-weight:800;font-size:13px;padding:6px 16px;border:none;border-radius:7px;background:var(--good);color:#fff;cursor:pointer}
+  .runbar button:disabled{opacity:.5}
+  .runbar .hint{font-size:11.5px;color:#7c8893}
+  .out{font-family:var(--mono);font-size:12px;line-height:1.55;padding:12px 14px;white-space:pre-wrap;word-break:break-word;background:#11151a;color:#c7d0d8;min-height:24px;border-top:1px solid #333;display:none}
+  .out.show{display:block}
+  .out.running{color:#e0a849}.out.err{color:#f0a08c}
+  .take{font-size:13px;color:var(--gold);background:#fbf7ee;border:1px solid #ecdfc7;border-radius:8px;padding:9px 13px;margin-top:12px}
+  .take b{color:#5e3f12}
+  .loading{color:var(--muted);text-align:center;padding:40px}
+  .note{font-size:12.5px;color:var(--ink2);margin-top:18px;padding:11px 14px;background:#f4f6f7;border:1px solid #e2ebec;border-radius:8px}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>GC 垃圾回收 · 能真跑的白盒</h1>
+  <p class="sub">从"为什么要 GC"一路到收集器,每块配一段<b>你能点着真跑、看到真实输出</b>的 Java。<a href="./jvm-classloading-lab.html">← 类加载</a> · <a href="./knowledge-map.html">知识地图</a></p>
+
+  <div class="reassure">😌 <b>零基础口径,而且能动手。</b> 每段代码下面有个 <b>▶ 运行</b> 按钮——点了之后,这台机器会<b>真的用 OpenJDK 21 编译并运行</b>那段 Java,把<b>真实输出</b>回显给你(不是预录的)。GC 这块抽象,所以我们尽量让你"看见"它在干活。</div>
+
+  <div class="toc" id="toc"></div>
+  <div id="root"><div class="loading">加载 GC 课程数据…</div></div>
+
+  <div class="note">提示:这些 Java 在你本机真实运行,带各自的 JVM 参数(如 <span style="font-family:var(--mono)">-Xmx16m</span> 限制堆大小、<span style="font-family:var(--mono)">-Xlog:gc</span> 打印 GC 日志)。运行需要本地后端在跑(就是当前这个 8001 服务)。内容由多 agent 研究 + 本机实跑验证 + 对抗核查。</div>
+</div>
+
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const NUMS=['①','②','③','④','⑤','⑥','⑦','⑧'];
+
+async function runDemo(topic, outEl, btn){
+  btn.disabled=true;const old=btn.textContent;btn.textContent='运行中…';
+  outEl.className='out show running';outEl.textContent='⏳ 正在本机编译 + 运行 Java…(首次稍慢)';
+  try{
+    const r=await fetch('/api/run-java',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({code:topic.java_code, vmArgs:topic.vmArgs})}).then(r=>r.json());
+    outEl.textContent=r.output||'(无输出)';
+    outEl.className='out show '+(r.ok?'':'err');
+  }catch(e){
+    if(topic.real_output){ outEl.textContent='📼 线上静态版没有本地 Java 后端 —— 以下为本机真实运行过的预录输出:\n\n'+topic.real_output; outEl.className='out show'; }
+    else { outEl.textContent='运行失败:'+(e.message||e)+'\n(本地后端没在跑?需要 javarun 服务)'; outEl.className='out show err'; }
+  }
+  btn.disabled=false;btn.textContent=old;
+}
+
+function render(topics){
+  $('#toc').innerHTML=topics.map((t,i)=>`<a href="#t-${t.key}">${NUMS[i]} ${esc(t.title.split('(')[0].split(':')[0])}</a>`).join('');
+  const root=$('#root');root.innerHTML='';
+  topics.forEach((t,i)=>{
+    const sec=document.createElement('div');sec.className='topic';sec.id='t-'+t.key;
+    const explainHtml=esc(t.explain).replace(/(【[^】]+】)/g,'<b>$1</b>');
+    const va=(t.vmArgs&&t.vmArgs.length)?t.vmArgs.join(' '):'(无特殊参数)';
+    sec.innerHTML=`
+      <div class="topic-h"><span class="num">${NUMS[i]}</span><h2>${esc(t.title)}</h2><span class="lv ${esc(t.level)}">${esc(t.level)}</span></div>
+      <div class="topic-b">
+        <div class="explain">${explainHtml}</div>
+        <div class="runblk">
+          <div class="runblk-h"><span class="t">▶ 可运行 Java:点下面按钮在本机真跑</span><span class="va">运行参数:${esc(va)}</span></div>
+          <div class="code">${esc(t.java_code)}</div>
+          <div class="runbar"><button>▶ 运行</button><span class="hint">点了会真的 javac + java 跑一遍,回显真实输出</span></div>
+          <div class="out"></div>
+        </div>
+        <div class="take">📌 <b>记住这句:</b>${esc(t.takeaway)}</div>
+      </div>`;
+    root.appendChild(sec);
+    const btn=sec.querySelector('.runbar button'), outEl=sec.querySelector('.out');
+    btn.onclick=()=>runDemo(t, outEl, btn);
+  });
+}
+fetch('./gc-lab-data.json?v=1').then(r=>r.json()).then(render).catch(e=>{
+  $('#root').innerHTML='<div class="loading" style="color:var(--warn)">数据加载失败:'+esc(e.message||e)+'</div>';
+});
+</script>
+<a id="home-fab" href="./knowledge-map.html" style="position:fixed;right:16px;bottom:16px;z-index:9999;background:#245f73;color:#fff;text-decoration:none;font:600 13px/1 -apple-system,BlinkMacSystemFont,sans-serif;padding:10px 14px;border-radius:24px;box-shadow:0 2px 10px rgba(0,0,0,.18)">🏠 总览</a>
+<script>
+if(!/^(localhost|127\.)/.test(location.hostname)){
+  var _b=document.createElement('div');
+  _b.style.cssText='position:sticky;top:0;z-index:9998;background:#fdf6e6;border-bottom:1px solid #e6d3a6;color:#8a5d1f;font:12.5px/1.6 -apple-system,BlinkMacSystemFont,sans-serif;padding:7px 14px;text-align:center';
+  _b.innerHTML='🌐 线上版:「▶ 运行」需要本地 Java 后端,在线点击会显示<b>本机预录的真实输出</b>;讲解与交互不受影响';
+  document.body.prepend(_b);
+}
+</script>
+</body>
+</html>

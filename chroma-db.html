@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Chroma 深度白盒</title><style>
+:root{--bg:#fafaf7;--paper:#fff;--ink:#1a1a1a;--ink2:#4a4a4a;--muted:#8a8a8a;--line:#e8e6df;--accent:#245f73;--good:#1f6f4f;--warn:#b84a36;--gold:#8a5d1f;--font:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;--mono:"SF Mono",ui-monospace,Menlo,monospace}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.7;font-size:15px}
+.page{max-width:980px;margin:0 auto;padding:30px 22px 90px}
+h1{font-size:25px;margin:0 0 4px}.sub{color:var(--muted);margin:0 0 12px}a{color:var(--accent)}
+.stats{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}
+.stat{background:var(--paper);border:1px solid var(--line);border-radius:9px;padding:7px 11px;font-size:12.5px}
+.stat b{display:block;color:var(--muted);font-size:11px;font-weight:700;margin-bottom:2px}
+.seg{margin-top:20px;background:var(--paper);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.seg-h{padding:12px 18px;background:#f6f5ef;border-bottom:1px solid var(--line)}
+.seg-h h2{margin:0;font-size:17px}
+.seg-b{padding:16px 18px}
+p{margin:0 0 10px}
+.diagram{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:#f6f5ef;border-radius:10px;padding:14px;font-size:12.5px;justify-content:center}
+.box{background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:8px 12px;text-align:center;font-weight:600}
+.box .s{display:block;font-size:11px;color:var(--muted);font-weight:400}
+.arrow{color:var(--accent);font-weight:800;font-size:16px}
+.store{background:#1f2328;color:#e6e6df;border-radius:8px;padding:13px 15px;font-family:var(--mono);font-size:12.5px;white-space:pre-wrap;overflow-x:auto;line-height:1.6}
+.store .c{color:#8a8a8a}.store .k{color:#79c0e8}.store .s2{color:#b6d99a}.store .n{color:#e0a849}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media(max-width:680px){.two{grid-template-columns:1fr}}
+.pros,.cons{border-radius:10px;padding:12px 14px;font-size:13.5px}
+.pros{background:#eef6f0;border:1px solid #cfe6d8}.cons{background:#fbeeea;border:1px solid #ecd0c7}
+.pros h3{color:var(--good);margin:0 0 6px;font-size:14px}.cons h3{color:var(--warn);margin:0 0 6px;font-size:14px}
+ul{margin:6px 0;padding-left:20px}li{margin:3px 0}
+.when{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media(max-width:680px){.when{grid-template-columns:1fr}}
+.tldr{background:#eef6f0;border:1px solid #cfe6d8;border-radius:10px;padding:12px 15px;font-size:14px;color:#155;margin-top:18px}
+.note{font-size:12.5px;color:var(--ink2);margin-top:14px;padding:11px 14px;background:#f4f6f7;border:1px solid #e2ebec;border-radius:8px}
+</style></head>
+<body><div class="page">
+  <h1>Chroma · 向量库深度白盒</h1>
+  <p class="sub">最容易上手的开源 AI 向量数据库,一行 pip 装好、能内嵌进你的 Python 程序里跑。<a href="./vectordb-lab.html">← 选型对比</a> · <a href="./">导航</a></p>
+
+  <div class="stats">
+    <div class="stat"><b>语言</b>核心 Rust(早期 Python)· 客户端 Python/JS·TS/Rust</div>
+    <div class="stat"><b>许可</b>Apache 2.0(完全开源免费)</div>
+    <div class="stat"><b>部署形态</b>内嵌(in-process)/ 单机 Server / 托管云</div>
+    <div class="stat"><b>适用规模</b>单机约百万级,舒适区 ~1–10M 向量</div>
+    <div class="stat"><b>元数据过滤</b>支持(where + where_document 全文/正则)</div>
+    <div class="stat"><b>混合检索</b>支持(向量 + 全文 FTS,2025 起加稀疏向量)</div>
+    <div class="stat"><b>托管版</b>有 —— Chroma Cloud(2025-08 正式 GA,Serverless)</div>
+    <div class="stat"><b>最适合</b>RAG 原型 / 个人项目 / 中小规模语义检索快速落地</div>
+  </div>
+
+  <!-- ① -->
+  <div class="seg"><div class="seg-h"><h2>① 来源:谁、何时、为什么造它</h2></div><div class="seg-b">
+    <p><b>谁做的:</b>由 <b>Jeff Huber</b>(CEO)和 <b>Anton Troynikov</b> 共同创立的公司 <b>Chroma(trychroma.com)</b> 开发。2023 年 4 月拿到约 <b>1800 万美元</b>种子轮融资(由 Quiet Capital 领投)。它是一个有公司在背后全职维护的开源项目,GitHub 上是 <code>chroma-core/chroma</code>。</p>
+    <p><b>什么时候开源:</b>项目 <b>2022 年 10 月</b>首次开源(第一次提交在 2022 年 10 月初)。属于 LLM 应用爆发期最早一批专门为「给大模型喂资料」而生的向量库。</p>
+    <p><b>为什么造它(解决什么痛点):</b>2022 年做 RAG(检索增强生成)的人面临一个尴尬:要么自己手搓 FAISS + 一堆胶水代码,要么去开通 Pinecone 这类付费云服务。<b>没有一个「装上就能用、能直接塞进 Python 脚本、还顺手帮你把原文也存了」的轻量工具。</b>Chroma 的目标就是把向量检索做到<b>像用字典/列表一样简单</b>——它的口号是「the AI-native open-source embedding database」,让开发者用最少几行代码就能完成「存文档 → 自动算向量 → 语义搜索」整个闭环。</p>
+    <p><b>用什么语言写的:</b>最初主要用 <b>Python</b> 实现。2025 年完成了一次<b>核心引擎用 Rust 重写</b>的大升级(对应 1.0 版本),写入和查询速度提升约 4 倍,并摆脱了 Python GIL 的多线程瓶颈。对外提供 <b>Python、JavaScript/TypeScript、Rust</b> 等多语言客户端。</p>
+    <p><b>开源协议:</b><b>Apache 2.0</b>,商业友好,可免费自托管。公司靠托管云服务 <b>Chroma Cloud</b> 变现。</p>
+  </div></div>
+
+  <!-- ② -->
+  <div class="seg"><div class="seg-h"><h2>② 原理 + 架构</h2></div><div class="seg-b">
+    <div class="diagram">
+      <div class="box">你的程序<span class="s">Python/JS SDK</span></div>
+      <span class="arrow">→</span>
+      <div class="box">Embedding 函数<span class="s">文本→向量(可自动)</span></div>
+      <span class="arrow">→</span>
+      <div class="box">Collection<span class="s">"集合"=一张表</span></div>
+      <span class="arrow">→</span>
+      <div class="box">HNSW 索引<span class="s">向量近邻图(内存)</span></div>
+      <span class="arrow">+</span>
+      <div class="box">SQLite<span class="s">原文/元数据/全文索引</span></div>
+      <span class="arrow">→</span>
+      <div class="box">磁盘持久化目录<span class="s">./chroma 或 Cloud</span></div>
+    </div>
+    <p style="margin-top:12px"><b>用大白话讲三层:</b></p>
+    <p><b>1) 存储层(Storage):</b>Chroma 把数据落到本地一个目录里。其中<b>原文、元数据、ID、全文搜索索引</b>都存在一个 <b>SQLite</b> 数据库文件里(用 SQLite 的 FTS5 做全文检索);<b>向量本身和它的近邻图索引</b>则按「每个集合一个 UUID 子目录」存成几个二进制文件(<code>header.bin</code> / <code>length.bin</code> / <code>link_lists.bin</code> 等)。</p>
+    <p><b>2) 索引层(Index)——底层 ANN:</b>单机版用的是 <b>HNSW</b>(分层可导航小世界图)。可以把它想成一张「朋友找朋友」的关系网:相似的向量互相连成邻居,查询时从图上某点出发,顺着边一路跳向越来越近的点,于是不用和全部数据逐个比对,达到接近<b>对数级</b>的查询速度。每个集合维护一份自己的 HNSW 索引,默认主要驻留在内存里以保证速度。<b>分布式/云端</b>则换用 Chroma 自研的 <b>SPANN</b> 索引(分区树 + 图的组合),专为「单机内存装不下的超大数据集」设计。</p>
+    <p><b>3) 查询怎么走:</b>你发一个查询 → 若没给向量,先用 embedding 函数把查询文本算成向量 → 拿这个向量去 HNSW 图里找最近的 K 个邻居 → 同时按 <code>where</code>(元数据条件)和 <code>where_document</code>(全文/正则)在 SQLite 里做过滤 → 把向量距离 + 过滤结果合并 → 返回带<b>原文、元数据、相似度距离</b>的结果列表。</p>
+    <p><b>部署形态:</b>① <b>内嵌(in-process)</b>——直接 import 进你的程序,零额外进程,数据存本地目录;② <b>单机 Server</b>——<code>chroma run</code> 起一个 HTTP 服务,多个客户端连它;③ <b>Chroma Cloud</b>——官方 Serverless 托管,跑在 AWS/GCP 多区域,用同一套 API,只是后端换成可横向扩展的分布式索引。</p>
+  </div></div>
+
+  <!-- ③ -->
+  <div class="seg"><div class="seg-h"><h2>③ 存入的数据长什么样(真实代码白盒)</h2></div><div class="seg-b">
+    <div class="store"><span class="c"># 安装:pip install chromadb  —— 一行装好,无需起任何服务</span>
+<span class="k">import</span> chromadb
+
+<span class="c"># ① 建客户端。PersistentClient 会把数据落到本地目录(可不传=纯内存)</span>
+client = chromadb.PersistentClient(path=<span class="s2">"./chroma_data"</span>)
+
+<span class="c"># ② 建集合(collection ≈ 一张表)。不指定 embedding 函数时,</span>
+<span class="c">#    Chroma 默认用内置的 all-MiniLM-L6-v2 自动把文本转成向量</span>
+collection = client.create_collection(name=<span class="s2">"my_docs"</span>)
+
+<span class="c"># ③ 插入数据:重点 —— 同时存 原文 documents + 向量 embeddings + 元数据 metadatas</span>
+<span class="c">#    这里不传 embeddings,让 Chroma 拿 documents 自动算向量(上手极简)</span>
+collection.add(
+    ids=[<span class="s2">"d1"</span>, <span class="s2">"d2"</span>, <span class="s2">"d3"</span>],
+    documents=[
+        <span class="s2">"猫是一种常见的家养宠物。"</span>,
+        <span class="s2">"狗对人类非常忠诚。"</span>,
+        <span class="s2">"Python 是一门流行的编程语言。"</span>,
+    ],
+    metadatas=[
+        {<span class="s2">"topic"</span>: <span class="s2">"animal"</span>, <span class="s2">"year"</span>: <span class="n">2023</span>},
+        {<span class="s2">"topic"</span>: <span class="s2">"animal"</span>, <span class="s2">"year"</span>: <span class="n">2024</span>},
+        {<span class="s2">"topic"</span>: <span class="s2">"tech"</span>,   <span class="s2">"year"</span>: <span class="n">2024</span>},
+    ],
+)
+<span class="c"># 注:索引(HNSW)在 add 时自动增量构建,无需手动"建索引"这一步</span>
+
+<span class="c"># ④ 进阶:也可以自己传向量(用别的模型算好的),长度需与集合一致</span>
+collection.add(
+    ids=[<span class="s2">"d4"</span>],
+    embeddings=[[<span class="n">0.12</span>, <span class="n">-0.03</span>, <span class="n">0.88</span>, <span class="n">0.45</span>]],  <span class="c"># 你的自定义向量</span>
+    documents=[<span class="s2">"老虎属于猫科动物。"</span>],
+    metadatas=[{<span class="s2">"topic"</span>: <span class="s2">"animal"</span>, <span class="s2">"year"</span>: <span class="n">2024</span>}],
+)
+
+<span class="c"># ⑤ 查询:用文本直接查(Chroma 自动把查询也转成向量),并按元数据过滤</span>
+results = collection.query(
+    query_texts=[<span class="s2">"哪种动物最忠诚?"</span>],   <span class="c"># 或用 query_embeddings=[[...]] 直接传向量</span>
+    n_results=<span class="n">5</span>,
+    where={<span class="s2">"topic"</span>: <span class="s2">"animal"</span>},        <span class="c"># 元数据过滤:只在动物类里找</span>
+    where_document={<span class="s2">"$contains"</span>: <span class="s2">"忠诚"</span>},  <span class="c"># 全文过滤:原文需含"忠诚"</span>
+)
+
+<span class="c"># 返回里同时带 ids / documents(原文)/ metadatas / distances(距离)</span>
+<span class="k">print</span>(results[<span class="s2">"documents"</span>])
+<span class="k">print</span>(results[<span class="s2">"distances"</span>])</div>
+    <p style="margin-top:12px"><b>它在磁盘上大概怎么落地:</b>上面 <code>path="./chroma_data"</code> 会生成一个目录,里面有一个 <b>SQLite 文件</b>(<code>chroma.sqlite3</code>,存所有 ID、原文 documents、metadatas 和全文 FTS 索引),外加<b>每个集合一个以 UUID 命名的子目录</b>(里面是 HNSW 向量索引的二进制文件)。纯内存模式则什么都不落盘,进程退出即清空——所以原型用内存、要持久化就用 <code>PersistentClient</code> 或开 Server。</p>
+  </div></div>
+
+  <!-- ④ -->
+  <div class="seg"><div class="seg-h"><h2>④ 优势 / 劣势</h2></div><div class="seg-b"><div class="two">
+    <div class="pros"><h3>✓ 优势</h3><ul>
+      <li><b>上手极简,几乎零配置:</b><code>pip install chromadb</code> 后几行代码就能跑通「存→查」,新手友好度在向量库里数一数二。</li>
+      <li><b>自动 embedding:</b>可以只传文本、不传向量,Chroma 内置模型帮你算,省去对接 embedding 模型的麻烦。</li>
+      <li><b>原文 + 向量 + 元数据一站式存:</b>查询结果直接带回原文,做 RAG 时不用再去别的数据库捞原始内容。</li>
+      <li><b>内嵌即用、无需运维:</b>能直接 in-process 跑在你的程序里,不必单独起服务、配集群,本地开发体验顺滑。</li>
+      <li><b>检索能力齐全:</b>支持元数据过滤、全文/正则过滤(where_document),并向混合检索(2025 起加稀疏向量)演进。</li>
+      <li><b>有平滑的上云路径:</b>本地写好的代码几乎原样能切到 Chroma Cloud(同一套 API),从原型到生产过渡平滑。</li>
+    </ul></div>
+    <div class="cons"><h3>✗ 劣势</h3><ul>
+      <li><b>单机规模有上限:</b>开源单机版的舒适区约百万级(常见说法 ~1–10M 向量),数据再大性能会明显下降,需要靠 Cloud/分布式。</li>
+      <li><b>HNSW 索引吃内存:</b>向量索引默认偏向驻留内存,向量多、维度高时内存占用会成为瓶颈。</li>
+      <li><b>分布式/超大规模能力较新:</b>真正横向扩展主要靠 Chroma Cloud(2025-08 才 GA),自建大规模分布式集群的成熟度不如老牌方案。</li>
+      <li><b>不是通用数据库:</b>它专注向量+元数据检索,不适合当事务型主库或做复杂 SQL 关联查询。</li>
+      <li><b>历史接口有变动:</b>从 0.x 到 1.0(Rust 重写)经历过 API 与默认行为调整,跟着旧教程可能踩到版本差异。</li>
+      <li><b>高并发/企业级特性偏轻:</b>相比 Milvus/Qdrant,在精细化分片、配额、企业治理等重型能力上更精简。</li>
+    </ul></div>
+  </div></div></div>
+
+  <!-- ⑤ -->
+  <div class="seg"><div class="seg-h"><h2>⑤ 什么时候选 / 什么时候别选</h2></div><div class="seg-b"><div class="when">
+    <div class="pros"><h3>✓ 适合</h3><ul>
+      <li><b>做 RAG / 语义搜索原型</b>,想要最快从 0 到 1 跑起来。</li>
+      <li><b>个人项目、Demo、教学</b>,不想为了一个向量库去运维一整套服务。</li>
+      <li>数据量在<b>几万到几百万级</b>、单机/单实例就够用的中小场景。</li>
+      <li>希望<b>原文和向量一起存</b>、查出来直接喂给大模型,少写胶水代码。</li>
+      <li>已用 <b>LangChain / LlamaIndex</b> 等框架,想要一个开箱即用、生态默认支持的向量后端。</li>
+    </ul></div>
+    <div class="cons"><h3>✗ 别用</h3><ul>
+      <li>要存<b>上亿级</b>向量、需要重度横向扩展且坚持完全自建集群时,Milvus 等更稳。</li>
+      <li>对<b>极致 QPS / 超低延迟 / 复杂分片</b>有硬性 SLA 的大型生产系统。</li>
+      <li>想把向量检索<b>直接长在现有关系库里</b>(那就用 pgvector,省一套系统)。</li>
+      <li>需要<b>企业级多租户、细粒度权限、合规治理</b>等重型平台能力。</li>
+      <li>把它当<b>通用主数据库</b>用(它不为事务/复杂 JOIN 设计)。</li>
+    </ul></div>
+  </div></div></div>
+
+  <div class="tldr"><b>一句话:</b>Chroma 是「最容易上手」的开源向量数据库——一行 pip 装好、能内嵌进 Python 程序、把原文/向量/元数据一站式存好,底层用 SQLite + HNSW;它是把 RAG 原型快速跑起来的首选,中小规模够用,真要上亿级或极致性能再考虑迁到 Chroma Cloud 或换 Milvus/Qdrant。</div>
+
+  <div class="note">本页关键事实(创建者、2022 开源、Apache 2.0、Rust 核心重写、Chroma Cloud 2025-08 GA、SQLite+HNSW 存储、单机约百万级规模)均经公开资料核实;规模与性能为大致量级,实际以官方文档与你的硬件为准。</div>
+</div><a id="home-fab" href="./knowledge-map.html" style="position:fixed;right:16px;bottom:16px;z-index:9999;background:#245f73;color:#fff;text-decoration:none;font:600 13px/1 -apple-system,BlinkMacSystemFont,sans-serif;padding:10px 14px;border-radius:24px;box-shadow:0 2px 10px rgba(0,0,0,.18)">🏠 总览</a>
+</body></html>

@@ -1,0 +1,430 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>并发编程 · 第5课:显式锁 & 协调 & 死锁</title>
+<style>
+  :root{--bg:#fafaf7;--paper:#fff;--ink:#1a1a1a;--ink2:#4a4a4a;--muted:#8a8a8a;--line:#e8e6df;
+    --accent:#245f73;--good:#1f6f4f;--warn:#b84a36;--gold:#8a5d1f;
+    --font:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    --mono:"SF Mono",ui-monospace,Menlo,monospace;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.7;font-size:15px}
+  .page{max-width:1000px;margin:0 auto;padding:30px 20px 110px}
+  h1{font-size:24px;margin:0 0 4px}.sub{color:var(--muted);margin:0 0 10px;font-size:13.5px}a{color:var(--accent)}
+  .reassure{background:#eef6f0;border:1px solid #cfe6d8;border-radius:10px;padding:12px 15px;font-size:13.5px;color:#155;margin:12px 0}.reassure b{color:#0a4}
+  .toc{display:flex;flex-wrap:wrap;gap:7px;margin:12px 0}
+  .toc a{font-size:12.5px;background:#fff;border:1px solid var(--line);border-radius:20px;padding:4px 11px;text-decoration:none;color:var(--accent)}
+  .topic{margin-top:22px;background:var(--paper);border:1px solid var(--line);border-radius:12px;overflow:hidden;scroll-margin-top:12px}
+  .topic-h{padding:13px 18px;background:#f6f5ef;border-bottom:1px solid var(--line);display:flex;align-items:baseline;gap:10px}
+  .topic-h .num{font-family:var(--mono);font-weight:800;color:var(--muted)}
+  .topic-h h2{margin:0;font-size:17px}
+  .topic-h .lv{font-size:11px;font-weight:800;border-radius:5px;padding:1px 8px;color:#fff;margin-left:auto}
+  .lv.核心{background:var(--warn)}.lv.进阶{background:#6450a8}
+  .topic-b{padding:16px 18px}
+  .lead{font-size:14px;color:var(--ink2);margin:0 0 12px}.lead b{color:var(--accent)}
+  code{font-family:var(--mono);font-size:12.5px;background:#f0eee8;padding:1px 5px;border-radius:4px}
+  .runblk{margin-top:14px;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .runblk-h{display:flex;align-items:center;gap:10px;padding:8px 12px;background:#1f2328;border-bottom:1px solid #333}
+  .runblk-h .t{font-size:12px;color:#9aa4ad;font-family:var(--mono)}
+  .runblk-h .va{font-size:11px;color:#e0a849;font-family:var(--mono);margin-left:auto}
+  .code{background:#1f2328;color:#cfd6dd;font-family:var(--mono);font-size:12px;line-height:1.55;padding:12px 14px;white-space:pre;overflow-x:auto;max-height:340px;overflow-y:auto}
+  .runbar{display:flex;align-items:center;gap:10px;padding:9px 12px;background:#181c20;border-top:1px solid #333}
+  .runbar button{font:inherit;font-weight:800;font-size:13px;padding:6px 16px;border:none;border-radius:7px;background:var(--good);color:#fff;cursor:pointer}
+  .runbar button:disabled{opacity:.5}
+  .runbar .hint{font-size:11.5px;color:#7c8893}
+  .out{font-family:var(--mono);font-size:12px;line-height:1.6;padding:12px 14px;white-space:pre-wrap;word-break:break-word;background:#11151a;color:#c7d0d8;min-height:24px;border-top:1px solid #333;display:none}
+  .out.show{display:block}.out.running{color:#e0a849}.out.err{color:#f0a08c}
+  .take{font-size:13px;color:var(--gold);background:#fbf7ee;border:1px solid #ecdfc7;border-radius:8px;padding:9px 13px;margin-top:12px}.take b{color:#5e3f12}
+  table.t{width:100%;border-collapse:collapse;margin-top:12px;font-size:12.5px}
+  table.t th,table.t td{border:1px solid var(--line);padding:7px 9px;text-align:left;vertical-align:top}
+  table.t th{background:#f6f5ef;font-weight:800;color:var(--ink2)}
+  table.t code{font-size:11.5px}
+
+  /* 死锁 SVG stepper */
+  .sim{border:1px solid var(--line);border-radius:11px;overflow:hidden;margin-top:6px}
+  .sim-stage{padding:10px;background:#fbfaf6;display:flex;justify-content:center}
+  .sim-stage svg{max-width:100%;height:auto}
+  .nodebox{fill:#fff;stroke:#cfcabf;stroke-width:2}
+  .nodebox.t{stroke:#2f6f9f}.nodebox.t.blocked{fill:#fbeae6;stroke:#b84a36}
+  .nodebox.l{stroke:#8a5d1f;fill:#fff7e6}
+  .nlabel{font:800 13px var(--font);fill:#1a1a1a;text-anchor:middle}
+  .nsub{font:11px var(--mono);fill:#8a8a8a;text-anchor:middle}
+  .edge{stroke-width:2.5;fill:none;opacity:0;transition:opacity .2s}
+  .edge.show{opacity:1}
+  .edge.hold{stroke:#1f6f4f}
+  .edge.wait{stroke:#b84a36;stroke-dasharray:6 5}
+  .edge.cyc{stroke:#b84a36;stroke-width:3.5}
+  .elabel{font:700 11px var(--font);opacity:0}.elabel.show{opacity:1}
+  .elabel.hold{fill:#1f6f4f}.elabel.wait{fill:#b84a36}
+  .narr{padding:13px 16px;background:#11151a;color:#d6dee5;font-size:13.5px;line-height:1.65;min-height:46px;border-top:1px solid #2a2f35}
+  .narr.danger{color:#f3b0a0}
+  .sim-ctl{display:flex;align-items:center;gap:8px;padding:10px 12px;background:#181c20;border-top:1px solid #2a2f35;flex-wrap:wrap}
+  .sim-ctl button{font:inherit;font-weight:800;font-size:13px;padding:6px 14px;border:none;border-radius:7px;cursor:pointer}
+  .sim-ctl .nx{background:var(--good);color:#fff}.sim-ctl .sec{background:#2a2f35;color:#cfd6dd}
+  .sim-ctl button:disabled{opacity:.4;cursor:default}
+  .sim-ctl .pg{font-size:11.5px;color:#8a949c;font-family:var(--mono);margin-left:auto}
+  .note{font-size:12.5px;color:var(--ink2);margin-top:22px;padding:11px 14px;background:#f4f6f7;border:1px solid #e2ebec;border-radius:8px}
+  /* AQS 叫号排队动画 */
+  .narr.good{color:#9fe0bb}
+  .aqs-top{display:flex;gap:18px;align-items:center;flex-wrap:wrap;justify-content:center}
+  .aqs-state{width:122px;border:3px solid var(--accent);border-radius:14px;background:#eef6f9;padding:10px;text-align:center}
+  .aqs-state .cl{font-size:11px;color:var(--muted);font-family:var(--mono);display:block}
+  .aqs-state .cv{font-size:38px;font-weight:800;color:var(--accent);font-family:var(--mono);line-height:1}
+  .aqs-state .sl{font-size:11.5px;color:var(--ink2);display:block;margin-top:3px;font-weight:700}
+  .aqs-threads{display:flex;gap:8px;flex-wrap:wrap}
+  .tchip{border:2px solid var(--line);border-radius:10px;padding:7px 11px;text-align:center;min-width:96px;background:#fff;transition:.15s}
+  .tchip .tn{font-weight:800;font-size:13px;color:var(--ink2)}
+  .tchip .ts{font-size:11px;color:var(--muted);margin-top:2px}
+  .tchip.hold{border-color:var(--good);background:#e9f5ee}.tchip.hold .tn{color:var(--good)}
+  .tchip.wait{border-color:#c9a04a;background:#fdf6e6}.tchip.wait .tn{color:#8a5d1f}.tchip.wait .ts{color:#8a5d1f}
+  .aqs-queue{width:100%}
+  .aqs-queue .ql{font-size:11.5px;color:var(--ink2);font-family:var(--mono);margin-bottom:6px;text-align:center}
+  .qstrip{display:flex;gap:8px;justify-content:center;align-items:center;min-height:46px;background:#fbfaf6;border:1px dashed var(--line);border-radius:9px;padding:8px}
+  .qnode{background:#fdf6e6;border:1.5px solid #c9a04a;border-radius:8px;padding:6px 14px;font-weight:800;font-size:13px;color:#8a5d1f}
+  .qempty{font-size:11.5px;color:#cfcabf}
+  .qhead{font-size:10.5px;color:var(--muted);font-family:var(--mono)}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>并发编程 · 第 5 课:显式锁 &amp; 协调 &amp; 死锁</h1>
+  <p class="sub">ReentrantLock vs synchronized · CountDownLatch/Semaphore · 亲手造死锁　|　<a href="./concurrency-lab-4.html">← 第4课</a> · <a href="./concurrency-lab-6.html">第6课:线程一生 &amp; CompletableFuture →</a> · <a href="./knowledge-map.html">知识地图</a></p>
+
+  <div class="reassure">😌 <b>工具升级 + 最经典的事故。</b> 前面用的 <code>synchronized</code> 是"傻瓜锁"(好用但不灵活)。这一课:① 更强的 <b>ReentrantLock</b>(能超时、能放弃);② 几个让线程"等齐再走 / 限流"的 <b>协调工具</b>;③ 亲手造一个 <b>死锁</b>,让 JVM 当场把它揪出来。</div>
+
+  <div class="toc" id="toc"></div>
+
+  <!-- ① ReentrantLock -->
+  <div class="topic" id="t-lock">
+    <div class="topic-h"><span class="num">①</span><h2>ReentrantLock:比 synchronized 灵活在哪</h2><span class="lv 核心">核心</span></div>
+    <div class="topic-b">
+      <p class="lead"><code>synchronized</code> 是关键字,加锁解锁全自动(出了代码块自动放锁),但<b>很死板</b>:拿不到锁只能<b>一直傻等</b>,不能反悔。<code>ReentrantLock</code> 是一个<b>类</b>,要手动 <code>lock()</code> / <code>unlock()</code>,换来的是灵活。先看它当普通锁也对:</p>
+      <div class="runblk">
+        <div class="runblk-h"><span class="t">▶ ReentrantLock 计数(手动 lock/unlock)</span><span class="va">无特殊参数</span></div>
+        <div class="code" id="code-rlock"></div>
+        <div class="runbar"><button data-run="rlock">▶ 运行</button><span class="hint">200000。注意 unlock 一定放在 finally 里,否则异常时锁泄漏</span></div>
+        <div class="out" id="out-rlock"></div>
+      </div>
+      <p class="lead" style="margin-top:14px">它真正的杀手锏是 <code>tryLock(超时)</code>——<b>拿不到锁可以等一会儿就放弃</b>,这是 synchronized 永远做不到的(避免线程被一把锁永久卡住):</p>
+      <div class="runblk">
+        <div class="runblk-h"><span class="t">▶ tryLock:锁被占着,等 1 秒拿不到就放弃</span><span class="va">无特殊参数</span></div>
+        <div class="code" id="code-trylock"></div>
+        <div class="runbar"><button data-run="trylock">▶ 运行</button><span class="hint">输出:"等了1秒还没拿到 → 放弃",不傻等</span></div>
+        <div class="out" id="out-trylock"></div>
+      </div>
+      <table class="t">
+        <tr><th></th><th>synchronized</th><th>ReentrantLock</th></tr>
+        <tr><td>形态</td><td>关键字,自动加/放锁</td><td>类,手动 lock()/unlock()(要写 finally)</td></tr>
+        <tr><td>拿不到锁</td><td>只能一直等</td><td>可超时(tryLock)、可中断、可放弃</td></tr>
+        <tr><td>公平性</td><td>非公平</td><td>可选公平锁(先到先得)</td></tr>
+        <tr><td>等待/唤醒</td><td>wait/notify(只一个条件)</td><td>Condition(可多个条件队列)</td></tr>
+      </table>
+      <div class="take">📌 <b>AQS 一句话(底层地基):</b>ReentrantLock、Semaphore、CountDownLatch 这些<b>底层都是同一个东西——AQS</b>(AbstractQueuedSynchronizer)。AQS 内部就是「<b>一个 int 状态 state + 一条等待线程的排队队列</b>」:抢锁 = 用 CAS 把 state 从 0 改成 1,成功就拿到,失败就进队列排队挂起。看,又是第 4 课的 <b>CAS</b>。</div>
+
+      <div style="margin-top:18px;border-top:1px dashed var(--line);padding-top:16px">
+        <p class="lead"><b>🔬 AQS 到底长啥样?(点一遍就懂)</b> 别被名字 AbstractQueuedSynchronizer 吓到。把它想成银行的「<b>叫号排队系统</b>」:中间一个数字 <code>state</code> 表示"资源还剩多少"(当锁用时:0=空闲、1=被占),旁边一个<b>等候区队列</b>排着没抢到、正在睡觉的线程。点「下一步 ▶」,看 3 个线程抢 1 把锁:</p>
+        <div class="sim" id="aqs">
+          <div class="sim-stage" style="flex-direction:column;gap:16px;padding:18px 16px">
+            <div class="aqs-top">
+              <div class="aqs-state"><span class="cl">state</span><span class="cv" id="aqsState">0</span><span class="sl" id="aqsHolder">锁空闲</span></div>
+              <div class="aqs-threads" id="aqsThreads"></div>
+            </div>
+            <div class="aqs-queue">
+              <div class="ql">等待队列(没抢到的线程在这排队 + 睡觉,先进先出)</div>
+              <div class="qstrip" id="aqsQueue"></div>
+            </div>
+          </div>
+          <div class="narr" id="aqsNarr"></div>
+          <div class="sim-ctl">
+            <button class="sec" id="aqsPrev">◀ 上一步</button>
+            <button class="nx" id="aqsNext">下一步 ▶</button>
+            <button class="sec" id="aqsReset">↺ 重置</button>
+            <span class="pg" id="aqsPg"></span>
+          </div>
+        </div>
+        <div class="take">📌 <b>AQS = 「state + 队列」的通用模板。</b>它把最难、最容易写错的活儿——<b>用 CAS 原子地改 state、排队、把线程挂起/唤醒</b>——全包了。各个工具只需回答一个问题:"<b>state 怎么算才叫拿到资源</b>"。对照着看就懂为什么它们是"一家人":<br>
+          ・<code>ReentrantLock</code>:state = 上锁次数(0=没人锁,1=锁了1次,2=同一线程重入2次…)<br>
+          ・<code>Semaphore(K)</code>:state = 剩余许可证数(每 acquire 减1,减到0就排队)<br>
+          ・<code>CountDownLatch(N)</code>:state = 还差几个没完成(每 countDown 减1,await 等它到0)<br>
+          理解了 AQS,等于一次看穿半个 JUC 的发动机。</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ② 协调工具 -->
+  <div class="topic" id="t-coord">
+    <div class="topic-h"><span class="num">②</span><h2>协调工具:让线程"等齐再走 / 限流"</h2><span class="lv 核心">核心</span></div>
+    <div class="topic-b">
+      <p class="lead"><b>CountDownLatch(倒数门闩):</b>设一个计数 N,每个线程干完活 <code>countDown()</code> 减 1,主线程 <code>await()</code> <b>一直等到减到 0 才放行</b>。就像裁判等所有选手都准备好,才喊"开跑"。(第 4 课那个数 HashMap 的 demo 就用了它)</p>
+      <div class="runblk">
+        <div class="runblk-h"><span class="t">▶ CountDownLatch:裁判等 3 个选手都就位</span><span class="va">无特殊参数</span></div>
+        <div class="code" id="code-latch"></div>
+        <div class="runbar"><button data-run="latch">▶ 运行</button><span class="hint">看:三个选手陆续就位后,裁判才喊"一起出发"</span></div>
+        <div class="out" id="out-latch"></div>
+      </div>
+      <p class="lead" style="margin-top:14px"><b>Semaphore(信号量 / 许可证):</b>手里有 K 张通行证,线程要先 <code>acquire()</code> 抢一张才能进,出来 <code>release()</code> 还回去,没证的<b>排队等</b>。天然的<b>限流器</b>——比如停车场只有 2 个车位:</p>
+      <div class="runblk">
+        <div class="runblk-h"><span class="t">▶ Semaphore:停车场只有 2 个车位,5 辆车抢</span><span class="va">无特殊参数</span></div>
+        <div class="code" id="code-sema"></div>
+        <div class="runbar"><button data-run="sema">▶ 运行</button><span class="hint">任何时刻最多 2 辆在场,其余排队,有人走才有人进</span></div>
+        <div class="out" id="out-sema"></div>
+      </div>
+      <div class="take">📌 <b>一句话区分:</b><code>CountDownLatch</code> = "<b>人齐了再开始</b>"(等多个线程都完成);<code>Semaphore</code> = "<b>最多 K 个同时进</b>"(限流)。还有个 <code>CyclicBarrier</code> = "大家互相等齐、然后<b>一起过、还能反复用</b>"。它们底层都是 AQS。</div>
+    </div>
+  </div>
+
+  <!-- ③ 死锁 -->
+  <div class="topic" id="t-dead">
+    <div class="topic-h"><span class="num">③</span><h2>亲手造一个死锁(并让 JVM 揪出来)</h2><span class="lv 核心">核心</span></div>
+    <div class="topic-b">
+      <p class="lead"><b>死锁</b> = 两个线程各拿着一把锁,又都想要<b>对方手里那把</b>,谁也不肯先放 → 永远卡住。点「下一步 ▶」,看这个"环"是怎么一步步锁死的(绿实线=已持有,红虚线=在等待):</p>
+      <div class="sim" id="sim">
+        <div class="sim-stage">
+          <svg viewBox="0 0 460 290" id="dlsvg">
+            <defs>
+              <marker id="ah-g" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1f6f4f"/></marker>
+              <marker id="ah-r" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#b84a36"/></marker>
+            </defs>
+            <!-- edges first (under nodes) -->
+            <path id="e-hold1" class="edge hold" marker-end="url(#ah-g)" d="M92,86 L92,170"/>
+            <path id="e-hold2" class="edge hold" marker-end="url(#ah-g)" d="M368,86 L368,170"/>
+            <path id="e-wait1" class="edge wait" marker-end="url(#ah-r)" d="M132,72 L330,180"/>
+            <path id="e-wait2" class="edge wait" marker-end="url(#ah-r)" d="M328,72 L130,180"/>
+            <text id="l-hold1" class="elabel hold" x="58" y="135">持有</text>
+            <text id="l-hold2" class="elabel hold" x="375" y="135">持有</text>
+            <text id="l-wait1" class="elabel wait" x="232" y="108">想要→等</text>
+            <text id="l-wait2" class="elabel wait" x="150" y="150">想要→等</text>
+            <!-- nodes -->
+            <g><rect id="n-t1" class="nodebox t" x="40" y="44" width="104" height="44" rx="9"/>
+               <text class="nlabel" x="92" y="64">线程 1</text><text class="nsub" x="92" y="80" id="t1sub">先A后B</text></g>
+            <g><rect id="n-t2" class="nodebox t" x="316" y="44" width="104" height="44" rx="9"/>
+               <text class="nlabel" x="368" y="64">线程 2</text><text class="nsub" x="368" y="80" id="t2sub">先B后A</text></g>
+            <g><rect class="nodebox l" x="48" y="178" width="88" height="44" rx="9"/>
+               <text class="nlabel" x="92" y="198">🔒 锁A</text><text class="nsub" x="92" y="214" id="lAsub">空闲</text></g>
+            <g><rect class="nodebox l" x="324" y="178" width="88" height="44" rx="9"/>
+               <text class="nlabel" x="368" y="198">🔒 锁B</text><text class="nsub" x="368" y="214" id="lBsub">空闲</text></g>
+            <text id="dlbanner" x="230" y="265" text-anchor="middle" font-weight="800" font-size="15" fill="#b84a36" opacity="0">💥 循环等待 → 死锁!谁也走不了</text>
+          </svg>
+        </div>
+        <div class="narr" id="narr"></div>
+        <div class="sim-ctl">
+          <button class="sec" id="prevBtn">◀ 上一步</button>
+          <button class="nx" id="nextBtn">下一步 ▶</button>
+          <button class="sec" id="resetBtn">↺ 重置</button>
+          <span class="pg" id="pg"></span>
+        </div>
+      </div>
+      <p class="lead" style="margin-top:14px">真跑一个死锁——程序里放个"侦探线程"用 JVM 自带的死锁检测,1 秒后把卡死的线程当场抓出来报告(不然就只能干等到超时):</p>
+      <div class="runblk">
+        <div class="runblk-h"><span class="t">▶ 制造死锁 + JVM 自动检测报告</span><span class="va">无特殊参数</span></div>
+        <div class="code" id="code-dead"></div>
+        <div class="runbar"><button data-run="dead">▶ 运行</button><span class="hint">会打印"检测到死锁",并指出谁等谁的锁</span></div>
+        <div class="out" id="out-dead"></div>
+      </div>
+      <table class="t">
+        <tr><th>死锁的 4 个必要条件</th><th>怎么破(破一个即可)</th></tr>
+        <tr><td>① 互斥:资源同时只能一人用</td><td>(锁的本性,通常没法破)</td></tr>
+        <tr><td>② 持有并等待:拿着 A 还要等 B</td><td>一次性把要用的锁全申请到,要么全拿要么不拿</td></tr>
+        <tr><td>③ 不可剥夺:不能硬抢别人的锁</td><td>用 <code>tryLock(超时)</code>:拿不到就<b>主动放掉手里的</b>再重试</td></tr>
+        <tr><td>④ 循环等待:你等我我等你成环</td><td><b>最常用</b>:规定所有人<b>按同一顺序</b>加锁(都先 A 后 B),环就成不了</td></tr>
+      </table>
+      <div class="take">📌 <b>实战记这一条:</b>死锁最常见的根因是"<b>加锁顺序不一致</b>"(线程1先A后B、线程2先B后A)。<b>让所有线程都按同一个固定顺序拿锁</b>,死锁基本就绝迹了。线上排查死锁:<code>jstack &lt;pid&gt;</code> 会直接打印 "Found one Java-level deadlock"。</div>
+    </div>
+  </div>
+
+  <div class="note">👉 <b><a href="./concurrency-lab-6.html">进入第 6 课(收官):线程的一生 &amp; CompletableFuture →</a></b>　线程的 6 种状态怎么转(可点的状态图);以及现代写法 <code>CompletableFuture</code>:把异步任务像流水线一样串/并起来,告别手写一堆 Thread。本页所有 Java 都在你本机真实运行。</div>
+</div>
+
+<a id="home-fab" href="./knowledge-map.html" style="position:fixed;right:16px;bottom:16px;z-index:9999;background:#245f73;color:#fff;text-decoration:none;font:600 13px/1 -apple-system,BlinkMacSystemFont,sans-serif;padding:10px 14px;border-radius:24px;box-shadow:0 2px 10px rgba(0,0,0,.18)">🏠 总览</a>
+
+<script>
+const $=s=>document.querySelector(s);
+$('#toc').innerHTML=[['t-lock','① ReentrantLock'],['t-coord','② 协调工具'],['t-dead','③ 死锁']]
+  .map(([id,t])=>`<a href="#${id}">${t}</a>`).join('');
+
+const CODE={
+rlock:`import java.util.concurrent.locks.*;
+public class RLock {
+  static int count = 0;
+  static final ReentrantLock lock = new ReentrantLock();
+  public static void main(String[] a) throws Exception {
+    Runnable job = () -> {
+      for (int i=0;i<100000;i++) {
+        lock.lock();                 // 手动上锁
+        try { count++; }
+        finally { lock.unlock(); }   // 必须放 finally,保证异常时也解锁
+      }
+    };
+    Thread t1=new Thread(job), t2=new Thread(job);
+    t1.start(); t2.start(); t1.join(); t2.join();
+    System.out.println("ReentrantLock count = " + count);
+  }
+}`,
+trylock:`import java.util.concurrent.locks.*; import java.util.concurrent.TimeUnit;
+public class TryLock {
+  static final ReentrantLock lock = new ReentrantLock();
+  public static void main(String[] a) throws Exception {
+    // 先让一个线程把锁占住 3 秒
+    Thread holder = new Thread(() -> { lock.lock();
+      try { Thread.sleep(3000); } catch(Exception e){} finally { lock.unlock(); } });
+    holder.start(); Thread.sleep(100);
+
+    System.out.println("锁正被别人占着。我尝试拿锁,最多等 1 秒…");
+    boolean got = lock.tryLock(1, TimeUnit.SECONDS);   // ★ 最多等1秒
+    System.out.println(got ? "拿到了" : "等了1秒还没拿到 → 放弃,不傻等(synchronized 没这本事)");
+    if (got) lock.unlock();
+  }
+}`,
+latch:`import java.util.concurrent.*;
+public class Latch {
+  public static void main(String[] a) throws Exception {
+    int N = 3;
+    CountDownLatch latch = new CountDownLatch(N);    // 计数 3
+    for (int i=1;i<=N;i++){ final int id=i;
+      new Thread(() -> {
+        try { Thread.sleep(id*300); } catch(Exception e){}
+        System.out.println("  选手"+id+" 准备好了");
+        latch.countDown();                            // 每就位一个,减 1
+      }).start();
+    }
+    System.out.println("裁判:等所有人准备好…");
+    latch.await();                                    // 一直等到减到 0
+    System.out.println("裁判:都齐了 → 一起出发!");
+  }
+}`,
+sema:`import java.util.concurrent.*;
+public class Sema {
+  public static void main(String[] a) throws Exception {
+    Semaphore sem = new Semaphore(2);   // 只有 2 张通行证(2 个车位)
+    for (int i=1;i<=5;i++){ final int id=i;
+      new Thread(() -> { try {
+        sem.acquire();                  // 抢一张证,没有就排队等
+        System.out.println("  车"+id+" 进场(在场="+(2-sem.availablePermits())+"/2)");
+        Thread.sleep(500);
+        System.out.println("  车"+id+" 离场");
+        sem.release();                  // 还证,放下一辆进来
+      } catch(Exception e){} }).start();
+    }
+    Thread.sleep(2000);
+  }
+}`,
+dead:`import java.lang.management.*;
+public class DeadlockDemo {
+  static final Object lockA = new Object(), lockB = new Object();
+  static void nap(long m){ try{ Thread.sleep(m); }catch(Exception e){} }
+  public static void main(String[] a) throws Exception {
+    // 线程1:先拿A,再拿B    线程2:先拿B,再拿A  ← 顺序相反,埋下死锁
+    new Thread(() -> { synchronized(lockA){ nap(100); synchronized(lockB){} } }, "线程1").start();
+    new Thread(() -> { synchronized(lockB){ nap(100); synchronized(lockA){} } }, "线程2").start();
+
+    Thread.sleep(1000);                 // 等死锁形成
+    // 侦探:用 JVM 自带能力检测死锁
+    ThreadMXBean bean = ManagementFactory.getThreadMXBean();
+    long[] ids = bean.findDeadlockedThreads();
+    if (ids != null) {
+      System.out.println("⚠️ JVM 检测到死锁!卷入的线程:");
+      for (ThreadInfo ti : bean.getThreadInfo(ids))
+        System.out.println("  " + ti.getThreadName() + " 正等锁,而它被 " + ti.getLockOwnerName() + " 占着");
+      System.out.println("→ 各持一把、又都想要对方那把,谁也不松手 = 永远卡死");
+    } else System.out.println("没检测到死锁");
+    System.exit(0);                     // 强制退出(否则两线程永远卡着)
+  }
+}`
+};
+for(const k in CODE){ const el=document.getElementById('code-'+k); if(el) el.textContent=CODE[k]; }
+async function runJava(key, outEl, btn){
+  btn.disabled=true;const old=btn.textContent;btn.textContent='运行中…';
+  outEl.className='out show running';outEl.textContent='⏳ 正在本机编译 + 运行 Java…';
+  try{
+    const r=await fetch('/api/run-java',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({code:CODE[key]})}).then(r=>r.json());
+    outEl.textContent=r.output||'(无输出)';
+    outEl.className='out show '+(r.ok?'':'err');
+  }catch(e){ outEl.textContent='运行失败:'+(e.message||e);outEl.className='out show err'; }
+  btn.disabled=false;btn.textContent=old;
+}
+document.querySelectorAll('button[data-run]').forEach(btn=>{
+  const key=btn.getAttribute('data-run');
+  btn.onclick=()=>runJava(key, document.getElementById('out-'+key), btn);
+});
+
+/* ===== 死锁 stepper ===== */
+const show=(id,on)=>{const e=document.getElementById(id);if(e)e.classList.toggle('show',on);};
+const setText=(id,t)=>{const e=document.getElementById(id);if(e)e.textContent=t;};
+const DL=[
+ {edges:[],t1b:0,t2b:0,lA:'空闲',lB:'空闲',ban:0,n:'两把锁 A、B 都空闲。线程1 的逻辑是"先拿A再拿B",线程2 是"先拿B再拿A"——加锁顺序正好相反(祸根)。'},
+ {edges:['e-hold1','e-hold2','l-hold1','l-hold2'],t1b:0,t2b:0,lA:'被线程1占',lB:'被线程2占',ban:0,n:'线程1 拿到了锁A ✅,线程2 拿到了锁B ✅。各自先拿到了第一把,目前相安无事。'},
+ {edges:['e-hold1','e-hold2','l-hold1','l-hold2','e-wait1','l-wait1'],t1b:1,t2b:0,lA:'被线程1占',lB:'被线程2占',ban:0,n:'线程1 接着想拿锁B → 但锁B 在线程2 手里 → 线程1 只能阻塞,等线程2 释放。'},
+ {edges:['e-hold1','e-hold2','l-hold1','l-hold2','e-wait1','l-wait1','e-wait2','l-wait2'],t1b:1,t2b:1,lA:'被线程1占',lB:'被线程2占',ban:0,n:'线程2 接着想拿锁A → 但锁A 在线程1 手里 → 线程2 也阻塞,等线程1 释放。'},
+ {edges:['e-hold1','e-hold2','l-hold1','l-hold2','e-wait1','l-wait1','e-wait2','l-wait2'],t1b:1,t2b:1,lA:'被线程1占',lB:'被线程2占',ban:1,cyc:1,n:'💥 成环了:线程1 等线程2 放锁B,线程2 等线程1 放锁A。两人都在等对方先松手,而谁都不会松手 → 永远卡死,这就是死锁。',danger:1},
+];
+let dstep=0;
+const ALLE=['e-hold1','e-hold2','e-wait1','e-wait2','l-hold1','l-hold2','l-wait1','l-wait2'];
+function dRender(){
+  const s=DL[dstep];
+  ALLE.forEach(id=>show(id, s.edges.includes(id)));
+  // 循环高亮
+  ['e-hold1','e-hold2','e-wait1','e-wait2'].forEach(id=>{
+    const e=document.getElementById(id); if(e) e.classList.toggle('cyc', !!s.cyc && (id.startsWith('e-wait')));
+  });
+  document.getElementById('n-t1').classList.toggle('blocked', !!s.t1b);
+  document.getElementById('n-t2').classList.toggle('blocked', !!s.t2b);
+  setText('t1sub', s.t1b?'⏸ 阻塞中':'先A后B');
+  setText('t2sub', s.t2b?'⏸ 阻塞中':'先B后A');
+  setText('lAsub', s.lA); setText('lBsub', s.lB);
+  document.getElementById('dlbanner').setAttribute('opacity', s.ban?'1':'0');
+  const narr=$('#narr'); narr.textContent=s.n; narr.className='narr'+(s.danger?' danger':'');
+  $('#pg').textContent='第 '+(dstep+1)+' / '+DL.length+' 步';
+  $('#prevBtn').disabled=dstep===0; $('#nextBtn').disabled=dstep===DL.length-1;
+}
+$('#nextBtn').onclick=()=>{dstep=Math.min(DL.length-1,dstep+1);dRender();};
+$('#prevBtn').onclick=()=>{dstep=Math.max(0,dstep-1);dRender();};
+$('#resetBtn').onclick=()=>{dstep=0;dRender();};
+dRender();
+
+/* ===== AQS 叫号排队 stepper ===== */
+const AQS=[
+ {state:0,holder:'锁空闲',T:{T1:'想抢锁',T2:'想抢锁',T3:'想抢锁'},cls:{},queue:[],
+   n:'初始:state=0(锁空闲),等待队列是空的。T1、T2、T3 三个线程都想拿这把锁。'},
+ {state:1,holder:'T1 持有',T:{T1:'拿到锁,干活中',T2:'想抢锁',T3:'想抢锁'},cls:{T1:'hold'},queue:[],
+   n:'① T1 抢锁:用 CAS 把 state 从 0 改成 1 —— 成功!T1 拿到锁,进去干活。(这一步就是第 4 课的 CAS)'},
+ {state:1,holder:'T1 持有',T:{T1:'干活中',T2:'抢不到 → 排队睡觉',T3:'想抢锁'},cls:{T1:'hold',T2:'wait'},queue:['T2'],
+   n:'② T2 抢锁:CAS 想把 state 0→1,但现在已经是 1 了 → 失败。于是 T2 被包成一个节点排到队尾,然后 park(挂起睡觉,不占 CPU)。'},
+ {state:1,holder:'T1 持有',T:{T1:'干活中',T2:'排队睡觉',T3:'抢不到 → 排队睡觉'},cls:{T1:'hold',T2:'wait',T3:'wait'},queue:['T2','T3'],
+   n:'③ T3 也来抢:CAS 同样失败 → 排到 T2 后面睡觉。队列现在是 队头[T2] → [T3]队尾。'},
+ {state:0,holder:'刚释放,空闲',T:{T1:'干完,释放锁',T2:'被叫醒!',T3:'排队睡觉'},cls:{T2:'wait',T3:'wait'},queue:['T2','T3'],
+   n:'④ T1 干完,释放锁:把 state 从 1 改回 0,并 unpark(叫醒)队头的 T2。'},
+ {state:1,holder:'T2 持有',T:{T1:'已结束',T2:'抢到锁,干活中',T3:'排队睡觉'},cls:{T2:'hold',T3:'wait'},queue:['T3'],good:1,
+   n:'⑤ T2 醒来,再 CAS state 0→1 → 成功!T2 出队、拿到锁干活。T3 还在队里睡,等 T2 释放再叫它。这就是 AQS:state 管"还有没有资源",队列管"没抢到的排队睡、按先来后到叫醒"。'},
+];
+let astep=0;
+function aqsRender(){
+  const s=AQS[astep];
+  $('#aqsState').textContent=s.state;
+  $('#aqsHolder').textContent=s.holder;
+  $('#aqsThreads').innerHTML=['T1','T2','T3'].map(t=>
+    `<div class="tchip ${s.cls[t]||''}"><div class="tn">${t}</div><div class="ts">${s.T[t]}</div></div>`).join('');
+  $('#aqsQueue').innerHTML = s.queue.length
+    ? '<span class="qhead">队头→</span>'+s.queue.map(t=>`<span class="qnode">${t}</span>`).join('')+'<span class="qhead">←队尾</span>'
+    : '<span class="qempty">(空)</span>';
+  const n=$('#aqsNarr'); n.textContent=s.n; n.className='narr'+(s.good?' good':'');
+  $('#aqsPg').textContent='第 '+(astep+1)+' / '+AQS.length+' 步';
+  $('#aqsPrev').disabled=astep===0; $('#aqsNext').disabled=astep===AQS.length-1;
+}
+$('#aqsNext').onclick=()=>{astep=Math.min(AQS.length-1,astep+1);aqsRender();};
+$('#aqsPrev').onclick=()=>{astep=Math.max(0,astep-1);aqsRender();};
+$('#aqsReset').onclick=()=>{astep=0;aqsRender();};
+aqsRender();
+</script>
+<script>
+if(!/^(localhost|127\.)/.test(location.hostname)){
+  var _b=document.createElement('div');
+  _b.style.cssText='position:sticky;top:0;z-index:9998;background:#fdf6e6;border-bottom:1px solid #e6d3a6;color:#8a5d1f;font:12.5px/1.6 -apple-system,BlinkMacSystemFont,sans-serif;padding:7px 14px;text-align:center';
+  _b.innerHTML='🌐 线上版:「▶ 运行」需要本地 Java 后端(localhost 才能真跑);讲解与交互动画不受影响';
+  document.body.prepend(_b);
+}
+</script>
+</body>
+</html>

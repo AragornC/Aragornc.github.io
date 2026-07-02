@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>技术知识全景地图 · 技能树</title>
+<style>
+  :root{--bg:#fafaf7;--paper:#fff;--ink:#1a1a1a;--ink2:#4a4a4a;--muted:#8a8a8a;--line:#e8e6df;
+    --accent:#245f73;--good:#1f6f4f;--warn:#b84a36;--gold:#8a5d1f;
+    --c1:#245f73;--c2:#6450a8;--c3:#b07b24;--c4:#1f6f4f;--c5:#b84a36;--c6:#2f6f9f;--c7:#8a5d1f;--c8:#a83e6a;
+    --font:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    --mono:"SF Mono",ui-monospace,Menlo,monospace;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.6;font-size:15px}
+  .page{max-width:1180px;margin:0 auto;padding:30px 22px 90px}
+  h1{font-size:26px;margin:0 0 4px}.sub{color:var(--muted);margin:0 0 12px}a{color:var(--accent)}
+  .progress{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:14px 18px;margin:12px 0}
+  .progress .bar{height:12px;background:#eee;border-radius:7px;overflow:hidden;margin-top:8px}
+  .progress .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--good),#36a17a)}
+  .progress .t{font-size:13.5px;color:var(--ink2)}.progress .t b{color:var(--good);font-size:16px;font-family:var(--mono)}
+  .legend{font-size:12.5px;color:var(--muted);margin-top:6px}
+  .legend .chip{display:inline-block;border-radius:5px;padding:1px 8px;margin-right:8px;font-size:11.5px}
+  .legend .done{background:#e7f3ec;color:var(--good);font-weight:700}.legend .todo{background:#f0eee8;color:var(--muted)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:14px;margin-top:14px}
+  .area{border:1px solid var(--line);border-radius:12px;background:var(--paper);overflow:hidden;display:flex;flex-direction:column}
+  .area-h{padding:12px 15px;color:#fff;display:flex;align-items:baseline;gap:8px}
+  .area-h .idx{font-family:var(--mono);font-weight:800;opacity:.8;font-size:13px}
+  .area-h h2{margin:0;font-size:16px}
+  .area-h .cnt{margin-left:auto;font-size:11.5px;font-family:var(--mono);background:rgba(255,255,255,.22);border-radius:20px;padding:1px 9px}
+  .area-s{font-size:12px;color:var(--ink2);padding:8px 15px;border-bottom:1px solid var(--line);background:#fbfaf6}
+  .mods{padding:9px 12px;display:flex;flex-direction:column;gap:6px}
+  .mod{display:flex;gap:9px;align-items:flex-start;border:1px solid var(--line);border-radius:8px;padding:7px 10px;text-decoration:none;color:inherit;background:#fff}
+  .mod .st{font-size:14px;line-height:1.4;min-width:16px}
+  .mod .mb{flex:1}
+  .mod .mn{font-size:13.5px;font-weight:700}
+  .mod .md{font-size:11.5px;color:var(--muted);line-height:1.45;margin-top:1px}
+  .mod .tag{font-size:10px;font-weight:800;border-radius:4px;padding:1px 6px;align-self:flex-start;white-space:nowrap}
+  .tag.基础{background:#eef4f5;color:var(--accent)}.tag.核心{background:#fbeeea;color:var(--warn)}
+  .tag.进阶{background:#f1eef7;color:#6450a8}.tag.前沿{background:#eef6ee;color:var(--good)}
+  .mod.done{background:#f1f9f4;border-color:#bfe0cc;cursor:pointer}
+  .mod.done .st{color:var(--good)}.mod.done .mn{color:#155}
+  .mod.done:hover{border-color:var(--good);box-shadow:0 1px 6px rgba(31,111,79,.12)}
+  .mod.todo .st{color:#cfcabf}.mod.todo{opacity:.92}
+  .loading{color:var(--muted);text-align:center;padding:40px}
+  .foot{font-size:12px;color:var(--muted);margin-top:24px}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>技术知识全景地图</h1>
+  <p class="sub">8 大方向 · 模块化技能树。学到哪、点亮哪。目前已点亮:<b>模型工程 › RAG / 检索增强</b>。<a href="./rag-hub.html">→ 进入 RAG 知识库</a> · <a href="./about.html">👤 关于我 / Agent 长文</a></p>
+
+  <div class="progress">
+    <div class="t">总进度 <b id="doneN">0</b> / <span id="totN">0</span> 个模块已点亮</div>
+    <div class="bar"><i id="barFill" style="width:0%"></i></div>
+    <div class="legend"><span class="chip done">✓ 已点亮</span>已学完(可点进去) <span class="chip todo">○ 待学</span>待学习(后面逐个点亮)</div>
+  </div>
+
+  <div id="grid" class="grid"><div class="loading">加载知识地图…</div></div>
+
+  <p class="foot">说明:本地图只立"框架"——每个大块下挂哪些模块。模块内部的具体知识点,等进入该模块学习时再逐步填充、点亮。模块清单由多 agent 并行调研业界学习路径汇总而成,可按你的实际方向增删。</p>
+</div>
+
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const COLORS={'model-eng':'--c1','agent-arch':'--c2','java':'--c3','middleware':'--c4','high-concurrency':'--c5','practical':'--c6','algorithm':'--c7','soft-skills':'--c8'};
+// 已点亮的模块:area key → [{match:模块名包含的关键词, href:链接}]
+const LIT={
+  'model-eng':[{match:'RAG', href:'./rag-hub.html'}],
+  'agent-arch':[{match:'Agent 基础范式', href:'./agent-arch-lab.html'}],
+  'java':[{match:'JVM 内存模型', href:'./jvm-memory-lab.html'},{match:'垃圾回收与类加载', href:'./jvm-classloading-lab.html'},{match:'并发编程', href:'./concurrency-lab.html'}],
+  'high-concurrency':[
+    {match:'负载均衡', href:'./接入层-从零讲透.html'},
+    {match:'多级缓存', href:'./缓存层-从零讲透.html'},
+    {match:'限流', href:'./计算层-从零讲透.html'},
+    {match:'异步化', href:'./异步层-从零讲透.html'},
+  ],
+  'middleware':[
+    {match:'消息队列', href:'./异步层-从零讲透.html'},
+  ],
+};
+function litOf(areaKey, modName){
+  const arr=LIT[areaKey]||[];
+  for(const e of arr){ if(modName.includes(e.match)) return e.href; }
+  return null;
+}
+function render(areas){
+  // 固定顺序
+  const order=['model-eng','agent-arch','java','middleware','high-concurrency','practical','algorithm','soft-skills'];
+  areas.sort((a,b)=>order.indexOf(a.key)-order.indexOf(b.key));
+  let total=0, done=0;
+  const html=areas.map((a,ai)=>{
+    const color='var('+(COLORS[a.key]||'--c1')+')';
+    const mods=a.modules.map(m=>{
+      total++;
+      const href=litOf(a.key, m.name);
+      const isDone=!!href;if(isDone)done++;
+      const tag=m.tag?`<span class="tag ${esc(m.tag)}">${esc(m.tag)}</span>`:'';
+      const inner=`<span class="st">${isDone?'✓':'○'}</span><div class="mb"><div class="mn">${esc(m.name)}</div><div class="md">${esc(m.desc)}</div></div>${tag}`;
+      return isDone
+        ? `<a class="mod done" href="${href}">${inner}</a>`
+        : `<div class="mod todo">${inner}</div>`;
+    }).join('');
+    const litCnt=a.modules.filter(m=>litOf(a.key,m.name)).length;
+    return `<div class="area">
+      <div class="area-h" style="background:${color}"><span class="idx">${ai+1}</span><h2>${esc(a.title)}</h2><span class="cnt">${litCnt}/${a.modules.length}</span></div>
+      <div class="area-s">${esc(a.summary)}</div>
+      <div class="mods">${mods}</div>
+    </div>`;
+  }).join('');
+  $('#grid').innerHTML=html;
+  $('#doneN').textContent=done;$('#totN').textContent=total;
+  $('#barFill').style.width=(total?Math.round(done/total*100):0)+'%';
+}
+fetch('./knowledge-map-data.json?v=1').then(r=>r.json()).then(render).catch(e=>{
+  $('#grid').innerHTML='<div class="loading" style="color:var(--warn)">数据加载失败:'+esc(e.message||e)+'</div>';
+});
+</script>
+</body>
+</html>

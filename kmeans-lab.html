@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>k-means 单步可视化 · 看着它分簇</title>
+<style>
+  :root{--bg:#fafaf7;--paper:#fff;--ink:#1a1a1a;--ink2:#4a4a4a;--muted:#8a8a8a;--line:#e8e6df;
+    --accent:#245f73;--accent2:#1f6f4f;--warn:#b84a36;
+    --font:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.7;font-size:15px}
+  .page{max-width:1040px;margin:0 auto;padding:32px 22px 80px}
+  h1{font-size:24px;margin:0 0 4px}
+  .sub{color:var(--muted);margin:0 0 16px}
+  a{color:var(--accent)}
+  .bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+  button{font:inherit;font-weight:700;padding:8px 14px;border:1px solid var(--accent);border-radius:8px;background:var(--accent);color:#fff;cursor:pointer}
+  button.ghost{background:#fff;color:var(--accent)}
+  button:disabled{opacity:.4;cursor:default}
+  .ctl{display:flex;flex-direction:column;font-size:13px;color:var(--ink2)}
+  input[type=range]{width:110px}
+  .now{margin:10px 0;padding:12px 16px;border-radius:10px;background:var(--paper);border:1px solid var(--line);font-size:15px}
+  .now .ph{font-weight:800;color:var(--accent)}
+  .now .ph.assign{color:#b07b24}.now .ph.update{color:var(--accent2)}.now .ph.done{color:var(--warn)}
+  canvas{background:#fbfbf8;border:1px solid var(--line);border-radius:10px;width:100%;margin-top:6px}
+  .legend{font-size:12.5px;color:var(--muted);margin-top:6px}
+  .status{font-size:13px;color:var(--ink2)}
+  .err{color:var(--warn);font-weight:700}
+  .steps{font-size:13px;color:var(--ink2);margin-top:10px;padding-left:18px}
+  .steps li{margin:2px 0}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>k-means 单步可视化 · 看着它把点分成 k 堆</h1>
+  <p class="sub">12 条真实风控文本 → 向量 → PCA 压到 2D(你看到的就是算法在算的)。点「下一步」一步步走,看<b>簇心(✕)怎么挪、点怎么换队</b>。<a href="./index-build-lab.html">← 建索引白盒</a></p>
+
+  <div class="bar">
+    <button id="load">① 加载数据(向量化+投影到2D)</button>
+    <label class="ctl">k(分几堆)：<b><span id="kV">3</span></b><input type="range" id="k" min="2" max="5" value="3"></label>
+    <button class="ghost" id="init" disabled>② 挑:随机选 k 个初始簇心</button>
+    <button id="step" disabled>③ 下一步</button>
+    <button class="ghost" id="auto" disabled>自动跑到收敛</button>
+    <span class="status" id="status">先点①加载。</span>
+  </div>
+
+  <div class="now" id="now">等待加载…</div>
+  <canvas id="cv" width="1000" height="520"></canvas>
+  <div class="legend">大 ✕ = 簇心　彩色圆点 = 文本(颜色=当前归属的簇)　细线 = 点连到它最近的簇心。「归」时看点变色,「挪」时看 ✕ 移动。</div>
+
+  <ol class="steps">
+    <li><b>挑</b>:随机选 k 个点当初始簇心(✕)。</li>
+    <li><b>归</b>:每个点连到<b>最近的 ✕</b>、染成那个簇的颜色(看谁换了队)。</li>
+    <li><b>挪</b>:每个 ✕ 移动到<b>自己这堆点的平均位置</b>(看 ✕ 移动)。</li>
+    <li>重复 归→挪,直到 ✕ 几乎不动 → 收敛。</li>
+  </ol>
+</div>
+
+<script type="module">
+const $=s=>document.querySelector(s);
+const status=$('#status'), nowEl=$('#now');
+const CHUNKS=[
+  {t:'诱导粉丝加微信',c:'导流'},{t:'留二维码引导站外付款',c:'导流'},{t:'谐音薇信号引流',c:'导流'},
+  {t:'虚假中奖要交保证金',c:'诈骗'},{t:'冒充客服要验证码',c:'诈骗'},{t:'刷单返佣先垫本金',c:'诈骗'},
+  {t:'曝光他人手机号住址',c:'隐私'},{t:'人肉搜索披露身份证',c:'隐私'},
+  {t:'外挂脚本提升排名',c:'作弊'},{t:'自动抢券工具规避风控',c:'作弊'},
+  {t:'今天天气好适合爬山',c:'闲聊'},{t:'推荐好吃的火锅店',c:'闲聊'},
+];
+const COL=['#b94d2d','#6450a8','#207864','#b07b24','#2f6f9f'];
+let M=null, pts=null;            // pts: [{x,y,text}] in [0,1]
+let cent=[], assign=[], phase='', iter=0, converged=false;
+
+async function ensure(){if(M)return M;$('#load').disabled=true;status.textContent='加载 bge 模型…';
+  try{M=await import('./src/dense.js?v=2');await M.loadModel(e=>{if(e&&e.status)status.textContent='加载：'+(e.file||e.status);});}
+  catch(e){status.innerHTML='<span class="err">加载失败：'+String(e.message||e)+'</span>';$('#load').disabled=false;throw e;}
+  return M;}
+const L2=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+function pca2(V){const n=V.length,d=V[0].length;const mean=new Float64Array(d);for(const v of V)for(let j=0;j<d;j++)mean[j]+=v[j];for(let j=0;j<d;j++)mean[j]/=n;
+  const X=V.map(v=>{const r=new Float64Array(d);for(let j=0;j<d;j++)r[j]=v[j]-mean[j];return r;});
+  const top=(X)=>{let v=new Float64Array(d).fill(1/Math.sqrt(d));for(let it=0;it<80;it++){const u=new Float64Array(n);for(let i=0;i<n;i++){let s=0;for(let j=0;j<d;j++)s+=X[i][j]*v[j];u[i]=s;}const w=new Float64Array(d);for(let i=0;i<n;i++){const ui=u[i];for(let j=0;j<d;j++)w[j]+=X[i][j]*ui;}let nn=0;for(let j=0;j<d;j++)nn+=w[j]*w[j];nn=Math.sqrt(nn)||1;for(let j=0;j<d;j++)w[j]/=nn;v=w;}return v;};
+  const p1=top(X);for(let i=0;i<n;i++){let p=0;for(let j=0;j<d;j++)p+=X[i][j]*p1[j];for(let j=0;j<d;j++)X[i][j]-=p*p1[j];}const p2=top(X);
+  const raw=V.map(v=>{let x=0,y=0;for(let j=0;j<d;j++){const c=v[j]-mean[j];x+=c*p1[j];y+=c*p2[j];}return[x,y];});
+  const xs=raw.map(r=>r[0]),ys=raw.map(r=>r[1]);const mnx=Math.min(...xs),mxx=Math.max(...xs),mny=Math.min(...ys),mxy=Math.max(...ys);
+  return raw.map(([x,y])=>({x:(x-mnx)/(mxx-mnx||1),y:(y-mny)/(mxy-mny||1)}));
+}
+function map(p){const cv=$('#cv'),pad=55;return [pad+p.x*(cv.width-2*pad),pad+p.y*(cv.height-2*pad)];}
+function draw(showLines){const cv=$('#cv'),ctx=cv.getContext('2d');ctx.clearRect(0,0,cv.width,cv.height);ctx.font='12px -apple-system,sans-serif';
+  if(showLines&&cent.length)pts.forEach((p,i)=>{if(assign[i]==null)return;const[x,y]=map(p),[cx,cy]=map(cent[assign[i]]);ctx.strokeStyle='rgba(120,120,120,0.35)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(cx,cy);ctx.stroke();});
+  pts.forEach((p,i)=>{const[x,y]=map(p);const col=assign[i]!=null?COL[assign[i]]:'#bbb';ctx.beginPath();ctx.arc(x,y,6,0,7);ctx.fillStyle=col;ctx.fill();ctx.fillStyle='#333';ctx.fillText(p.text,x+9,y+4);});
+  cent.forEach((c,j)=>{const[x,y]=map(c);ctx.strokeStyle=COL[j];ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(x-10,y-10);ctx.lineTo(x+10,y+10);ctx.moveTo(x+10,y-10);ctx.lineTo(x-10,y+10);ctx.stroke();});
+}
+function setNow(cls,html){nowEl.innerHTML=`<span class="ph ${cls}">${html}</span>`;}
+
+function doInit(){
+  const k=+$('#k').value;const idxs=[...pts.keys()];for(let i=idxs.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[idxs[i],idxs[j]]=[idxs[j],idxs[i]];}
+  cent=idxs.slice(0,k).map(i=>({x:pts[i].x,y:pts[i].y}));
+  assign=new Array(pts.length).fill(null);phase='assign';iter=0;converged=false;
+  draw(false);setNow('','【挑】随机选了 '+k+' 个点当初始簇心(✕)。点「下一步」开始【归】。');
+  $('#step').disabled=false;$('#auto').disabled=false;
+}
+function doStep(){
+  if(converged)return;
+  if(phase==='assign'){
+    let changed=0;const na=pts.map((p,i)=>{let bd=1e9,bj=0;for(let j=0;j<cent.length;j++){const d=L2(p,cent[j]);if(d<bd){bd=d;bj=j;}}if(assign[i]!==bj)changed++;return bj;});
+    assign=na;iter++;draw(true);
+    setNow('assign',`第 ${iter} 轮 ·【归】每个点连到最近的 ✕、染成该簇颜色。本轮 <b>${changed}</b> 个点换了队。点「下一步」做【挪】。`);
+    phase='update';
+  } else {
+    let move=0;const nc=cent.map((c,j)=>{let sx=0,sy=0,n=0;pts.forEach((p,i)=>{if(assign[i]===j){sx+=p.x;sy+=p.y;n++;}});if(!n)return c;const nx=sx/n,ny=sy/n;move+=Math.hypot(nx-c.x,ny-c.y);return{x:nx,y:ny};});
+    cent=nc;draw(true);
+    if(move<0.001){converged=true;setNow('done',`第 ${iter} 轮 ·【挪】簇心几乎没动(移动 ${move.toFixed(4)})→ <b>收敛!</b> 分簇完成。`);$('#step').disabled=true;}
+    else setNow('update',`第 ${iter} 轮 ·【挪】每个 ✕ 移到自己这堆点的平均位置(共移动 ${move.toFixed(3)})。点「下一步」继续【归】,看还有没有点换队。`);
+    phase='assign';
+  }
+}
+async function load(){const m=await ensure();status.textContent='向量化 + PCA 投影…';
+  const vs=[];for(const c of CHUNKS)vs.push(Array.from(await m.embed(c.t)));
+  const xy=pca2(vs);pts=xy.map((p,i)=>({...p,text:CHUNKS[i].t}));
+  draw(false);status.textContent='数据就绪 ✓ 点②挑初始簇心。';setNow('','12 个点已投到 2D(每个点是一条真实文本)。点②【挑】选初始簇心。');
+  $('#init').disabled=false;
+}
+$('#load').onclick=load;
+$('#k').oninput=()=>{$('#kV').textContent=$('#k').value;};
+$('#init').onclick=doInit;
+$('#step').onclick=doStep;
+$('#auto').onclick=()=>{const t=setInterval(()=>{if(converged){clearInterval(t);return;}doStep();},700);};
+</script>
+<a id="home-fab" href="./knowledge-map.html" style="position:fixed;right:16px;bottom:16px;z-index:9999;background:#245f73;color:#fff;text-decoration:none;font:600 13px/1 -apple-system,BlinkMacSystemFont,sans-serif;padding:10px 14px;border-radius:24px;box-shadow:0 2px 10px rgba(0,0,0,.18)">🏠 总览</a>
+</body>
+</html>

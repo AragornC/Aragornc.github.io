@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>HNSW 索引存储结构白盒(分层)</title>
+<style>
+  :root{--bg:#fafaf7;--paper:#fff;--ink:#1a1a1a;--ink2:#4a4a4a;--muted:#8a8a8a;--line:#e8e6df;
+    --accent:#245f73;--accent2:#1f6f4f;--warn:#b84a36;--nav:#2f6f9f;
+    --font:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    --mono:"SF Mono",ui-monospace,Menlo,monospace;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.7;font-size:15px}
+  .page{max-width:1040px;margin:0 auto;padding:32px 22px 80px}
+  h1{font-size:23px;margin:0 0 4px}.sub{color:var(--muted);margin:0 0 14px}a{color:var(--accent)}
+  .bar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+  button{font:inherit;font-weight:700;padding:8px 14px;border:1px solid var(--accent);border-radius:8px;background:var(--accent);color:#fff;cursor:pointer}
+  button:disabled{opacity:.4}.status{font-size:13px;color:var(--ink2)}
+  .seg{margin-top:18px;background:var(--paper);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .seg-head{padding:12px 18px;border-bottom:1px solid var(--line);background:#f6f5ef}
+  .seg-head h2{margin:0;font-size:16px}.seg-head .algo{margin-top:3px;color:var(--ink2);font-size:13px}
+  .seg-body{padding:14px 18px}
+  table{border-collapse:collapse;font-size:12.5px;width:100%}td,th{border:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top}
+  th{background:#f3f2ec}.mono{font-family:var(--mono);font-size:12px}
+  .store{background:#1f2328;color:#e6e6df;border-radius:8px;padding:12px 14px;font-family:var(--mono);font-size:12px;white-space:pre-wrap;word-break:break-word;overflow-x:auto;margin-top:8px}
+  .store .k{color:#79c0e8}.store .n{color:#e0a849}.store .c{color:#8a8a8a}.store .L{color:#b6d99a;font-weight:700}
+  .pill{display:inline-block;background:#eef4f5;color:var(--accent);border-radius:5px;padding:0 6px;margin:1px;font-family:var(--mono);font-size:11.5px}
+  .lvl{display:inline-block;width:20px;height:20px;line-height:20px;text-align:center;border-radius:5px;font-size:11px;font-weight:800;color:#fff}
+  .l0{background:#9aa0a6}.l1{background:#b07b24}.l2{background:#b94d2d}
+  .label{display:inline-block;font-size:11px;font-weight:800;color:#fff;background:var(--accent2);border-radius:4px;padding:1px 7px;margin-bottom:6px}
+  .hint{font-size:12.5px;color:var(--muted);margin-top:8px}.err{color:var(--warn);font-weight:700}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>HNSW 索引存储结构白盒(分层)</h1>
+  <p class="sub">HNSW 索引在库里到底存了什么?= <b>入口点 + 每个节点的层级 + 每一层的邻接表(节点→邻居id)</b>。用真实文本标注,逐字摊开,无检索。<a href="./hnsw-layers-lab.html">← 分层搜索演示</a> · <a href="./index-build-lab.html">建索引白盒</a></p>
+
+  <div class="bar"><button id="load">加载模型 + 建 HNSW 索引</button><span class="status" id="status">点按钮:嵌入12条文本→分层→建每层的图。</span></div>
+
+  <div class="seg"><div class="seg-head"><h2>① 索引总览</h2></div>
+    <div class="seg-body"><div id="overview" class="mono"></div></div></div>
+
+  <div class="seg"><div class="seg-head"><h2>② 逐节点:每个点在哪些层、各层连了谁</h2>
+    <div class="algo">一个点存在于第 0 层(所有点都在),可能还存在于更高层(被随机选中的少数点)。它在每一层有<b>各自的邻居列表</b>。</div></div>
+    <div class="seg-body"><div id="nodeTable"></div>
+      <div class="hint">层级:<span class="lvl l0">0</span>只在底层 <span class="lvl l1">1</span>到第1层 <span class="lvl l2">2</span>到第2层(顶层枢纽)。同一点在不同层的邻居不同(因为每层成员不同)。</div></div></div>
+
+  <div class="seg"><div class="seg-head"><h2>③ 每一层的邻接表(分层图的真身)</h2>
+    <div class="algo">这才是 HNSW 索引的核心:不是一张图,是<b>每层一张图</b>。顶层点少边长(高速),底层点全边短(精修)。</div></div>
+    <div class="seg-body"><div id="layerLists"></div></div></div>
+
+  <div class="seg"><div class="seg-head"><h2>④ 完整存储形态(库里持久化的 HNSW 索引 JSON)</h2></div>
+    <div class="seg-body"><div class="label">这就是向量库为 HNSW 落盘的东西(+ 数据层的 id/原文/向量)</div><div class="store" id="storeJSON"></div></div></div>
+</div>
+
+<script type="module">
+const $=s=>document.querySelector(s);
+const status=$('#status');
+const CHUNKS=[
+  {t:'主播在直播间诱导粉丝添加微信',c:'导流'},{t:'短视频评论区留二维码引导去站外付款',c:'导流'},{t:'谐音薇信号引流到小号',c:'导流'},
+  {t:'账号发布虚假中奖要求先交保证金',c:'诈骗'},{t:'冒充客服索要短信验证码',c:'诈骗'},{t:'刷单返佣需要先垫付本金',c:'诈骗'},
+  {t:'评论曝光他人手机号和住址',c:'隐私'},{t:'人肉搜索披露身份证照片',c:'隐私'},
+  {t:'外挂脚本提升游戏排名',c:'作弊'},{t:'自动抢券工具规避风控',c:'作弊'},
+  {t:'今天天气好适合爬山',c:'闲聊'},{t:'推荐一家火锅店',c:'闲聊'},
+];
+let M=null,vecs=null,maxlv=[],layerG=[],entry=0;
+const id=i=>'d'+String(i+1).padStart(2,'0');
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const L2=(a,b)=>{let s=0;for(let i=0;i<a.length;i++){const d=a[i]-b[i];s+=d*d;}return Math.sqrt(s);};
+const colorJSON=j=>esc(j).replace(/"(entry_point|max_level|levels|graph_per_layer|node_count|第\d层|type)":/g,'"<span class="k">$1</span>":').replace(/"(d\d\d)"/g,'"<span class="n">$1</span>"').replace(/(\/\/.*)$/gm,'<span class="c">$1</span>');
+
+async function ensure(){if(M)return M;$('#load').disabled=true;status.textContent='加载 bge…';
+  try{M=await import('./src/dense.js?v=2');await M.loadModel(e=>{if(e&&e.status)status.textContent='加载：'+(e.file||e.status);});}
+  catch(e){status.innerHTML='<span class="err">加载失败：'+String(e.message||e)+'</span>';$('#load').disabled=false;throw e;}return M;}
+
+function buildIndex(){
+  let s=11;const r=()=>{s=(s*1103515245+12345)&0x7fffffff;return s/0x7fffffff;};
+  const idx=[...vecs.keys()];for(let i=idx.length-1;i>0;i--){const j=Math.floor(r()*(i+1));[idx[i],idx[j]]=[idx[j],idx[i]];}
+  maxlv=new Array(vecs.length).fill(0);idx.slice(0,2).forEach(i=>maxlv[i]=2);idx.slice(2,5).forEach(i=>maxlv[i]=1);
+  entry=idx[0]; // 最高层的点之一当入口
+  const k=3;
+  layerG=[0,1,2].map(L=>{const nodes=[...vecs.keys()].filter(i=>maxlv[i]>=L);const g={};
+    nodes.forEach(i=>{g[i]=nodes.filter(j=>j!==i).map(j=>[L2(vecs[i],vecs[j]),j]).sort((a,b)=>a[0]-b[0]).slice(0,Math.min(k,nodes.length-1)).map(x=>x[1]);});return g;});
+}
+function render(){
+  const cnt=[0,1,2].map(L=>Object.keys(layerG[L]).length);
+  $('#overview').innerHTML=`节点(向量)数:<b>${vecs.length}</b> · 入口点:<b>${id(entry)}</b>(在顶层)<br>每层节点数 → 第2层(顶/稀疏):<b>${cnt[2]}</b> · 第1层:<b>${cnt[1]}</b> · 第0层(底/全部):<b>${cnt[0]}</b>`;
+  // 逐节点
+  let rows='<table><tr><th>节点</th><th>原文</th><th>最高层</th><th>第0层邻居</th><th>第1层邻居</th><th>第2层邻居</th></tr>';
+  for(let i=0;i<vecs.length;i++){const lv=maxlv[i];
+    const nb=L=>(layerG[L][i]?layerG[L][i].map(j=>`<span class="pill">${id(j)}</span>`).join(''):'<span style="color:#ccc">—(不在此层)</span>');
+    rows+=`<tr><td class="mono">${id(i)}</td><td>${esc(CHUNKS[i].t)}</td><td><span class="lvl l${lv}">${lv}</span></td><td>${nb(0)}</td><td>${nb(1)}</td><td>${nb(2)}</td></tr>`;}
+  $('#nodeTable').innerHTML=rows+'</table>';
+  // 每层邻接表
+  let LL='';[2,1,0].forEach(L=>{const nodes=Object.keys(layerG[L]).map(Number);
+    LL+=`<div class="label" style="background:${L==2?'#b94d2d':L==1?'#b07b24':'#9aa0a6'}">第 ${L} 层 · ${nodes.length} 个节点 ${L==2?'(顶层·边长)':L==0?'(底层·边短)':''}</div>`;
+    let t='<table><tr><th>节点</th><th>→ 邻居(连到谁)</th></tr>';
+    nodes.forEach(i=>{t+=`<tr><td class="mono">${id(i)}</td><td>${layerG[L][i].map(j=>`<span class="pill">${id(j)}</span>`).join('')||'—'}</td></tr>`;});
+    LL+=t+'</table><div style="height:10px"></div>';});
+  $('#layerLists').innerHTML=LL;
+  // 完整 JSON
+  let j=`{
+  "type": "HNSW",
+  "entry_point": "${id(entry)}",          // 搜索从顶层这个点开始
+  "max_level": 2,
+  "levels": {                              // 每个节点的最高层(随机分层决定)\n`;
+  for(let i=0;i<vecs.length;i++)j+=`    "${id(i)}": ${maxlv[i]},\n`;
+  j+=`  },
+  "graph_per_layer": {                     // 核心:每层一张邻接表\n`;
+  [2,1,0].forEach(L=>{j+=`    "第${L}层": {\n`;Object.keys(layerG[L]).map(Number).forEach(i=>{j+=`      "${id(i)}": [${layerG[L][i].map(x=>'"'+id(x)+'"').join(', ')}],\n`;});j+=`    },\n`;});
+  j+=`  }\n}`;
+  $('#storeJSON').innerHTML=colorJSON(j);
+}
+async function load(){const m=await ensure();status.textContent='嵌入 '+CHUNKS.length+' 条 + 建索引…';
+  vecs=[];for(const c of CHUNKS)vecs.push(Array.from(await m.embed(c.t)));
+  buildIndex();render();status.textContent='完成 ✓ 这就是 HNSW 索引在库里的真身。';}
+$('#load').onclick=load;
+</script>
+<a id="home-fab" href="./knowledge-map.html" style="position:fixed;right:16px;bottom:16px;z-index:9999;background:#245f73;color:#fff;text-decoration:none;font:600 13px/1 -apple-system,BlinkMacSystemFont,sans-serif;padding:10px 14px;border-radius:24px;box-shadow:0 2px 10px rgba(0,0,0,.18)">🏠 总览</a>
+</body>
+</html>

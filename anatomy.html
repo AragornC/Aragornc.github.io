@@ -1,0 +1,885 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>向量检索解剖台</title>
+    <link rel="stylesheet" href="./assets/site.css?v=2" />
+  </head>
+  <body>
+    <div class="shell">
+      <nav class="side-nav" aria-label="章节导航">
+        <div class="brand">
+          <strong>向量检索解剖台</strong>
+          <span>纯静态 live demo · 阶段四</span>
+        </div>
+        <a href="#overview">§0 总览</a>
+        <a href="#vectorize">§A 文本→向量</a>
+        <a href="#geometry">§B 相似度几何</a>
+        <a href="#ann">§C ANN</a>
+        <a href="#eval">§D 评估</a>
+        <a href="#compare">§E 横向对比</a>
+      </nav>
+
+      <main>
+        <section id="overview">
+          <h1>把稀疏检索的每个数字摊开看</h1>
+          <p class="lede">BM25、中文 dense 与图式渐近检索并排：同一个 query 可以看到词项命中、语义一跳和结构多跳三种召回路径。</p>
+
+          <form class="query-bar" id="searchForm">
+            <input id="queryInput" name="query" autocomplete="off" value="直播里让观众加微信私下买东西" aria-label="检索 query" />
+            <button type="submit">检索</button>
+          </form>
+
+          <div class="method-grid">
+            <article class="panel">
+              <div class="panel-header">
+                <h3>BM25</h3>
+                <p>字级 + bigram tokenizer，按 BM25 分数排序。</p>
+              </div>
+              <div class="result-list" id="bm25Results"></div>
+            </article>
+
+            <article class="panel">
+              <div class="panel-header">
+                <h3>Dense</h3>
+                <p>bge-small-zh-v1.5 embedding（本地托管），brute-force cosine top-k。</p>
+              </div>
+              <div class="result-list" id="densePanel">
+                <button type="button" id="loadDenseButton">加载 Dense 模型</button>
+                <p class="muted" id="denseStatus">浏览器运行时读取本地 BGE 模型；失败时不影响 BM25。</p>
+                <div id="denseResults"></div>
+              </div>
+            </article>
+
+            <article class="panel">
+              <div class="panel-header">
+                <h3>图式渐近</h3>
+                <p>schema 字段打种子，relation 图多跳扩展。</p>
+              </div>
+              <div class="result-list" id="schemaResults">
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section id="vectorize">
+          <h2>§A 文本→向量</h2>
+          <div class="lab-grid">
+            <div class="controls panel">
+              <div class="panel-header">
+                <h3>选择样本文本</h3>
+                <p>展开查看 tokenizer 与 TF-IDF 权重。</p>
+              </div>
+              <div class="result-list">
+                <label>
+                  文档
+                  <select id="docSelect"></select>
+                </label>
+                <label>
+                  或输入文本
+                  <input id="tokenInput" value="主播反复让粉丝加私人号进私域群聊完成下单" />
+                </label>
+                <p class="status" id="corpusStatus"></p>
+              </div>
+            </div>
+            <article class="panel">
+              <div class="panel-header">
+                <h3>Tokenizer 输出</h3>
+                <p>每个中文单字和相邻中文 bigram 都作为 term；英文/数字按词。</p>
+              </div>
+              <div class="result-list">
+                <div id="tokenOutput"></div>
+                <details open>
+                  <summary>TF-IDF 明细</summary>
+                  <div id="tfidfOutput"></div>
+                </details>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section id="geometry">
+          <h2>§B 相似度几何</h2>
+          <div class="lab-grid">
+            <div class="controls panel">
+              <div class="panel-header">
+                <h3>度量切换</h3>
+                <p>选择一个文档，实时比较 query 与 doc 的 dense 距离。</p>
+              </div>
+              <div class="result-list">
+                <label>
+                  对比文档
+                  <select id="geometryDocSelect"></select>
+                </label>
+                <div class="segmented" role="group" aria-label="相似度度量">
+                  <button type="button" class="metric-button active" data-metric="cosine">cosine</button>
+                  <button type="button" class="metric-button" data-metric="dot">dot</button>
+                  <button type="button" class="metric-button" data-metric="l2">L2</button>
+                </div>
+                <div class="metric-readout" id="metricReadout">
+                  <strong>等待 Dense 模型</strong>
+                  <span>加载模型后显示三种度量值。</span>
+                </div>
+                <p class="muted">BGE 输出已 normalize；当两个向量都归一化时，cosine 与 dot 数值相同。L2 越小表示越近。</p>
+              </div>
+            </div>
+            <article class="panel">
+              <div class="panel-header">
+                <h3>PCA 二维散点</h3>
+                <p>手写 PCA，把 corpus + 当前 query 投到 2D；颜色对应 risk_type。</p>
+              </div>
+              <div class="result-list">
+                <canvas id="pcaCanvas" width="760" height="420" aria-label="Dense PCA scatter plot"></canvas>
+                <div class="legend" id="pcaLegend"></div>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section id="ann">
+          <h2>§C ANN</h2>
+          <div class="ann-grid">
+            <article class="panel">
+              <div class="panel-header">
+                <h3>Brute-force vs HNSW</h3>
+                <p>小语料精确扫全库；大语料用近似图索引换速度。</p>
+              </div>
+              <div class="result-list">
+                <div class="ann-diagram" aria-label="ANN concept diagram">
+                  <div class="ann-column">
+                    <strong>brute-force</strong>
+                    <span>query → 计算全库 cosine → 精确 top-k</span>
+                  </div>
+                  <div class="ann-arrow">→</div>
+                  <div class="ann-column">
+                    <strong>HNSW ANN</strong>
+                    <span>query → 图上贪心搜索 → 近似 top-k</span>
+                  </div>
+                </div>
+                <p class="muted">本项目 dense 面板仍用 brute-force，作为后续 ANN 近似召回的 ground truth。</p>
+              </div>
+            </article>
+
+            <article class="panel">
+              <div class="panel-header">
+                <h3>ef / M 交互示意</h3>
+                <p>教学模拟，非真实 benchmark。</p>
+              </div>
+              <div class="result-list">
+                <label>
+                  efSearch <span id="efValue">64</span>
+                  <input id="efSlider" type="range" min="8" max="200" value="64" step="4" />
+                </label>
+                <label>
+                  M <span id="mValue">16</span>
+                  <input id="mSlider" type="range" min="4" max="48" value="16" step="2" />
+                </label>
+                <canvas id="annCanvas" width="760" height="300" aria-label="ANN recall latency curve"></canvas>
+                <div class="metric-strip" id="annMetrics"></div>
+                <p class="muted">召回损失 = 嵌入表达力问题（买不回） × ANN 近似问题（通常可用更高 ef 买回）。</p>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section id="eval">
+          <h2>§D 评估</h2>
+          <p class="formula">recall@k = 命中的相关文档数 / 全部相关文档数<br />precision@k = 命中的相关文档数 / k<br />MRR = 1 / 第一个相关结果的排名</p>
+          <div class="panel">
+            <div class="panel-header">
+              <h3>当前 query 实时指标（@5）</h3>
+              <p>只有当前输入能在 `data/queries.json` 中找到 ground truth 时才计算。</p>
+            </div>
+            <div class="result-list" id="currentEval"></div>
+          </div>
+        </section>
+
+        <section id="compare">
+          <h2>§E 横向对比</h2>
+          <p class="muted">基于 `data/queries.json` 全部 query 与 `relevant_ids` 自动计算。BM25 / 图式渐近同步出结果；Dense 需要模型就绪后运行。</p>
+          <div class="query-bar">
+            <button type="button" id="runCompareButton">运行 12 query 横向对比</button>
+            <p class="muted" id="compareStatus">Dense 未加载时，按钮会先加载模型再运行对比。</p>
+          </div>
+          <div class="panel">
+            <div class="panel-header">
+              <h3>总览指标</h3>
+              <p>macro recall@5 / precision@5 / MRR / nDCG@5</p>
+            </div>
+            <div class="result-list" id="summaryEval"></div>
+          </div>
+          <div class="panel compare-panel">
+            <div class="panel-header">
+              <h3>逐 query 明细与漏召回归因</h3>
+              <p>每行高亮 recall@5 最高方法；漏召回按 `trap` 字段解释。</p>
+            </div>
+            <div class="result-list" id="queryBreakdown"></div>
+          </div>
+          <p class="formula">工程结论：没有单一方法全胜，生产应融合 dense 粗召回 + 图式沿链补召回 + rerank。</p>
+        </section>
+      </main>
+    </div>
+
+    <script type="module">
+      import { buildSparseIndex, explainTfIdf, explainTokenization, searchBM25 } from "./src/sparse.js?v=2";
+      import { buildSchemaIndex, searchSchema } from "./src/schema.js?v=2";
+      import { evaluateMethod, hitCountAtK, mrr, ndcgAtK, precisionAtK, recallAtK } from "./src/eval.js?v=2";
+
+      const [corpus, queries] = await Promise.all([
+        fetch("./data/corpus.json").then((res) => res.json()),
+        fetch("./data/queries.json").then((res) => res.json()),
+      ]);
+      const index = buildSparseIndex(corpus);
+      const schemaIndex = buildSchemaIndex(corpus);
+
+      const searchForm = document.querySelector("#searchForm");
+      const queryInput = document.querySelector("#queryInput");
+      const bm25Results = document.querySelector("#bm25Results");
+      const schemaResults = document.querySelector("#schemaResults");
+      const loadDenseButton = document.querySelector("#loadDenseButton");
+      const denseStatus = document.querySelector("#denseStatus");
+      const denseResults = document.querySelector("#denseResults");
+      const docSelect = document.querySelector("#docSelect");
+      const geometryDocSelect = document.querySelector("#geometryDocSelect");
+      const metricReadout = document.querySelector("#metricReadout");
+      const pcaCanvas = document.querySelector("#pcaCanvas");
+      const pcaLegend = document.querySelector("#pcaLegend");
+      const tokenInput = document.querySelector("#tokenInput");
+      const tokenOutput = document.querySelector("#tokenOutput");
+      const tfidfOutput = document.querySelector("#tfidfOutput");
+      const corpusStatus = document.querySelector("#corpusStatus");
+      const efSlider = document.querySelector("#efSlider");
+      const mSlider = document.querySelector("#mSlider");
+      const efValue = document.querySelector("#efValue");
+      const mValue = document.querySelector("#mValue");
+      const annCanvas = document.querySelector("#annCanvas");
+      const annMetrics = document.querySelector("#annMetrics");
+      const currentEval = document.querySelector("#currentEval");
+      const runCompareButton = document.querySelector("#runCompareButton");
+      const compareStatus = document.querySelector("#compareStatus");
+      const summaryEval = document.querySelector("#summaryEval");
+      const queryBreakdown = document.querySelector("#queryBreakdown");
+
+      corpusStatus.textContent = `${corpus.length} docs / ${queries.length} queries loaded`;
+
+      for (const doc of corpus) {
+        const option = document.createElement("option");
+        option.value = doc.id;
+        option.textContent = `${doc.id} · ${doc.schema.risk_type} · ${doc.text.slice(0, 24)}`;
+        docSelect.append(option);
+
+        const geometryOption = option.cloneNode(true);
+        geometryDocSelect.append(geometryOption);
+      }
+      docSelect.value = "d014";
+      geometryDocSelect.value = "d001";
+
+      let denseApi = null;
+      let denseReady = false;
+      let denseLoading = false;
+      let denseQueryVector = null;
+      let denseTopResults = [];
+      let currentBm25Ids = [];
+      let currentSchemaIds = [];
+      let currentDenseIds = [];
+      let latestComparison = null;
+      let activeMetric = "cosine";
+
+      const riskColors = new Map();
+      const palette = ["#b94d2d", "#207864", "#6450a8", "#b07b24", "#2f6f9f", "#8c4b71", "#5c6f2f", "#8f4b32", "#47606f", "#7a673b"];
+
+      function fmt(value) {
+        return Number(value).toFixed(4);
+      }
+
+      function pct(value) {
+        return `${(value * 100).toFixed(1)}%`;
+      }
+
+      function riskColor(riskType) {
+        if (!riskColors.has(riskType)) {
+          riskColors.set(riskType, palette[riskColors.size % palette.length]);
+        }
+        return riskColors.get(riskType);
+      }
+
+      function renderTags(doc) {
+        const tags = [
+          doc.schema.risk_type,
+          doc.schema.channel,
+          `severity:${doc.schema.severity}`,
+          ...(doc.trap ? [`trap:${doc.trap}`] : []),
+        ];
+        return tags
+          .map((tag) => `<span class="tag ${String(tag).startsWith("trap:") ? "trap" : ""}">${tag}</span>`)
+          .join("");
+      }
+
+      function renderContributionTable(contributions) {
+        const rows = contributions
+          .slice(0, 16)
+          .map(
+            (item) => `<tr>
+              <td>${item.term}</td>
+              <td>${item.query_tf}</td>
+              <td>${item.doc_tf}</td>
+              <td>${fmt(item.idf)}</td>
+              <td>${fmt(item.score)}</td>
+            </tr>`,
+          )
+          .join("");
+        return `<table class="term-table">
+          <thead><tr><th>term</th><th>query tf</th><th>doc tf</th><th>idf</th><th>BM25</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>`;
+      }
+
+      function renderAlignedFields(fields) {
+        if (!fields.length) return `<span class="tag">relation-only</span>`;
+        return fields.map((item) => `<span class="tag">${item.field}:${item.value}</span>`).join("");
+      }
+
+      function renderSearch() {
+        const result = searchBM25(index, queryInput.value, { k: 5 });
+        currentBm25Ids = result.results.map((item) => item.doc.id);
+        bm25Results.innerHTML = result.results
+          .map(
+            ({ doc, score, contributions }) => `<article class="result-card">
+              <div class="result-top">
+                <strong class="doc-id">${doc.id}</strong>
+                <span class="score">${fmt(score)}</span>
+              </div>
+              <p class="doc-text">${doc.text}</p>
+              <div class="meta">${renderTags(doc)}</div>
+              <details>
+                <summary>展开 BM25 贡献</summary>
+                ${renderContributionTable(contributions)}
+              </details>
+            </article>`,
+          )
+          .join("");
+        renderSchemaSearch();
+        renderCurrentEval();
+        renderDenseSearch();
+      }
+
+      function renderSchemaSearch() {
+        const results = searchSchema(schemaIndex, queryInput.value, { k: 5, hops: 2 });
+        currentSchemaIds = results.map((item) => item.doc.id);
+        schemaResults.innerHTML = results.length
+          ? results
+              .map((item) => {
+                const viaLabel = item.dist === 0 ? "种子" : `第${item.dist}跳`;
+                const path = item.path?.length > 1 ? item.path.join(" → ") : item.doc.id;
+                return `<article class="result-card">
+                  <div class="result-top">
+                    <strong class="doc-id">${item.doc.id}</strong>
+                    <span class="score">${fmt(item.score)}</span>
+                  </div>
+                  <p class="doc-text">${item.doc.text}</p>
+                  <div class="meta">
+                    ${renderTags(item.doc)}
+                    <span class="tag trap">${viaLabel}</span>
+                    <span class="tag">dist:${item.dist}</span>
+                  </div>
+                  <details>
+                    <summary>展开结构路径</summary>
+                    <div class="token-cloud">${renderAlignedFields(item.alignedFields)}</div>
+                    <p class="muted">seed: ${item.seedId} · path: ${path}</p>
+                  </details>
+                </article>`;
+              })
+              .join("")
+          : `<p class="muted">没有匹配到 schema 字段；换一个带风险类型、渠道或实体词的 query。</p>`;
+      }
+
+      async function ensureDenseReady() {
+        if (denseReady || denseLoading) return;
+        denseLoading = true;
+        loadDenseButton.disabled = true;
+        denseStatus.textContent = "加载 transformers.js 与本地 BGE 模型...";
+        try {
+          denseApi = await import("./src/dense.js?v=2");
+          const progressText = (event) => {
+            if (event?.status === "embedding") {
+              denseStatus.textContent = `计算 corpus embedding：${event.loaded}/${event.total}`;
+              return;
+            }
+            const name = event?.file ? ` ${event.file}` : "";
+            const progress = Number.isFinite(event?.progress) ? ` ${Math.round(event.progress)}%` : "";
+            denseStatus.textContent = `${event?.status || "loading"}${name}${progress}`;
+          };
+          await denseApi.loadModel(progressText);
+          await denseApi.embedCorpus(corpus, progressText);
+          denseReady = true;
+          denseStatus.textContent = "Dense 模型已就绪，corpus embedding 已缓存。";
+          loadDenseButton.textContent = "Dense 已加载";
+          await renderDenseSearch();
+          renderCurrentEval();
+        } catch (error) {
+          denseStatus.textContent = `模型加载失败/CDN 不可达：${error.message}`;
+          denseResults.innerHTML = `<p class="muted">Dense 暂不可用；BM25 仍可继续检索。</p>`;
+          loadDenseButton.disabled = false;
+          loadDenseButton.textContent = "重试加载 Dense 模型";
+        } finally {
+          denseLoading = false;
+        }
+      }
+
+      async function renderDenseSearch() {
+        if (!denseReady || !denseApi) return;
+        denseResults.innerHTML = `<p class="muted">计算 query embedding...</p>`;
+        try {
+          denseTopResults = await denseApi.searchDense(queryInput.value, 5);
+          currentDenseIds = denseTopResults.map((item) => item.doc.id);
+          denseQueryVector = denseTopResults[0]?.queryVector || (await denseApi.embed(queryInput.value));
+          denseResults.innerHTML = denseTopResults
+            .map(
+              ({ doc, score }) => `<article class="result-card">
+                <div class="result-top">
+                  <strong class="doc-id">${doc.id}</strong>
+                  <span class="score">${fmt(score)}</span>
+                </div>
+                <p class="doc-text">${doc.text}</p>
+                <div class="meta">${renderTags(doc)}</div>
+              </article>`,
+            )
+            .join("");
+          renderGeometry();
+          renderCurrentEval();
+        } catch (error) {
+          currentDenseIds = [];
+          denseResults.innerHTML = `<p class="muted">Dense 检索失败：${error.message}</p>`;
+          renderCurrentEval();
+        }
+      }
+
+      function queryGroundTruth(text) {
+        return queries.find((query) => query.text === text.trim()) || null;
+      }
+
+      function metricCards(methods, relevant) {
+        return `<div class="metric-grid">${methods
+          .map(({ name, returned, pending }) => {
+            if (pending) {
+              return `<div class="metric-card"><strong>${name}</strong><span>等待 Dense 模型</span></div>`;
+            }
+            return `<div class="metric-card">
+              <strong>${name}</strong>
+              <span>recall@5 ${pct(recallAtK(returned, relevant, 5))}</span>
+              <span>precision@5 ${pct(precisionAtK(returned, relevant, 5))}</span>
+              <span>MRR ${fmt(mrr(returned, relevant))}</span>
+            </div>`;
+          })
+          .join("")}</div>`;
+      }
+
+      function renderCurrentEval() {
+        const truth = queryGroundTruth(queryInput.value);
+        if (!truth) {
+          currentEval.innerHTML = `<p class="muted">当前输入不在 query 集中；§D 暂不计算 ground-truth 指标。</p>`;
+          return;
+        }
+        currentEval.innerHTML = `
+          <p class="muted">${truth.id} · relevant: ${truth.relevant_ids.join(", ")}</p>
+          ${metricCards(
+            [
+              { name: "BM25", returned: currentBm25Ids },
+              { name: "Dense", returned: currentDenseIds, pending: !denseReady },
+              { name: "图式渐近", returned: currentSchemaIds },
+            ],
+            truth.relevant_ids,
+          )}
+        `;
+      }
+
+      function syncReturnedByQuery() {
+        const bm25 = {};
+        const schema = {};
+        for (const query of queries) {
+          bm25[query.id] = searchBM25(index, query.text, { k: 5 }).results.map((item) => item.doc.id);
+          schema[query.id] = searchSchema(schemaIndex, query.text, { k: 5, hops: 2 }).map((item) => item.doc.id);
+        }
+        return { bm25, schema };
+      }
+
+      async function denseReturnedByQuery() {
+        const dense = {};
+        for (const query of queries) {
+          compareStatus.textContent = `Dense 计算中：${query.id}`;
+          dense[query.id] = (await denseApi.searchDense(query.text, 5)).map((item) => item.doc.id);
+        }
+        return dense;
+      }
+
+      function methodSummaryRows(evaluations) {
+        return `<table class="term-table eval-table">
+          <thead><tr><th>方法</th><th>macro recall@5</th><th>precision@5</th><th>MRR</th><th>nDCG@5</th></tr></thead>
+          <tbody>${Object.entries(evaluations)
+            .map(
+              ([name, evalResult]) => `<tr>
+                <td>${name}</td>
+                <td>${pct(evalResult.macroRecall)}</td>
+                <td>${pct(evalResult.macroPrecision)}</td>
+                <td>${fmt(evalResult.mrr)}</td>
+                <td>${fmt(evalResult.ndcg)}</td>
+              </tr>`,
+            )
+            .join("")}</tbody>
+        </table>`;
+      }
+
+      function missReason(doc) {
+        if (doc.trap === "synonym") return "词汇/语义鸿沟";
+        if (doc.trap === "structural") return "结构相关、内容检索盲区（需图扩展）";
+        return "一般漏召回";
+      }
+
+      function methodMisses(returned, relevant) {
+        const returnedSet = new Set(returned);
+        return relevant
+          .filter((id) => !returnedSet.has(id))
+          .map((id) => {
+            const doc = corpus.find((item) => item.id === id);
+            return `${id}:${missReason(doc || {})}`;
+          });
+      }
+
+      function queryBreakdownRows(returnedByMethod) {
+        return `<table class="term-table eval-table">
+          <thead><tr><th>query</th><th>BM25</th><th>Dense</th><th>图式渐近</th><th>漏召回归因</th></tr></thead>
+          <tbody>${queries
+            .map((query) => {
+              const methods = [
+                ["BM25", returnedByMethod.bm25[query.id]],
+                ["Dense", returnedByMethod.dense[query.id]],
+                ["图式渐近", returnedByMethod.schema[query.id]],
+              ];
+              const scores = methods.map(([, returned]) => recallAtK(returned, query.relevant_ids, 5));
+              const best = Math.max(...scores);
+              const cells = methods
+                .map(([name, returned], i) => {
+                  const hits = hitCountAtK(returned, query.relevant_ids, 5);
+                  const cls = scores[i] === best ? "best-cell" : "";
+                  return `<td class="${cls}"><strong>${hits}/${query.relevant_ids.length}</strong><br><span>${returned.join(", ")}</span></td>`;
+                })
+                .join("");
+              const misses = methods
+                .map(([name, returned]) => {
+                  const missed = methodMisses(returned, query.relevant_ids);
+                  return missed.length ? `${name}: ${missed.join("；")}` : `${name}: 无`;
+                })
+                .join("<br>");
+              return `<tr><td><strong>${query.id}</strong><br><span>${query.text}</span></td>${cells}<td>${misses}</td></tr>`;
+            })
+            .join("")}</tbody>
+        </table>`;
+      }
+
+      async function renderFullComparison() {
+        runCompareButton.disabled = true;
+        compareStatus.textContent = "计算 BM25 / 图式渐近...";
+        const returnedByMethod = syncReturnedByQuery();
+        if (!denseReady) await ensureDenseReady();
+        if (!denseReady || !denseApi) {
+          compareStatus.textContent = "Dense 模型未就绪，无法完成三方法横向对比。";
+          runCompareButton.disabled = false;
+          return;
+        }
+        returnedByMethod.dense = await denseReturnedByQuery();
+        const evaluations = {
+          BM25: evaluateMethod(returnedByMethod.bm25, queries, 5),
+          Dense: evaluateMethod(returnedByMethod.dense, queries, 5),
+          图式渐近: evaluateMethod(returnedByMethod.schema, queries, 5),
+        };
+        latestComparison = { returnedByMethod, evaluations };
+        window.__ragRetrievalLabEval = latestComparison;
+        summaryEval.innerHTML = methodSummaryRows(evaluations);
+        queryBreakdown.innerHTML = queryBreakdownRows(returnedByMethod);
+        compareStatus.textContent = "横向对比完成；结果已写入 window.__ragRetrievalLabEval。";
+        console.log("stage4 metrics", {
+          bm25: { macroRecall: evaluations.BM25.macroRecall, mrr: evaluations.BM25.mrr },
+          dense: { macroRecall: evaluations.Dense.macroRecall, mrr: evaluations.Dense.mrr },
+          schema: { macroRecall: evaluations.图式渐近.macroRecall, mrr: evaluations.图式渐近.mrr },
+        });
+        runCompareButton.disabled = false;
+      }
+
+      function vectorForDoc(docId) {
+        return denseApi?.getCorpusEmbeddings().find((item) => item.doc.id === docId)?.vector || null;
+      }
+
+      function renderGeometry() {
+        if (!denseReady || !denseApi || !denseQueryVector) return;
+        const selectedDoc = corpus.find((doc) => doc.id === geometryDocSelect.value) || denseTopResults[0]?.doc;
+        if (!selectedDoc) return;
+        const docVector = vectorForDoc(selectedDoc.id);
+        if (!docVector) return;
+
+        const values = {
+          cosine: denseApi.cosine(denseQueryVector, docVector),
+          dot: denseApi.dot(denseQueryVector, docVector),
+          l2: denseApi.l2(denseQueryVector, docVector),
+        };
+        const label = activeMetric === "l2" ? "L2 distance" : activeMetric;
+        metricReadout.innerHTML = `
+          <strong>${label}: ${fmt(values[activeMetric])}</strong>
+          <span>cosine ${fmt(values.cosine)} · dot ${fmt(values.dot)} · L2 ${fmt(values.l2)}</span>
+          <span>${selectedDoc.id} · ${selectedDoc.schema.risk_type} · ${selectedDoc.text}</span>
+        `;
+        drawPcaScatter(denseQueryVector);
+      }
+
+      function centeredRows(vectors) {
+        const dims = vectors[0]?.length || 0;
+        const means = new Float64Array(dims);
+        for (const vector of vectors) {
+          for (let i = 0; i < dims; i += 1) means[i] += vector[i];
+        }
+        for (let i = 0; i < dims; i += 1) means[i] /= vectors.length;
+        return vectors.map((vector) => {
+          const row = new Float64Array(dims);
+          for (let i = 0; i < dims; i += 1) row[i] = vector[i] - means[i];
+          return row;
+        });
+      }
+
+      function covariance(rows) {
+        const dims = rows[0]?.length || 0;
+        const cov = Array.from({ length: dims }, () => new Float64Array(dims));
+        for (const row of rows) {
+          for (let i = 0; i < dims; i += 1) {
+            for (let j = i; j < dims; j += 1) cov[i][j] += row[i] * row[j];
+          }
+        }
+        const denom = Math.max(1, rows.length - 1);
+        for (let i = 0; i < dims; i += 1) {
+          for (let j = i; j < dims; j += 1) {
+            cov[i][j] /= denom;
+            cov[j][i] = cov[i][j];
+          }
+        }
+        return cov;
+      }
+
+      function powerIteration(matrix, iterations = 34) {
+        const dims = matrix.length;
+        let vector = new Float64Array(dims).fill(1 / Math.sqrt(dims));
+        for (let iter = 0; iter < iterations; iter += 1) {
+          const next = new Float64Array(dims);
+          for (let i = 0; i < dims; i += 1) {
+            let sum = 0;
+            for (let j = 0; j < dims; j += 1) sum += matrix[i][j] * vector[j];
+            next[i] = sum;
+          }
+          const norm = Math.hypot(...next) || 1;
+          for (let i = 0; i < dims; i += 1) next[i] /= norm;
+          vector = next;
+        }
+        return vector;
+      }
+
+      function eigenvalue(matrix, vector) {
+        let value = 0;
+        for (let i = 0; i < matrix.length; i += 1) {
+          let rowDot = 0;
+          for (let j = 0; j < matrix.length; j += 1) rowDot += matrix[i][j] * vector[j];
+          value += vector[i] * rowDot;
+        }
+        return value;
+      }
+
+      function pca2(vectors) {
+        const rows = centeredRows(vectors);
+        const cov = covariance(rows);
+        const pc1 = powerIteration(cov);
+        const lambda1 = eigenvalue(cov, pc1);
+        for (let i = 0; i < cov.length; i += 1) {
+          for (let j = 0; j < cov.length; j += 1) cov[i][j] -= lambda1 * pc1[i] * pc1[j];
+        }
+        const pc2 = powerIteration(cov);
+        return rows.map((row) => ({
+          x: row.reduce((sum, value, i) => sum + value * pc1[i], 0),
+          y: row.reduce((sum, value, i) => sum + value * pc2[i], 0),
+        }));
+      }
+
+      function drawPcaScatter(queryVector) {
+        const embeddings = denseApi.getCorpusEmbeddings();
+        if (!embeddings.length) return;
+        const canvas = pcaCanvas;
+        const ctx = canvas.getContext("2d");
+        const vectors = [...embeddings.map((item) => item.vector), queryVector];
+        const points = pca2(vectors);
+        const xs = points.map((point) => point.x);
+        const ys = points.map((point) => point.y);
+        const minX = Math.min(...xs);
+        const maxX = Math.max(...xs);
+        const minY = Math.min(...ys);
+        const maxY = Math.max(...ys);
+        const pad = 34;
+        const sx = (x) => pad + ((x - minX) / (maxX - minX || 1)) * (canvas.width - pad * 2);
+        const sy = (y) => canvas.height - pad - ((y - minY) / (maxY - minY || 1)) * (canvas.height - pad * 2);
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "#fffdf8";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.strokeStyle = "#ded7ca";
+        ctx.strokeRect(0.5, 0.5, canvas.width - 1, canvas.height - 1);
+
+        embeddings.forEach(({ doc }, i) => {
+          const point = points[i];
+          ctx.beginPath();
+          ctx.fillStyle = riskColor(doc.schema.risk_type);
+          ctx.arc(sx(point.x), sy(point.y), doc.id === geometryDocSelect.value ? 6 : 4, 0, Math.PI * 2);
+          ctx.fill();
+        });
+
+        const queryPoint = points[points.length - 1];
+        const qx = sx(queryPoint.x);
+        const qy = sy(queryPoint.y);
+        ctx.fillStyle = "#20201d";
+        ctx.beginPath();
+        ctx.moveTo(qx, qy - 9);
+        ctx.lineTo(qx + 9, qy + 9);
+        ctx.lineTo(qx - 9, qy + 9);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillText("query", qx + 10, qy - 8);
+
+        pcaLegend.innerHTML = Array.from(riskColors.entries())
+          .map(([risk, color]) => `<span class="legend-item"><i style="background:${color}"></i>${risk}</span>`)
+          .join("");
+      }
+
+      function annModel(ef, m) {
+        const recall = Math.min(0.995, 0.58 + 0.34 * (1 - Math.exp(-ef / 58)) + 0.08 * (1 - Math.exp(-m / 18)));
+        const latency = 8 + ef * 0.42 + m * 0.9;
+        const memory = 1 + m / 16;
+        return { recall, latency, memory };
+      }
+
+      function drawAnnCurve() {
+        const ef = Number(efSlider.value);
+        const m = Number(mSlider.value);
+        efValue.textContent = ef;
+        mValue.textContent = m;
+
+        const ctx = annCanvas.getContext("2d");
+        const width = annCanvas.width;
+        const height = annCanvas.height;
+        const pad = 34;
+        ctx.clearRect(0, 0, width, height);
+        ctx.fillStyle = "#fffdf8";
+        ctx.fillRect(0, 0, width, height);
+        ctx.strokeStyle = "#ded7ca";
+        ctx.strokeRect(0.5, 0.5, width - 1, height - 1);
+
+        ctx.strokeStyle = "#ded7ca";
+        ctx.beginPath();
+        ctx.moveTo(pad, pad);
+        ctx.lineTo(pad, height - pad);
+        ctx.lineTo(width - pad, height - pad);
+        ctx.stroke();
+
+        const points = [];
+        for (let x = 8; x <= 200; x += 4) {
+          const item = annModel(x, m);
+          points.push({
+            ef: x,
+            recall: item.recall,
+            sx: pad + ((x - 8) / (200 - 8)) * (width - pad * 2),
+            sy: height - pad - ((item.recall - 0.55) / 0.45) * (height - pad * 2),
+          });
+        }
+
+        ctx.strokeStyle = "#b94d2d";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        points.forEach((point, i) => {
+          if (i === 0) ctx.moveTo(point.sx, point.sy);
+          else ctx.lineTo(point.sx, point.sy);
+        });
+        ctx.stroke();
+
+        const current = annModel(ef, m);
+        const cx = pad + ((ef - 8) / (200 - 8)) * (width - pad * 2);
+        const cy = height - pad - ((current.recall - 0.55) / 0.45) * (height - pad * 2);
+        ctx.fillStyle = "#20201d";
+        ctx.beginPath();
+        ctx.arc(cx, cy, 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillText("recall", pad + 4, pad + 12);
+        ctx.fillText("efSearch", width - pad - 52, height - 10);
+
+        annMetrics.innerHTML = `
+          <span><strong>${Math.round(current.recall * 1000) / 10}%</strong> recall</span>
+          <span><strong>${Math.round(current.latency)}ms</strong> latency</span>
+          <span><strong>${current.memory.toFixed(1)}x</strong> memory</span>
+        `;
+      }
+
+      function renderTokenLab() {
+        const selected = corpus.find((doc) => doc.id === docSelect.value);
+        const text = tokenInput.value || selected?.text || "";
+        const tokenInfo = explainTokenization(text);
+        const selectedTfidf = selected ? explainTfIdf(index, selected.id) : [];
+        tokenOutput.innerHTML = `
+          <p>${text}</p>
+          <div class="token-cloud">${tokenInfo.terms.map((term) => `<span class="token">${term}</span>`).join("")}</div>
+        `;
+        tfidfOutput.innerHTML = `<table class="term-table">
+          <thead><tr><th>term</th><th>tf raw</th><th>tf</th><th>df</th><th>idf</th><th>weight</th></tr></thead>
+          <tbody>${selectedTfidf
+            .slice(0, 36)
+            .map(
+              (item) => `<tr>
+                <td>${item.term}</td>
+                <td>${item.tf_raw}</td>
+                <td>${fmt(item.tf)}</td>
+                <td>${item.df}</td>
+                <td>${fmt(item.idf)}</td>
+                <td>${fmt(item.weight)}</td>
+              </tr>`,
+            )
+            .join("")}</tbody>
+        </table>`;
+      }
+
+      searchForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        renderSearch();
+      });
+      loadDenseButton.addEventListener("click", ensureDenseReady);
+      runCompareButton.addEventListener("click", renderFullComparison);
+      geometryDocSelect.addEventListener("change", renderGeometry);
+      document.querySelectorAll(".metric-button").forEach((button) => {
+        button.addEventListener("click", () => {
+          document.querySelectorAll(".metric-button").forEach((item) => item.classList.remove("active"));
+          button.classList.add("active");
+          activeMetric = button.dataset.metric;
+          renderGeometry();
+        });
+      });
+      docSelect.addEventListener("change", () => {
+        const selected = corpus.find((doc) => doc.id === docSelect.value);
+        tokenInput.value = selected?.text || tokenInput.value;
+        renderTokenLab();
+      });
+      tokenInput.addEventListener("input", renderTokenLab);
+      efSlider.addEventListener("input", drawAnnCurve);
+      mSlider.addEventListener("input", drawAnnCurve);
+
+      renderSearch();
+      renderTokenLab();
+      drawAnnCurve();
+      summaryEval.innerHTML = methodSummaryRows({
+        BM25: evaluateMethod(syncReturnedByQuery().bm25, queries, 5),
+        图式渐近: evaluateMethod(syncReturnedByQuery().schema, queries, 5),
+      });
+      queryBreakdown.innerHTML = `<p class="muted">点击“运行 12 query 横向对比”后生成逐 query 明细和 Dense 指标。</p>`;
+    </script>
+  <a id="home-fab" href="./knowledge-map.html" style="position:fixed;right:16px;bottom:16px;z-index:9999;background:#245f73;color:#fff;text-decoration:none;font:600 13px/1 -apple-system,BlinkMacSystemFont,sans-serif;padding:10px 14px;border-radius:24px;box-shadow:0 2px 10px rgba(0,0,0,.18)">🏠 总览</a>
+</body>
+</html>

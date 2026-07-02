@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>并发编程 · 第6课:线程的一生 & CompletableFuture</title>
+<style>
+  :root{--bg:#fafaf7;--paper:#fff;--ink:#1a1a1a;--ink2:#4a4a4a;--muted:#8a8a8a;--line:#e8e6df;
+    --accent:#245f73;--good:#1f6f4f;--warn:#b84a36;--gold:#8a5d1f;
+    --font:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    --mono:"SF Mono",ui-monospace,Menlo,monospace;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.7;font-size:15px}
+  .page{max-width:1000px;margin:0 auto;padding:30px 20px 110px}
+  h1{font-size:24px;margin:0 0 4px}.sub{color:var(--muted);margin:0 0 10px;font-size:13.5px}a{color:var(--accent)}
+  .reassure{background:#eef6f0;border:1px solid #cfe6d8;border-radius:10px;padding:12px 15px;font-size:13.5px;color:#155;margin:12px 0}.reassure b{color:#0a4}
+  .toc{display:flex;flex-wrap:wrap;gap:7px;margin:12px 0}
+  .toc a{font-size:12.5px;background:#fff;border:1px solid var(--line);border-radius:20px;padding:4px 11px;text-decoration:none;color:var(--accent)}
+  .topic{margin-top:22px;background:var(--paper);border:1px solid var(--line);border-radius:12px;overflow:hidden;scroll-margin-top:12px}
+  .topic-h{padding:13px 18px;background:#f6f5ef;border-bottom:1px solid var(--line);display:flex;align-items:baseline;gap:10px}
+  .topic-h .num{font-family:var(--mono);font-weight:800;color:var(--muted)}
+  .topic-h h2{margin:0;font-size:17px}
+  .topic-h .lv{font-size:11px;font-weight:800;border-radius:5px;padding:1px 8px;color:#fff;margin-left:auto}
+  .lv.基础{background:var(--accent)}.lv.进阶{background:#6450a8}
+  .topic-b{padding:16px 18px}
+  .lead{font-size:14px;color:var(--ink2);margin:0 0 12px}.lead b{color:var(--accent)}
+  code{font-family:var(--mono);font-size:12.5px;background:#f0eee8;padding:1px 5px;border-radius:4px}
+  .runblk{margin-top:14px;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .runblk-h{display:flex;align-items:center;gap:10px;padding:8px 12px;background:#1f2328;border-bottom:1px solid #333}
+  .runblk-h .t{font-size:12px;color:#9aa4ad;font-family:var(--mono)}
+  .runblk-h .va{font-size:11px;color:#e0a849;font-family:var(--mono);margin-left:auto}
+  .code{background:#1f2328;color:#cfd6dd;font-family:var(--mono);font-size:12px;line-height:1.55;padding:12px 14px;white-space:pre;overflow-x:auto;max-height:340px;overflow-y:auto}
+  .runbar{display:flex;align-items:center;gap:10px;padding:9px 12px;background:#181c20;border-top:1px solid #333}
+  .runbar button{font:inherit;font-weight:800;font-size:13px;padding:6px 16px;border:none;border-radius:7px;background:var(--good);color:#fff;cursor:pointer}
+  .runbar button:disabled{opacity:.5}
+  .runbar .hint{font-size:11.5px;color:#7c8893}
+  .out{font-family:var(--mono);font-size:12px;line-height:1.6;padding:12px 14px;white-space:pre-wrap;word-break:break-word;background:#11151a;color:#c7d0d8;min-height:24px;border-top:1px solid #333;display:none}
+  .out.show{display:block}.out.running{color:#e0a849}.out.err{color:#f0a08c}
+  .take{font-size:13px;color:var(--gold);background:#fbf7ee;border:1px solid #ecdfc7;border-radius:8px;padding:9px 13px;margin-top:12px}.take b{color:#5e3f12}
+
+  /* 状态机 */
+  .fsm{border:1px solid var(--line);border-radius:11px;overflow:hidden;margin-top:6px}
+  .fsm-stage{padding:10px;background:#fbfaf6;display:flex;justify-content:center}
+  .fsm-stage svg{max-width:100%;height:auto}
+  .snode rect{fill:#fff;stroke:#cfcabf;stroke-width:2;transition:.18s}
+  .snode .sl{font:800 13px var(--font);fill:#4a4a4a;text-anchor:middle}
+  .snode .sd{font:10.5px var(--font);fill:#8a8a8a;text-anchor:middle}
+  .snode.cur rect{fill:#eef6f9;stroke:var(--accent);stroke-width:3.5}
+  .snode.cur .sl{fill:var(--accent)}
+  .snode.term.cur rect{fill:#f0eee8;stroke:#6450a8}
+  .sedge{stroke:#c9c4b8;stroke-width:2;fill:none}
+  .fsm-side{padding:12px 14px;background:#fff;border-top:1px solid var(--line)}
+  .fsm-cur{font-size:13px;margin-bottom:8px}.fsm-cur b{color:var(--accent);font-family:var(--mono)}
+  .evts{display:flex;flex-direction:column;gap:7px}
+  .evt{text-align:left;font:inherit;font-size:12.5px;font-weight:700;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:#f6f5ef;color:var(--ink2);cursor:pointer}
+  .evt:hover{border-color:var(--accent);color:var(--accent)}
+  .evt .to{font-family:var(--mono);font-weight:800;color:var(--accent)}
+  .evt.end{background:#f0eee8;color:var(--muted);cursor:default}
+  .fsm-narr{padding:11px 14px;background:#11151a;color:#d6dee5;font-size:12.5px;line-height:1.6;min-height:38px;border-top:1px solid #2a2f35}
+  .fsm-ctl{padding:9px 12px;background:#181c20;display:flex;gap:8px}
+  .fsm-ctl button{font:inherit;font-weight:800;font-size:12.5px;padding:5px 13px;border:none;border-radius:7px;background:#2a2f35;color:#cfd6dd;cursor:pointer}
+
+  table.t{width:100%;border-collapse:collapse;margin-top:12px;font-size:12.5px}
+  table.t th,table.t td{border:1px solid var(--line);padding:7px 9px;text-align:left;vertical-align:top}
+  table.t th{background:#f6f5ef;font-weight:800;color:var(--ink2)}
+  .note{font-size:12.5px;color:var(--ink2);margin-top:22px;padding:11px 14px;background:#f4f6f7;border:1px solid #e2ebec;border-radius:8px}
+  .finale{margin-top:24px;background:linear-gradient(180deg,#eef6f0,#fff);border:1px solid #cfe6d8;border-radius:12px;padding:16px 18px}
+  .finale h3{margin:0 0 8px;font-size:16px;color:#14502f}
+  .finale ol{margin:8px 0 0;padding-left:20px;font-size:13px;line-height:1.9}
+  .finale a{font-weight:700}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>并发编程 · 第 6 课:线程的一生 &amp; CompletableFuture</h1>
+  <p class="sub">线程的 6 种状态(可点的状态机)· 现代异步编排 CompletableFuture　|　<a href="./concurrency-lab-5.html">← 第5课</a> · <a href="./knowledge-map.html">知识地图</a></p>
+
+  <div class="reassure">😌 <b>收官课。</b> 前 5 课你已经把"为什么错、怎么修、用什么工具"全过了一遍。这一课补两块拼图:① 一条线程从生到死会经历哪 <b>6 种状态</b>(一张你能点着走的状态图,排查线上卡顿时全靠它);② <b>CompletableFuture</b>——别再手写一堆 <code>new Thread</code>,用它把异步任务像流水线一样优雅地串/并起来。</div>
+
+  <div class="toc" id="toc"></div>
+
+  <!-- ① 线程状态机 -->
+  <div class="topic" id="t-state">
+    <div class="topic-h"><span class="num">①</span><h2>线程的一生:6 种状态怎么转</h2><span class="lv 基础">基础</span></div>
+    <div class="topic-b">
+      <p class="lead">Java 里一条线程任意时刻处在 6 种状态之一。<b>点下面的事件按钮</b>,让这条线程在状态图上走起来(<code>RUNNABLE</code> 是中心枢纽,几乎所有状态都从它出发、又回到它):</p>
+      <div class="fsm" id="fsm">
+        <div class="fsm-stage">
+          <svg viewBox="0 0 560 360" id="fsmsvg">
+            <defs><marker id="sa" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#c9c4b8"/></marker></defs>
+            <path class="sedge" marker-end="url(#sa)" d="M140,52 L218,104"/>
+            <path class="sedge" marker-end="url(#sa)" d="M342,104 L420,52"/>
+            <path class="sedge" marker-end="url(#sa)" d="M250,150 L120,250"/>
+            <path class="sedge" marker-end="url(#sa)" d="M280,150 L280,286"/>
+            <path class="sedge" marker-end="url(#sa)" d="M312,150 L444,250"/>
+            <g class="snode" id="st-NEW"><rect x="20" y="24" width="120" height="48" rx="10"/><text class="sl" x="80" y="44">NEW</text><text class="sd" x="80" y="60">新建,没 start</text></g>
+            <g class="snode" id="st-RUNNABLE"><rect x="220" y="100" width="120" height="50" rx="10"/><text class="sl" x="280" y="122">RUNNABLE</text><text class="sd" x="280" y="138">在跑/随时能跑</text></g>
+            <g class="snode term" id="st-TERMINATED"><rect x="420" y="24" width="120" height="48" rx="10"/><text class="sl" x="480" y="44">TERMINATED</text><text class="sd" x="480" y="60">跑完,终止</text></g>
+            <g class="snode" id="st-BLOCKED"><rect x="20" y="248" width="120" height="50" rx="10"/><text class="sl" x="80" y="270">BLOCKED</text><text class="sd" x="80" y="286">在抢 synchronized 锁</text></g>
+            <g class="snode" id="st-WAITING"><rect x="220" y="288" width="120" height="50" rx="10"/><text class="sl" x="280" y="310">WAITING</text><text class="sd" x="280" y="326">无限等待唤醒</text></g>
+            <g class="snode" id="st-TIMED_WAITING"><rect x="420" y="248" width="120" height="50" rx="10"/><text class="sl" x="480" y="268">TIMED_WAITING</text><text class="sd" x="480" y="284">限时等待</text></g>
+          </svg>
+        </div>
+        <div class="fsm-side">
+          <div class="fsm-cur">当前状态:<b id="curState">NEW</b> <span id="curDesc" style="color:var(--muted);font-size:12px"></span></div>
+          <div class="evts" id="evts"></div>
+        </div>
+        <div class="fsm-narr" id="fsmNarr"></div>
+        <div class="fsm-ctl"><button id="fsmReset">↺ 重新开始(回到 NEW)</button></div>
+      </div>
+      <p class="lead" style="margin-top:14px">这不是讲故事——真跑一下,让程序在不同时刻打印自己的 <code>getState()</code>:</p>
+      <div class="runblk">
+        <div class="runblk-h"><span class="t">▶ 抓现行:NEW → TIMED_WAITING → TERMINATED</span><span class="va">无特殊参数</span></div>
+        <div class="code" id="code-state"></div>
+        <div class="runbar"><button data-run="state">▶ 运行</button><span class="hint">三个时刻打印出三种真实状态</span></div>
+        <div class="out" id="out-state"></div>
+      </div>
+      <div class="runblk">
+        <div class="runblk-h"><span class="t">▶ 抓 BLOCKED:一个线程想进的锁被 main 占着</span><span class="va">无特殊参数</span></div>
+        <div class="code" id="code-blocked"></div>
+        <div class="runbar"><button data-run="blocked">▶ 运行</button><span class="hint">打印出 BLOCKED</span></div>
+        <div class="out" id="out-blocked"></div>
+      </div>
+      <div class="take">📌 <b>排查线上卡顿的关键:</b><code>jstack</code> 打印每条线程的状态。<b>一堆线程卡在 BLOCKED</b> → 八成是锁竞争激烈或死锁;<b>卡在 WAITING/TIMED_WAITING</b> → 在等条件/等返回(比如等数据库、等下游)。⚠️ 注意 Java 的 <code>RUNNABLE</code> 把"正在 CPU 上跑"和"等 IO"合并了,所以一个在等网络的线程也显示 RUNNABLE,别被骗。</div>
+    </div>
+  </div>
+
+  <!-- ② CompletableFuture -->
+  <div class="topic" id="t-cf">
+    <div class="topic-h"><span class="num">②</span><h2>CompletableFuture:把异步任务串成流水线</h2><span class="lv 进阶">进阶</span></div>
+    <div class="topic-b">
+      <p class="lead">手写 <code>new Thread</code> 拿结果很痛苦(还得 join、还得用变量传值)。<code>CompletableFuture</code> 让你像搭积木一样组合异步任务。三个最常用动作:</p>
+      <table class="t">
+        <tr><th>方法</th><th>意思</th></tr>
+        <tr><td><code>supplyAsync(任务)</code></td><td>丢一个任务到后台线程跑,立刻返回一个"未来会有结果"的凭证</td></tr>
+        <tr><td><code>thenApply(结果 -&gt; 加工)</code></td><td>上一步结果出来后,接着<b>串行</b>加工它(流水线下一道工序)</td></tr>
+        <tr><td><code>thenCombine(另一个, (a,b)-&gt;合并)</code></td><td>等<b>两个并行任务</b>都好,把结果合并到一起</td></tr>
+      </table>
+      <p class="lead" style="margin-top:14px">下面这个:查价格(500ms)和查库存(500ms)<b>同时</b>开跑,两个都好了再算总价。串行要 1 秒,并行只要半秒:</p>
+      <div class="runblk">
+        <div class="runblk-h"><span class="t">▶ CompletableFuture:两个慢任务并行 + 合并</span><span class="va">无特殊参数</span></div>
+        <div class="code" id="code-cf"></div>
+        <div class="runbar"><button data-run="cf">▶ 运行</button><span class="hint">看耗时 ≈ 500ms(不是 1000ms)——两个任务真并行了</span></div>
+        <div class="out" id="out-cf"></div>
+      </div>
+      <div class="take">📌 <b>记住:</b><code>CompletableFuture</code> = "异步任务编排器"。<code>thenApply</code> 串(一道接一道)、<code>thenCombine</code> 并(等齐再合)、还有 <code>thenCompose</code>(用上一步结果再发起新异步)、<code>exceptionally</code>(出错兜底)。它默认用一个公共线程池跑——生产中建议<b>自己传线程池</b>进去(还记得第 3 课的教训吗?别用默认的)。</div>
+    </div>
+  </div>
+
+  <div class="finale">
+    <h3>🎓 并发编程 6 课 · 全线打通</h3>
+    <p style="font-size:13px;color:var(--ink2);margin:4px 0 0">你从"线程是什么"一路走到了"异步编排",这条主线串起来就是:</p>
+    <ol>
+      <li><a href="./concurrency-lab.html">第1课</a> 线程 & 竞态:多线程改共享数据会<b>丢更新</b> → 加锁/原子类修</li>
+      <li><a href="./concurrency-lab-2.html">第2课</a> 锁的本质 & 可见性:<code>count++</code> 是三步、synchronized 锁的是对象、<code>volatile</code> 治"看不见"</li>
+      <li><a href="./concurrency-lab-3.html">第3课</a> 线程池:别每次 new,核心→队列→临时→拒绝,参数别配错</li>
+      <li><a href="./concurrency-lab-4.html">第4课</a> 并发容器 & CAS:ConcurrentHashMap、无锁的 CAS 与 ABA</li>
+      <li><a href="./concurrency-lab-5.html">第5课</a> 显式锁 & 协调 & 死锁:ReentrantLock、Latch/Semaphore、死锁四条件</li>
+      <li><b>第6课</b>(本课)线程一生 & CompletableFuture:6 状态、异步流水线</li>
+    </ol>
+    <p style="font-size:12.5px;color:var(--muted);margin:8px 0 0">两条贯穿全程的主线:<b>① 原子性问题</b>(算错/丢更新)用锁或 CAS 修;<b>② 可见性问题</b>(看不见)用 volatile 修。所有 JUC 工具都是在这两条路上造的轮子。</p>
+  </div>
+
+  <div class="note">想再往深里追的话,后面可以挑:AQS 源码级原理、synchronized 的锁升级(偏向→轻量→重量)、ThreadLocal、虚拟线程(Loom)、内存屏障与指令重排。随时说一声接着开。本页所有 Java 都在你本机真实运行。</div>
+</div>
+
+<a id="home-fab" href="./knowledge-map.html" style="position:fixed;right:16px;bottom:16px;z-index:9999;background:#245f73;color:#fff;text-decoration:none;font:600 13px/1 -apple-system,BlinkMacSystemFont,sans-serif;padding:10px 14px;border-radius:24px;box-shadow:0 2px 10px rgba(0,0,0,.18)">🏠 总览</a>
+
+<script>
+const $=s=>document.querySelector(s);
+$('#toc').innerHTML=[['t-state','① 线程6种状态'],['t-cf','② CompletableFuture']]
+  .map(([id,t])=>`<a href="#${id}">${t}</a>`).join('');
+
+const CODE={
+state:`public class StateDemo {
+  public static void main(String[] a) throws Exception {
+    Thread t = new Thread(() -> { try { Thread.sleep(300); } catch(Exception e){} });
+    System.out.println("① 刚 new 出来,还没 start → " + t.getState());   // NEW
+    t.start(); Thread.sleep(50);
+    System.out.println("② start 了,正在 sleep 中 → " + t.getState());   // TIMED_WAITING
+    t.join();
+    System.out.println("③ run 跑完了 → " + t.getState());               // TERMINATED
+  }
+}`,
+blocked:`public class BlockedDemo {
+  static final Object lock = new Object();
+  public static void main(String[] a) throws Exception {
+    Thread t = new Thread(() -> { synchronized(lock){} });  // 它想进这个锁
+    synchronized(lock) {                 // 但 main 先把锁占住
+      t.start(); Thread.sleep(100);
+      System.out.println("t 想进 synchronized,锁却被 main 占着 → " + t.getState());  // BLOCKED
+    }
+    t.join();
+  }
+}`,
+cf:`import java.util.concurrent.*;
+public class CFDemo {
+  static int sleepGet(String what, int ms, int val) {
+    System.out.println("  开始" + what + "…");
+    try { Thread.sleep(ms); } catch(Exception e){}
+    System.out.println("  " + what + "完成 = " + val);
+    return val;
+  }
+  public static void main(String[] a) throws Exception {
+    long t0 = System.currentTimeMillis();
+    // 两个慢任务【并行】:查价格 与 查库存 同时开跑
+    CompletableFuture<Integer> price = CompletableFuture.supplyAsync(() -> sleepGet("查价格", 500, 80));
+    CompletableFuture<Integer> stock = CompletableFuture.supplyAsync(() -> sleepGet("查库存", 500, 3));
+    // 两个都好了,合并算总价
+    CompletableFuture<Integer> total = price.thenCombine(stock, (p, s) -> p * s);
+    System.out.println("总价(价格×库存) = " + total.get());
+    System.out.println("耗时 ≈ " + (System.currentTimeMillis()-t0) + "ms(串行需 ~1000ms,并行只要 ~500ms)");
+  }
+}`
+};
+for(const k in CODE){ const el=document.getElementById('code-'+k); if(el) el.textContent=CODE[k]; }
+async function runJava(key, outEl, btn){
+  btn.disabled=true;const old=btn.textContent;btn.textContent='运行中…';
+  outEl.className='out show running';outEl.textContent='⏳ 正在本机编译 + 运行 Java…';
+  try{
+    const r=await fetch('/api/run-java',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({code:CODE[key]})}).then(r=>r.json());
+    outEl.textContent=r.output||'(无输出)';
+    outEl.className='out show '+(r.ok?'':'err');
+  }catch(e){ outEl.textContent='运行失败:'+(e.message||e);outEl.className='out show err'; }
+  btn.disabled=false;btn.textContent=old;
+}
+document.querySelectorAll('button[data-run]').forEach(btn=>{
+  const key=btn.getAttribute('data-run');
+  btn.onclick=()=>runJava(key, document.getElementById('out-'+key), btn);
+});
+
+/* ===== 状态机 ===== */
+const FSM={
+ NEW:{desc:'(已 new,还没启动)',evts:[{to:'RUNNABLE',ev:'调用 start()',n:'start() 后线程进入就绪/运行,交给 CPU 调度。'}]},
+ RUNNABLE:{desc:'(正在 CPU 上跑,或随时能跑)',evts:[
+   {to:'TIMED_WAITING',ev:'sleep(n) / wait(n) / join(n)',n:'带了时间参数的等待:睡一会儿,时间到自动醒回 RUNNABLE。'},
+   {to:'WAITING',ev:'wait() / join()(不带时间)',n:'无限等待:不见不散,必须等别人 notify/唤醒。'},
+   {to:'BLOCKED',ev:'抢 synchronized 锁没抢到',n:'锁被别人占着,只能阻塞,死等这把锁。'},
+   {to:'TERMINATED',ev:'run() 执行完毕',n:'活干完了,线程终止,一生结束(不能再 start)。'}]},
+ BLOCKED:{desc:'(在等一把 synchronized 锁)',evts:[{to:'RUNNABLE',ev:'抢到锁了',n:'占锁的人放手了,自己抢到锁,回到 RUNNABLE 继续跑。'}]},
+ WAITING:{desc:'(无限等待被唤醒)',evts:[{to:'RUNNABLE',ev:'被 notify()/notifyAll() 唤醒',n:'有人喊醒了它(或 join 的目标结束了),回到 RUNNABLE。'}]},
+ TIMED_WAITING:{desc:'(限时等待)',evts:[{to:'RUNNABLE',ev:'时间到 / 被提前唤醒',n:'计时结束,自动回到 RUNNABLE。'}]},
+ TERMINATED:{desc:'(已终止,终点)',evts:[]},
+};
+let cur='NEW';
+function fsmRender(){
+  ['NEW','RUNNABLE','BLOCKED','WAITING','TIMED_WAITING','TERMINATED'].forEach(s=>{
+    document.getElementById('st-'+s).classList.toggle('cur', s===cur);
+  });
+  $('#curState').textContent=cur;
+  $('#curDesc').textContent=FSM[cur].desc;
+  const evts=FSM[cur].evts;
+  if(!evts.length){
+    $('#evts').innerHTML='<div class="evt end">🏁 已到终点 TERMINATED,线程一生结束。点下面「重新开始」再走一遍。</div>';
+  } else {
+    $('#evts').innerHTML=evts.map((e,i)=>
+      `<button class="evt" data-i="${i}">事件:${e.ev} <span class="to">→ ${e.to}</span></button>`).join('');
+    $('#evts').querySelectorAll('.evt').forEach(b=>{
+      b.onclick=()=>{ const e=evts[+b.getAttribute('data-i')]; cur=e.to; $('#fsmNarr').textContent=e.n; fsmRender(); };
+    });
+  }
+}
+$('#fsmReset').onclick=()=>{cur='NEW';$('#fsmNarr').textContent='回到出生点 NEW。点「调用 start()」开始这条线程的一生。';fsmRender();};
+$('#fsmNarr').textContent='点上面的事件按钮,带这条线程走完它的一生。';
+fsmRender();
+</script>
+<script>
+if(!/^(localhost|127\.)/.test(location.hostname)){
+  var _b=document.createElement('div');
+  _b.style.cssText='position:sticky;top:0;z-index:9998;background:#fdf6e6;border-bottom:1px solid #e6d3a6;color:#8a5d1f;font:12.5px/1.6 -apple-system,BlinkMacSystemFont,sans-serif;padding:7px 14px;text-align:center';
+  _b.innerHTML='🌐 线上版:「▶ 运行」需要本地 Java 后端(localhost 才能真跑);讲解与交互动画不受影响';
+  document.body.prepend(_b);
+}
+</script>
+</body>
+</html>

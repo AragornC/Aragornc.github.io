@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>HNSW 分层(H) · 顶层大跳 → 底层精修</title>
+<style>
+  :root{--bg:#fafaf7;--paper:#fff;--ink:#1a1a1a;--ink2:#4a4a4a;--muted:#8a8a8a;--line:#e8e6df;
+    --accent:#245f73;--accent2:#1f6f4f;--warn:#b84a36;--nav:#2f6f9f;
+    --font:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.7;font-size:15px}
+  .page{max-width:980px;margin:0 auto;padding:30px 20px 80px}
+  h1{font-size:23px;margin:0 0 4px}.sub{color:var(--muted);margin:0 0 12px}a{color:var(--accent)}
+  .bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+  button{font:inherit;font-weight:700;padding:8px 14px;border:1px solid var(--accent);border-radius:8px;background:var(--accent);color:#fff;cursor:pointer}
+  button.ghost{background:#fff;color:var(--accent)}button:disabled{opacity:.4}
+  .now{margin:8px 0;padding:11px 15px;border-radius:10px;background:var(--paper);border:1px solid var(--line);font-size:14.5px;min-height:48px}
+  .now b{color:var(--nav)}
+  .layer{margin-top:10px;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--paper)}
+  .layer.active{border-color:var(--nav);box-shadow:0 0 0 2px rgba(47,111,159,.15)}
+  .lh{padding:6px 12px;font-size:13px;font-weight:700;background:#f3f2ec;display:flex;justify-content:space-between}
+  .lh .tag{color:var(--muted);font-weight:400}
+  canvas{display:block;width:100%;background:#fbfbf8}
+  .legend{font-size:12px;color:var(--muted);margin-top:6px}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>HNSW 分层(H) · 顶层大跳 → 逐层下沉精修</h1>
+  <p class="sub">同一批点,分成 3 层:<b>顶层只放少数点(边长=高速公路)</b>,越往下点越多边越短。搜索<b>从顶层大跳逼近 → 下沉到下层精修</b>。点「下一步」走。<a href="./hnsw-build-lab.html">← 从零建图</a></p>
+
+  <div class="bar">
+    <button id="newq">放查询点(随机)</button>
+    <button id="step" disabled>下一步 ▶</button>
+    <button class="ghost" id="auto" disabled>自动走到底</button>
+    <button class="ghost" id="regen">换一批点</button>
+  </div>
+  <div class="now" id="now">点「放查询点」开始。⭐ 会出现在每一层的同一位置。</div>
+
+  <div class="layer" id="wrapL2"><div class="lh"><span>第 2 层(顶层)</span><span class="tag" id="tagL2"></span></div><canvas id="cvL2" width="940" height="200"></canvas></div>
+  <div class="layer" id="wrapL1"><div class="lh"><span>第 1 层(中层)</span><span class="tag" id="tagL1"></span></div><canvas id="cvL1" width="940" height="220"></canvas></div>
+  <div class="layer" id="wrapL0"><div class="lh"><span>第 0 层(底层 · 全部点)</span><span class="tag" id="tagL0"></span></div><canvas id="cvL0" width="940" height="260"></canvas></div>
+  <div class="legend">灰线=该层的边　⭐=查询　绿圈=该层入口　蓝粗线=搜索路径　大蓝点=当前　红圈=最终最近邻。蓝框=当前正在搜的层。</div>
+</div>
+
+<script>
+const $=s=>document.querySelector(s);
+const now=$('#now');
+let pts=[], maxlv=[], G=[[],[],[]], entryTop=0;
+let query=null, layer=2, cur=null, paths={2:[],1:[],0:[]}, done=false, considered=[];
+const L2d=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+function getC(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+function gen(){
+  let s=Math.floor(Math.random()*1e6)+1;const r=()=>{s=(s*1103515245+12345)&0x7fffffff;return s/0x7fffffff;};
+  pts=[];for(let i=0;i<40;i++)pts.push({x:0.05+r()*0.9,y:0.12+r()*0.76});
+  // 分层:洗牌后 前3个=最高层2,接着8个=层1,其余=层0
+  const idx=[...pts.keys()];for(let i=idx.length-1;i>0;i--){const j=Math.floor(r()*(i+1));[idx[i],idx[j]]=[idx[j],idx[i]];}
+  maxlv=new Array(40).fill(0);idx.slice(0,3).forEach(i=>maxlv[i]=2);idx.slice(3,11).forEach(i=>maxlv[i]=1);
+  entryTop=idx[0];
+  // 每层建图:该层节点=maxlv>=层;每点连最近3个(顶层点少,自动连成长边)
+  G=[0,1,2].map(L=>{const nodes=[...pts.keys()].filter(i=>maxlv[i]>=L);const g={};
+    nodes.forEach(i=>{g[i]=nodes.filter(j=>j!==i).map(j=>[L2d(pts[i],pts[j]),j]).sort((a,b)=>a[0]-b[0]).slice(0,3).map(x=>x[1]);});return g;});
+}
+function reset(){query=null;layer=2;cur=null;paths={2:[],1:[],0:[]};done=false;considered=[];drawAll();
+  $('#tagL2').textContent=Object.keys(G[2]).length+' 个点 · 边长(高速)';$('#tagL1').textContent=Object.keys(G[1]).length+' 个点';$('#tagL0').textContent='40 个点 · 边短(精修)';
+  setActive(-1);}
+function map(cv,p){const pad=20;return [pad+p.x*(cv.width-2*pad),pad+p.y*(cv.height-2*pad)];}
+function drawLayer(L){const cv=$('#cvL'+L),ctx=cv.getContext('2d');ctx.clearRect(0,0,cv.width,cv.height);
+  const nodes=[...pts.keys()].filter(i=>maxlv[i]>=L);
+  ctx.strokeStyle='rgba(140,140,140,0.28)';ctx.lineWidth=1;
+  nodes.forEach(i=>{const[x,y]=map(cv,pts[i]);(G[L][i]||[]).forEach(j=>{if(j>i){const[x2,y2]=map(cv,pts[j]);ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x2,y2);ctx.stroke();}});});
+  // path on this layer
+  const pth=paths[L];if(pth.length>1){ctx.strokeStyle=getC('--nav');ctx.lineWidth=3;ctx.beginPath();pth.forEach((i,k)=>{const[x,y]=map(cv,pts[i]);k?ctx.lineTo(x,y):ctx.moveTo(x,y);});ctx.stroke();}
+  nodes.forEach(i=>{const[x,y]=map(cv,pts[i]);ctx.beginPath();ctx.arc(x,y,4.5,0,7);ctx.fillStyle=pth.includes(i)?'#9bbdd6':'#c4c1b7';ctx.fill();});
+  if(layer===L)considered.forEach(j=>{const[x,y]=map(cv,pts[j]);ctx.beginPath();ctx.arc(x,y,8,0,7);ctx.strokeStyle='#d98c2a';ctx.lineWidth=2;ctx.stroke();});
+  // entry of this layer = first node of path (or top entry for L2)
+  const ent=pth.length?pth[0]:(L===2?entryTop:null);
+  if(ent!=null){const[x,y]=map(cv,pts[ent]);ctx.beginPath();ctx.arc(x,y,8,0,7);ctx.strokeStyle=getC('--accent2');ctx.lineWidth=2;ctx.stroke();}
+  if(layer===L&&cur!=null){const[x,y]=map(cv,pts[cur]);ctx.beginPath();ctx.arc(x,y,7,0,7);ctx.fillStyle=getC('--nav');ctx.fill();}
+  if(done&&L===0&&cur!=null){const[x,y]=map(cv,pts[cur]);ctx.beginPath();ctx.arc(x,y,11,0,7);ctx.strokeStyle=getC('--warn');ctx.lineWidth=3;ctx.stroke();}
+  if(query){const[x,y]=map(cv,query);ctx.fillStyle='#1a1a1a';ctx.font='20px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('★',x,y);}
+}
+function drawAll(){[2,1,0].forEach(drawLayer);}
+function setActive(L){[2,1,0].forEach(l=>$('#wrapL'+l).classList.toggle('active',l===L));}
+function newq(){query={x:0.05+Math.random()*0.9,y:0.12+Math.random()*0.76};
+  layer=2;cur=entryTop;paths={2:[entryTop],1:[],0:[]};done=false;considered=[];setActive(2);drawAll();
+  now.innerHTML=`⭐ 已放。从<b>顶层</b>入口开始(顶层只有 ${Object.keys(G[2]).length} 个点、边很长)。点「下一步」在顶层大跳逼近。`;
+  $('#step').disabled=false;$('#auto').disabled=false;}
+function step(){
+  if(done||cur==null)return;
+  const cd=L2d(pts[cur],query);considered=(G[layer][cur]||[]).slice();
+  let best=cur,bd=cd;considered.forEach(j=>{const d=L2d(pts[j],query);if(d<bd){bd=d;best=j;}});
+  if(best!==cur){const from=cur;cur=best;paths[layer].push(cur);setActive(layer);drawAll();
+    now.innerHTML=`第 ${layer} 层:d${from}(距⭐ ${cd.toFixed(2)}) → 跳到更近的 d${best}(距⭐ <b>${bd.toFixed(2)}</b>)。`;return;}
+  // 本层收敛 → 下沉 or 结束
+  if(layer>0){const L0=layer;layer--;paths[layer]=[cur];considered=[];setActive(layer);drawAll();
+    now.innerHTML=`第 ${L0} 层已找到局部最近 d${cur} → <b>下沉到第 ${layer} 层</b>(点更多、边更短),从同一个点继续<b>精修</b>。`;return;}
+  done=true;considered=[];drawAll();
+  now.innerHTML=`第 0 层邻居没有更近的 → <b>停!</b> 最终最近邻 ≈ d${cur}(红圈)。全程:顶层大跳定位 → 逐层下沉精修。`;
+  $('#step').disabled=true;
+}
+$('#newq').onclick=newq;$('#step').onclick=step;
+$('#auto').onclick=()=>{const t=setInterval(()=>{if(done){clearInterval(t);return;}step();},700);};
+$('#regen').onclick=()=>{gen();reset();};
+gen();reset();
+</script>
+<a id="home-fab" href="./knowledge-map.html" style="position:fixed;right:16px;bottom:16px;z-index:9999;background:#245f73;color:#fff;text-decoration:none;font:600 13px/1 -apple-system,BlinkMacSystemFont,sans-serif;padding:10px 14px;border-radius:24px;box-shadow:0 2px 10px rgba(0,0,0,.18)">🏠 总览</a>
+</body>
+</html>

@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RAG 向量检索全流程 · 小学生版拆解</title>
+  <style>
+    :root{
+      --bg:#fafaf7; --paper:#fff; --ink:#1a1a1a; --ink2:#4a4a4a; --muted:#888;
+      --line:#e8e6df; --accent:#245f73; --write:#8a5d1f; --read:#1f6f4f;
+      --writebg:#fbf3e3; --readbg:#e9f4ee;
+      --font:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.7;
+      font-size:15px;-webkit-font-smoothing:antialiased}
+    .page{max-width:1180px;margin:0 auto;padding:40px 24px 80px}
+    h1{font-size:30px;margin:0 0 6px;letter-spacing:-.01em}
+    .sub{color:var(--muted);margin:0 0 28px}
+    .flow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:16px 18px;background:var(--paper);
+      border:1px solid var(--line);border-radius:10px;margin-bottom:14px;font-size:13.5px}
+    .flow b{color:var(--accent)}
+    .chip{padding:3px 9px;border-radius:999px;background:#eef4f5;color:var(--accent);font-weight:700;white-space:nowrap}
+    .chip.w{background:var(--writebg);color:var(--write)}
+    .chip.r{background:var(--readbg);color:var(--read)}
+    .arrow{color:var(--muted)}
+    .legend{display:flex;gap:18px;flex-wrap:wrap;margin:8px 2px 26px;font-size:13px;color:var(--ink2)}
+    .dot{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:middle}
+    .dot.w{background:var(--write)} .dot.r{background:var(--read)}
+    table{width:100%;border-collapse:collapse;background:var(--paper);border:1px solid var(--line);
+      border-radius:10px;overflow:hidden;font-size:14px}
+    caption{caption-side:top;text-align:left;font-weight:800;font-size:18px;margin:30px 0 12px;color:var(--ink)}
+    th,td{text-align:left;vertical-align:top;padding:13px 14px;border-bottom:1px solid var(--line)}
+    thead th{background:#f3f2ec;font-size:12.5px;letter-spacing:.02em;color:var(--ink2);position:sticky;top:0}
+    tbody tr:last-child td{border-bottom:none}
+    .step{font-weight:800;white-space:nowrap}
+    .step .num{display:inline-flex;width:22px;height:22px;border-radius:50%;align-items:center;justify-content:center;
+      font-size:12px;color:#fff;margin-right:7px}
+    .num.w{background:var(--write)} .num.r{background:var(--read)}
+    .algo code{background:#f1efe8;padding:1px 6px;border-radius:5px;font-size:12.5px;
+      font-family:"SF Mono",ui-monospace,Menlo,monospace;display:inline-block;margin:1px 0}
+    .why{color:var(--ink2)}
+    .plain{color:var(--ink);background:#fffdf6;border-left:3px solid #e8d9a8;padding:8px 11px;border-radius:4px}
+    .opt{display:inline-block;font-size:11px;color:var(--muted);border:1px solid var(--line);
+      border-radius:4px;padding:0 5px;margin-left:5px;vertical-align:middle}
+    .note{margin-top:30px;padding:18px 20px;background:var(--paper);border:1px solid var(--line);border-radius:10px}
+    .note h3{margin:0 0 8px;font-size:16px}
+    .note ul{margin:8px 0 0;padding-left:20px;color:var(--ink2)}
+    .note li{margin:4px 0}
+    a{color:var(--accent)}
+    tr.rec{background:#f1f8f3}
+    tr.rec td:first-child{box-shadow:inset 3px 0 0 var(--read)}
+    .pick{display:inline-block;font-size:11px;font-weight:800;color:#fff;background:var(--read);
+      border-radius:4px;padding:1px 6px;margin-left:6px;vertical-align:middle}
+    .good{color:var(--read);font-weight:700}
+    .bad{color:#b84a36;font-weight:700}
+    .when b{color:var(--accent)}
+    .sechead{font-size:13px;color:var(--muted);margin:6px 2px 0}
+    @media(max-width:820px){table{font-size:13px}th,td{padding:10px}}
+  </style>
+</head>
+<body>
+<div class="page">
+  <h1>一条 RAG 向量检索，从「写进去」到「查出来」</h1>
+  <p class="sub">把整条链路拆成 9 步，每步只回答四件事：做什么 · 大白话比喻 · 用什么算法 · 为什么这么做。</p>
+
+  <div class="flow">
+    <span class="chip w">建库（写入·离线，做一次）</span>
+    <span class="chip w">①加载</span><span class="arrow">→</span>
+    <span class="chip w">②切块</span><span class="arrow">→</span>
+    <span class="chip w">③向量化</span><span class="arrow">→</span>
+    <span class="chip w">④建索引</span>
+    <span class="arrow" style="margin:0 6px">⟹</span>
+    <span class="chip r">检索（查询·在线，每次问都跑）</span>
+    <span class="chip r">⑤查询向量化</span><span class="arrow">→</span>
+    <span class="chip r">⑥召回</span><span class="arrow">→</span>
+    <span class="chip r">⑦融合</span><span class="arrow">→</span>
+    <span class="chip r">⑧重排</span><span class="arrow">→</span>
+    <span class="chip r">⑨喂给大模型</span>
+  </div>
+  <div class="legend">
+    <span><span class="dot w"></span>写入侧：建库时做一次，存起来反复用</span>
+    <span><span class="dot r"></span>检索侧：每次提问都实时跑一遍</span>
+    <span><span class="opt">可选</span> 进阶步骤，简单场景可跳过</span>
+  </div>
+
+  <table>
+    <caption>第一阶段 · 写入侧（建库 / 离线一次性）—— 把资料变成「可被搜索的向量」存好</caption>
+    <thead>
+      <tr><th style="width:13%">步骤</th><th style="width:21%">做什么</th><th style="width:22%">大白话比喻</th><th style="width:22%">常用算法 / 工具</th><th style="width:22%">为什么这么做</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="step"><span class="num w">1</span>加载 & 解析<br><span class="muted" style="font-weight:400">Load / Parse</span></td>
+        <td>把 PDF、网页、Word、数据库里的内容，统一抽成干净的纯文本。</td>
+        <td class="plain">把一摞各种格式的书、报纸、网页，先全部撕成「只有字」的白纸。</td>
+        <td class="algo"><code>PDF/HTML 解析器</code> <code>OCR（扫描件）</code> <code>去页眉页脚/乱码清洗</code></td>
+        <td class="why">机器只认纯文本。格式越乱，后面切块和向量化越容易出错（垃圾进、垃圾出）。</td>
+      </tr>
+      <tr>
+        <td class="step"><span class="num w">2</span>切块<br><span class="muted" style="font-weight:400">Chunking</span></td>
+        <td>把长文档切成一段段小块（chunk），每块几百字，常带重叠。</td>
+        <td class="plain">一本书太厚没法整本比对，先撕成一页页便利贴，每张写一小段。</td>
+        <td class="algo"><code>固定窗口 + overlap</code> <code>递归切分(按段落/句子)</code> <code>语义切分</code> <code>按标题/表格结构切</code></td>
+        <td class="why">①向量模型有长度上限；②块太大→检索不精准、混入无关内容；块太小→丢上下文。这是<b>精准 vs 完整</b>的核心权衡。</td>
+      </tr>
+      <tr>
+        <td class="step"><span class="num w">3</span>向量化<br><span class="muted" style="font-weight:400">Embedding</span></td>
+        <td>每个小块文本 → 一串数字（向量，如 512/768 维），语义近的块向量也近。</td>
+        <td class="plain">给每张便利贴贴一个「气味标签」，意思像的便利贴气味也像，方便以后凭气味找。</td>
+        <td class="algo"><code>BGE / E5 / GTE</code> <code>OpenAI text-embedding</code> <code>SBERT</code>（都是 BERT 类，对比学习训练）</td>
+        <td class="why">把「语义相似」变成「向量距离近」，这样找资料就变成了数学上的「找最近的点」。中文要用中文/多语模型。</td>
+      </tr>
+      <tr>
+        <td class="step"><span class="num w">4</span>建索引<br><span class="muted" style="font-weight:400">Indexing</span></td>
+        <td>把所有向量存进向量库，并建「近似最近邻(ANN)」索引加速。<span class="opt">可选</span>同时建 BM25 关键词倒排索引 + 结构字段。</td>
+        <td class="plain">几百万张便利贴不能一张张翻。先按气味分门别类挂成一张「捷径地图」，找的时候走捷径。</td>
+        <td class="algo"><code>HNSW（图索引，最常用）</code> <code>IVF（聚类倒排）</code> <code>PQ/SQ（量化压内存）</code> <code>BM25 倒排</code></td>
+        <td class="why">百万级向量逐个算距离太慢。ANN 用「牺牲一点点准确换百倍速度」。BM25 倒排为后面的混合检索备好关键词通道。</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <table>
+    <caption>第二阶段 · 检索侧（查询 / 在线，每次提问都跑）—— 把问题也变成向量，去库里捞最相关的</caption>
+    <thead>
+      <tr><th style="width:13%">步骤</th><th style="width:21%">做什么</th><th style="width:22%">大白话比喻</th><th style="width:22%">常用算法 / 工具</th><th style="width:22%">为什么这么做</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="step"><span class="num r">5</span>查询向量化<br><span class="muted" style="font-weight:400">Query Embed</span></td>
+        <td>用户的问题，用<b>同一个</b>向量模型也转成一个向量。</td>
+        <td class="plain">把你的问题也提炼出一个「气味标签」，等会儿拿它去配。</td>
+        <td class="algo"><code>同步骤③的模型</code> <code>(可选)查询改写/扩展 HyDE</code></td>
+        <td class="why">必须和建库用同一个模型，否则两边「气味」标准不一致，根本配不上。</td>
+      </tr>
+      <tr>
+        <td class="step"><span class="num r">6</span>召回<br><span class="muted" style="font-weight:400">Retrieval / ANN</span></td>
+        <td>拿问题向量，去索引里捞出最近的 top-k 个块（粗筛，k 通常几十～几百）。<span class="opt">可选</span>同时用 BM25 捞一批关键词命中的。</td>
+        <td class="plain">拿你问题的气味，顺着捷径地图，先抓一大把气味最像的便利贴出来。</td>
+        <td class="algo"><code>HNSW 近邻搜索(ef 参数)</code> <code>cosine / 点积</code> <code>BM25 打分</code></td>
+        <td class="why">先「宁滥勿缺」捞一批候选，保证该有的别漏（recall 优先），精排留给后面。</td>
+      </tr>
+      <tr>
+        <td class="step"><span class="num r">7</span>混合融合<span class="opt">可选·强烈推荐</span><br><span class="muted" style="font-weight:400">Hybrid Fusion</span></td>
+        <td>把「向量召回」和「BM25 关键词召回」两份结果合并成一份排名。</td>
+        <td class="plain">一个朋友凭「意思像」推荐，一个朋友凭「字眼对」推荐，把两份名单合成一份更靠谱的。</td>
+        <td class="algo"><code>RRF（按排名融合，最常用）</code> <code>加权分数融合</code> <code>SPLADE(稀疏向量)</code></td>
+        <td class="why">向量擅长语义、却漏精确词（IP、错误码、型号）；BM25 反之。<b>融合补彼此盲区</b>，是基线之上性价比最高的一招。RRF 按名次合并，绕开两种分数量纲不同的坑。</td>
+      </tr>
+      <tr>
+        <td class="step"><span class="num r">8</span>重排<span class="opt">可选·推荐</span><br><span class="muted" style="font-weight:400">Rerank</span></td>
+        <td>对候选里的前 N 个（20～100），用更强的模型把「问题+这块」一起读，精算相关度重新排序，取最终前几名。</td>
+        <td class="plain">候选太多，请一位「最较真的评委」把每张便利贴和你的问题逐一对照，挑出真正最对的几张。</td>
+        <td class="algo"><code>Cross-Encoder 重排器</code> <code>bge-reranker</code> <code>Cohere Rerank</code></td>
+        <td class="why">召回用的双塔模型（query、doc 分开编码）快但糙；交叉编码器把两者一起喂、精度高但慢，所以只精排少量候选——<b>粗召回保 recall，重排保 precision</b>。</td>
+      </tr>
+      <tr>
+        <td class="step"><span class="num r">9</span>喂给大模型<br><span class="muted" style="font-weight:400">Augment + Generate</span></td>
+        <td>把最终选出的几块文本，连同问题一起塞进提示词，让 LLM 据此作答（并可附引用）。</td>
+        <td class="plain">把挑出的几张最相关便利贴，连同问题交给学霸，让他「照着这些资料」回答，而不是凭空编。</td>
+        <td class="algo"><code>Prompt 拼接(问题+context)</code> <code>引用/出处标注</code> <code>LLM 生成</code></td>
+        <td class="why">这是 RAG 的最终目的——让大模型基于<b>检索到的真实资料</b>回答，减少幻觉、可溯源。检索质量直接决定回答质量。</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2 style="font-size:22px;margin:46px 0 4px">选型对照 · 每步到底选哪个？</h2>
+  <p class="sechead">绿色高亮行 = 大多数人应该先用的默认选项。先用默认跑通，有了评测数据再针对性升级。</p>
+
+  <table>
+    <caption>② 切块策略 —— 怎么切？</caption>
+    <thead><tr><th style="width:16%">选项</th><th style="width:24%">优势</th><th style="width:24%">劣势</th><th style="width:36%">什么场景用</th></tr></thead>
+    <tbody>
+      <tr><td class="step">固定窗口<br>+overlap</td>
+        <td><span class="good">最简单</span>，速度快，可预测</td>
+        <td>会从句子/语义中间硬切断，割裂上下文</td>
+        <td class="when">原型验证、纯文本日志；图省事的起步方案</td></tr>
+      <tr class="rec"><td class="step">递归切分<span class="pick">默认</span></td>
+        <td>顺着<span class="good">段落→句子</span>切，保结构、平衡好</td>
+        <td>需按文档类型调分隔符</td>
+        <td class="when"><b>绝大多数 RAG 的首选</b>。2026 基准里 512token 递归切分排第一(69%)</td></tr>
+      <tr><td class="step">语义切分</td>
+        <td>按"意思"边界切，<span class="good">精度最高</span>(可+70%)</td>
+        <td><span class="bad">慢、贵</span>(要额外算 embedding 判断断点)</td>
+        <td class="when">高价值知识库、技术文档，且预算允许</td></tr>
+      <tr><td class="step">结构切分<br>(按标题/表格)</td>
+        <td>尊重原文档天然结构，表格不被切碎</td>
+        <td>依赖文档有清晰结构(Markdown/HTML)</td>
+        <td class="when">结构化强的文档:手册、财报、带表格的 PDF</td></tr>
+    </tbody>
+  </table>
+  <p class="sechead">📏 实用默认：<b>chunk 256–512 token，overlap 10–20%</b>。注意"上下文悬崖"——块太大(&gt;2500token)反而召回质量掉。</p>
+
+  <table>
+    <caption>③ Embedding 模型 —— 用哪个把文本变向量？</caption>
+    <thead><tr><th style="width:16%">选项</th><th style="width:24%">优势</th><th style="width:24%">劣势</th><th style="width:36%">什么场景用</th></tr></thead>
+    <tbody>
+      <tr class="rec"><td class="step">小模型<span class="pick">起步默认</span><br><span class="muted" style="font-weight:400">bge-small/large、text-embedding-3-small</span></td>
+        <td><span class="good">快、便宜、维度小</span>(省存储)，本地可跑</td>
+        <td>难句/长难文档语义 reach 有限</td>
+        <td class="when"><b>先用它跑通</b>，拿域内评测集量化效果再决定要不要升级</td></tr>
+      <tr><td class="step">大模型<br><span class="muted" style="font-weight:400">text-3-large、voyage-3-large、Cohere v4</span></td>
+        <td>语义最准(MTEB 榜首梯队)</td>
+        <td><span class="bad">贵、慢、向量大</span>，多为 API 依赖</td>
+        <td class="when">检索质量是瓶颈、且小模型实测明显不够时再上</td></tr>
+      <tr><td class="step">中文/多语<br><span class="muted" style="font-weight:400">bge-m3、bge-zh、multilingual-e5</span></td>
+        <td>中文/跨语言<span class="good">不退化</span>(英文模型对中文≈噪声)</td>
+        <td>同档英文模型可能略弱于专精英文的</td>
+        <td class="when"><b>中文场景必选</b>——这正是我们项目踩过的坑(英文 MiniLM→换 bge-zh)</td></tr>
+    </tbody>
+  </table>
+  <p class="sechead">⚠️ 铁律：<b>建库和查询必须同一个模型</b>；中文千万别用纯英文模型。选型先看 <a href="https://huggingface.co/spaces/mteb/leaderboard">MTEB 榜</a> 但一定用自己的数据复测。</p>
+
+  <table>
+    <caption>④ ANN 索引 —— 几百万向量怎么建"捷径地图"？</caption>
+    <thead><tr><th style="width:14%">选项</th><th style="width:23%">优势</th><th style="width:25%">劣势</th><th style="width:38%">什么场景用</th></tr></thead>
+    <tbody>
+      <tr><td class="step">Flat<br>(暴力精确)</td>
+        <td><span class="good">100% 准确</span>，无需调参</td>
+        <td>O(N) 逐个算，<span class="bad">量大就慢</span></td>
+        <td class="when">数据量小(几千~几万)或对召回零容忍——<b>我们项目就用它当 ground truth</b></td></tr>
+      <tr class="rec"><td class="step">HNSW<span class="pick">默认</span><br>(图索引)</td>
+        <td>同等召回下<span class="good">查询最快</span>，支持动态增删</td>
+        <td>内存占用大(存图的边)，建图慢</td>
+        <td class="when"><b>大多数 RAG 的默认</b>:内存够、要高召回低延迟、数据会变</td></tr>
+      <tr><td class="step">IVF-Flat<br>(聚类倒排)</td>
+        <td>内存比 HNSW 省，超大规模也快</td>
+        <td>召回略低，需调 nprobe;静态数据更合适</td>
+        <td class="when">数据量很大(&gt;5000万)、内存比 HNSW 紧张</td></tr>
+      <tr><td class="step">IVF-PQ<br>(聚类+量化压缩)</td>
+        <td><span class="good">内存省 10~100×</span>，能塞下亿级</td>
+        <td>有损压缩→<span class="bad">召回下降</span>,需精调</td>
+        <td class="when">海量向量 + 内存/成本是硬瓶颈,愿用召回换容量</td></tr>
+    </tbody>
+  </table>
+  <p class="sechead">🧭 路线：<b>先 HNSW</b> → 规模/成本顶不住了再换 IVF → 再不行上 IVF-PQ 压缩。小数据直接 Flat。</p>
+
+  <table>
+    <caption>⑥⑦ 召回方式 —— 用哪条通道找候选？</caption>
+    <thead><tr><th style="width:16%">选项</th><th style="width:24%">优势</th><th style="width:24%">劣势</th><th style="width:36%">什么场景用</th></tr></thead>
+    <tbody>
+      <tr><td class="step">纯向量<br>(Dense)</td>
+        <td>懂<span class="good">语义/同义/改写</span></td>
+        <td>漏精确词:IP、错误码、型号、人名</td>
+        <td class="when">问答、概念检索、口语化 query</td></tr>
+      <tr><td class="step">纯关键词<br>(BM25/稀疏)</td>
+        <td><span class="good">精确字面匹配</span>，零训练、可解释</td>
+        <td>不懂同义("引流"≠"导流"就漏)</td>
+        <td class="when">代码/日志/法条/精确术语检索</td></tr>
+      <tr class="rec"><td class="step">混合+RRF<span class="pick">生产默认</span></td>
+        <td><span class="good">两者盲区互补</span>，最稳;RRF 绕开分数量纲问题</td>
+        <td>多一套索引和融合逻辑</td>
+        <td class="when"><b>生产环境首选</b>——业界公认基线之上性价比最高的一招</td></tr>
+    </tbody>
+  </table>
+
+  <table>
+    <caption>⑧ 重排 —— 要不要再请个"较真评委"？</caption>
+    <thead><tr><th style="width:16%">选项</th><th style="width:24%">优势</th><th style="width:24%">劣势</th><th style="width:36%">什么场景用</th></tr></thead>
+    <tbody>
+      <tr><td class="step">不重排</td>
+        <td><span class="good">零延迟</span>、零成本</td>
+        <td>top 几名精度受限于粗召回</td>
+        <td class="when">召回已够好、对延迟极敏感、demo</td></tr>
+      <tr class="rec"><td class="step">Cross-Encoder<span class="pick">推荐</span><br><span class="muted" style="font-weight:400">bge-reranker、Cohere Rerank</span></td>
+        <td>query+doc 一起读，<span class="good">精度显著提升</span></td>
+        <td>慢→<span class="bad">只能精排少量</span>(top 20~50)</td>
+        <td class="when"><b>对答案质量要求高时加</b>;只重排融合后的前 N 条,缓存重复 query</td></tr>
+      <tr><td class="step">LLM 重排</td>
+        <td>最灵活,能理解复杂相关性</td>
+        <td><span class="bad">最贵最慢</span></td>
+        <td class="when">高价值、低 QPS、复杂相关性判断场景</td></tr>
+    </tbody>
+  </table>
+
+  <div class="note" style="background:#f1f8f3;border-color:#bfe0cc">
+    <h3>🍱 一份"拿来就用"的默认配方</h3>
+    <ul>
+      <li><b>切块</b>:递归切分,512 token / overlap 15%</li>
+      <li><b>Embedding</b>:中文用 <code>bge-m3</code> 或 <code>bge-large-zh</code>(英文 <code>text-embedding-3-small</code>);建库查询同款</li>
+      <li><b>索引</b>:<code>HNSW</code>(数据小直接 Flat)</li>
+      <li><b>召回</b>:<code>向量 + BM25 混合</code>,用 <code>RRF</code> 融合</li>
+      <li><b>重排</b>:对融合后 top 30~50 用 <code>bge-reranker</code> 精排,取最终 top 3~5</li>
+      <li><b>升级顺序</b>:先把这套跑通并建好<b>评测集</b> → 缺什么补什么(先加混合检索,再加重排,最后才动模型/切块)。<b>没有评测集就调参 = 蒙。</b></li>
+    </ul>
+  </div>
+
+  <div class="note">
+    <h3>三句话记住整条链路</h3>
+    <ul>
+      <li><b>写入侧（4 步）</b>：撕成纯文本 → 切小块 → 每块变向量 → 建索引存好。<b>做一次，反复用。</b></li>
+      <li><b>检索侧（5 步）</b>：问题也变向量 → 捞一批候选 → 两路结果融合 → 较真重排 → 喂大模型作答。<b>每次提问都跑。</b></li>
+      <li><b>为什么分这么多步</b>：单一手段都有盲区——<b>召回求全（别漏）、重排求准（别错）、融合补短（语义+字面）</b>，分工接力才又快又准。</li>
+    </ul>
+  </div>
+
+  <div class="note">
+    <h3>最小可用 vs 生产级</h3>
+    <ul>
+      <li><b>最小能跑</b>：② 切块 + ③ 向量化 + ④ 建索引 + ⑤ 查询向量化 + ⑥ 召回 + ⑨ 生成。（就是最朴素的「向量检索 RAG」）</li>
+      <li><b>生产加料</b>：再加 ⑦ 混合检索（性价比最高）和 ⑧ 重排（精度再上一档）；切块策略和 embedding 选型是隐形胜负手。</li>
+      <li>对照你那个 <a href="./rag-hub.html">向量检索解剖台</a>：BM25 = 步骤⑥的关键词通道；Dense = 步骤③+⑥的向量通道；图式渐近 = 沿结构图的另一种召回思路。</li>
+    </ul>
+  </div>
+
+  <p class="sub" style="margin-top:26px;font-size:12.5px">
+    参考：
+    <a href="https://ragflow.io/blog/rag-review-2025-from-rag-to-context">RAGFlow 2025 年度综述</a> ·
+    <a href="https://community.databricks.com/t5/technical-blog/the-ultimate-guide-to-chunking-strategies-for-rag-applications/ba-p/113089">Databricks 切块指南</a> ·
+    <a href="https://www.digitalapplied.com/blog/hybrid-search-bm25-vector-reranking-reference-2026">Hybrid Search: BM25+Vector+Rerank (2026)</a>
+  </p>
+</div>
+<a id="home-fab" href="./knowledge-map.html" style="position:fixed;right:16px;bottom:16px;z-index:9999;background:#245f73;color:#fff;text-decoration:none;font:600 13px/1 -apple-system,BlinkMacSystemFont,sans-serif;padding:10px 14px;border-radius:24px;box-shadow:0 2px 10px rgba(0,0,0,.18)">🏠 总览</a>
+</body>
+</html>

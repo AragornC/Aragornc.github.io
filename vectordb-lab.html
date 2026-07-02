@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>向量数据库选型对比 · RAG Lab</title><style>
+:root{--bg:#fafaf7;--paper:#fff;--ink:#1a1a1a;--ink2:#4a4a4a;--muted:#8a8a8a;--line:#e8e6df;--accent:#245f73;--good:#1f6f4f;--warn:#b84a36;--gold:#8a5d1f;--font:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;--mono:"SF Mono",ui-monospace,Menlo,monospace}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.7;font-size:15px}
+.page{max-width:980px;margin:0 auto;padding:30px 22px 90px}
+h1{font-size:25px;margin:0 0 4px}.sub{color:var(--muted);margin:0 0 12px}a{color:var(--accent)}
+.stats{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}
+.stat{background:var(--paper);border:1px solid var(--line);border-radius:9px;padding:7px 11px;font-size:12.5px}
+.stat b{display:block;color:var(--muted);font-size:11px;font-weight:700;margin-bottom:2px}
+.seg{margin-top:20px;background:var(--paper);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.seg-h{padding:12px 18px;background:#f6f5ef;border-bottom:1px solid var(--line)}
+.seg-h h2{margin:0;font-size:17px}
+.seg-b{padding:16px 18px}
+p{margin:0 0 10px}
+.diagram{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:#f6f5ef;border-radius:10px;padding:14px;font-size:12.5px;justify-content:center}
+.box{background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:8px 12px;text-align:center;font-weight:600}
+.box .s{display:block;font-size:11px;color:var(--muted);font-weight:400}
+.arrow{color:var(--accent);font-weight:800;font-size:16px}
+.store{background:#1f2328;color:#e6e6df;border-radius:8px;padding:13px 15px;font-family:var(--mono);font-size:12.5px;white-space:pre-wrap;overflow-x:auto;line-height:1.6}
+.store .c{color:#8a8a8a}.store .k{color:#79c0e8}.store .s2{color:#b6d99a}.store .n{color:#e0a849}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media(max-width:680px){.two{grid-template-columns:1fr}}
+.pros,.cons{border-radius:10px;padding:12px 14px;font-size:13.5px}
+.pros{background:#eef6f0;border:1px solid #cfe6d8}.cons{background:#fbeeea;border:1px solid #ecd0c7}
+.pros h3{color:var(--good);margin:0 0 6px;font-size:14px}.cons h3{color:var(--warn);margin:0 0 6px;font-size:14px}
+ul{margin:6px 0;padding-left:20px}li{margin:3px 0}
+.when{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media(max-width:680px){.when{grid-template-columns:1fr}}
+.tldr{background:#eef6f0;border:1px solid #cfe6d8;border-radius:10px;padding:12px 15px;font-size:14px;color:#155;margin-top:18px}
+.note{font-size:12.5px;color:var(--ink2);margin-top:14px;padding:11px 14px;background:#f4f6f7;border:1px solid #e2ebec;border-radius:8px}
+/* ——— 对比表 ——— */
+.tbl-wrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%}
+td,th{border:1px solid var(--line);padding:6px 9px;font-size:12.5px;vertical-align:top;text-align:left}
+th{background:#f3f2ec;font-weight:700}
+th.row-h,td.row-h{background:#f6f5ef;color:var(--ink2);font-weight:700;white-space:nowrap}
+table thead th:first-child{background:#f6f5ef}
+/* ——— 决策树 ——— */
+.tree{display:flex;flex-direction:column;gap:9px}
+.branch{display:flex;gap:10px;align-items:stretch;background:#f6f5ef;border:1px solid var(--line);border-radius:10px;padding:11px 13px}
+.branch .cond{flex:1;font-size:13.5px}
+.branch .cond b{color:var(--ink)}
+.branch .pick{flex:0 0 168px;background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:7px 10px;text-align:center;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center}
+@media(max-width:680px){.branch{flex-direction:column}.branch .pick{flex:auto}}
+.pick.milvus{color:#5a3aa0;border-color:#d6cdec;background:#f3effa}
+.pick.qdrant{color:var(--accent);border-color:#c8dde2;background:#eef5f6}
+.pick.chroma{color:var(--good);border-color:#cfe6d8;background:#eef6f0}
+.pick.pg{color:var(--gold);border-color:#e6dcc2;background:#f7f2e6}
+.pick.host{color:var(--warn);border-color:#ecd0c7;background:#fbeeea}
+/* ——— 卡片 ——— */
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media(max-width:680px){.cards{grid-template-columns:1fr}}
+.card{display:block;background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:14px 16px;text-decoration:none;color:inherit;transition:border-color .15s,transform .15s}
+.card:hover{border-color:var(--accent);transform:translateY(-2px)}
+.card h3{margin:0 0 4px;font-size:16px;color:var(--accent)}
+.card .pos{font-size:13px;color:var(--ink2);margin:0 0 8px}
+.card .go{font-size:12px;color:var(--muted);font-weight:700}
+.card .tag{display:inline-block;font-size:11px;color:var(--muted);background:#f3f2ec;border:1px solid var(--line);border-radius:6px;padding:2px 7px;margin-top:2px}
+</style></head>
+<body><div class="page">
+  <h1>向量数据库 · 选型对比与决策导航</h1>
+  <p class="sub">Milvus / Qdrant / Chroma / pgvector 四个「数据库级」方案怎么选。<a href="./">← 返回 RAG 导航</a></p>
+
+  <div class="seg"><div class="seg-h"><h2>这页讲什么:四个「数据库级」向量方案</h2></div><div class="seg-b">
+    <p>做 RAG / 语义检索时,存放与搜索向量的工具大致分两层。<b>库级(library)</b>如 <b>FAISS</b>,本质是「一个会算最近邻的函数」——它只负责相似度计算,不帮你存原文、不做增删改、不能边过滤边搜、也不自带服务和集群。<b>本页不收录 FAISS</b>,因为它要自己补全一大堆生产能力。</p>
+    <p>这里对比的 4 个都是<b>数据库级(database)</b>方案:它们在向量索引之上提供了元数据存储、过滤、增删改、持久化、网络服务乃至分布式扩展,拿来就能当生产检索层用。它们的定位差异很大——从「一行 pip 内嵌进脚本」的 Chroma,到「能扛几十亿向量」的 Milvus,再到「直接长在你现有 Postgres 里」的 pgvector,以及「自托管首选、过滤强」的 Qdrant。下面的对比表、决策树和卡片帮你快速对号入座。</p>
+  </div></div>
+
+  <!-- ② 四列对比表 -->
+  <div class="seg"><div class="seg-h"><h2>① 四列速览对比表</h2></div><div class="seg-b">
+    <div class="tbl-wrap"><table>
+      <thead><tr>
+        <th>维度</th><th>Milvus</th><th>Qdrant</th><th>Chroma</th><th>pgvector</th>
+      </tr></thead>
+      <tbody>
+        <tr>
+          <td class="row-h">语言</td>
+          <td>核心 Go + C++(SDK 多语言)</td>
+          <td>Rust</td>
+          <td>核心 Rust(早期 Python)</td>
+          <td>C(PostgreSQL 扩展)</td>
+        </tr>
+        <tr>
+          <td class="row-h">许可</td>
+          <td>Apache 2.0(LF AI &amp; Data 基金会)</td>
+          <td>Apache 2.0(开源)</td>
+          <td>Apache 2.0(完全开源免费)</td>
+          <td>PostgreSQL License(BSD 类,宽松)</td>
+        </tr>
+        <tr>
+          <td class="row-h">部署形态</td>
+          <td>嵌入式 Lite / 单机 / 分布式集群(K8s)</td>
+          <td>单机 Docker / 自建分布式集群 / 托管云</td>
+          <td>内嵌(in-process)/ 单机 Server / 托管云</td>
+          <td>装进现有 Postgres / 自托管 / 云托管</td>
+        </tr>
+        <tr>
+          <td class="row-h">适用规模</td>
+          <td>百万 → 数十亿向量</td>
+          <td>百万 ~ 数十亿向量</td>
+          <td>单机约百万级(舒适区 ~1–10M)</td>
+          <td>万级 ~ 数千万向量(单机为主)</td>
+        </tr>
+        <tr>
+          <td class="row-h">元数据过滤</td>
+          <td>支持(标量字段 + 布尔表达式 expr)</td>
+          <td>强(可过滤 HNSW,过滤+向量一起算)</td>
+          <td>支持(where + where_document 全文/正则)</td>
+          <td>原生支持(就是 SQL WHERE)</td>
+        </tr>
+        <tr>
+          <td class="row-h">混合检索</td>
+          <td>支持(稠密 + BM25 全文 + 多路召回)</td>
+          <td>支持(稠密 + 稀疏/BM25,服务端融合)</td>
+          <td>支持(向量 + 全文 FTS,2025 起加稀疏)</td>
+          <td>支持(配 PG 全文检索 + RRF 融合)</td>
+        </tr>
+        <tr>
+          <td class="row-h">托管版</td>
+          <td>有 — Zilliz Cloud(官方全托管)</td>
+          <td>有 — Qdrant Cloud(AWS/GCP/Azure)</td>
+          <td>有 — Chroma Cloud(2025-08 GA,Serverless)</td>
+          <td>无独立托管;随云 PG 提供(Supabase / Neon / RDS·Aurora 等)</td>
+        </tr>
+        <tr>
+          <td class="row-h">最适合</td>
+          <td>大规模、需水平扩展的生产 RAG / 检索系统</td>
+          <td>RAG / 语义搜索 / 推荐,且需按标签强过滤</td>
+          <td>RAG 原型 / 个人项目 / 中小规模快速落地</td>
+          <td>已在用 Postgres、想就地加语义检索的团队</td>
+        </tr>
+      </tbody>
+    </table></div>
+    <p class="note" style="margin-top:14px">数据均来自各自详情页的「速览卡」。规模/性能为大致量级,具体随版本演进而变,以官方文档为准。</p>
+  </div></div>
+
+  <!-- ③ 决策树 / 选型指南 -->
+  <div class="seg"><div class="seg-h"><h2>② 决策树 · 30 秒选型指南</h2></div><div class="seg-b">
+    <p>从上往下读,命中第一条就用对应方案。大多数人停在前两三条。</p>
+    <div class="tree">
+      <div class="branch">
+        <div class="cond"><b>已经在用 PostgreSQL?</b>且向量量级在数千万以内,想让向量和业务数据共享 SQL / 事务 / 备份 → 别再搭第二套系统。</div>
+        <div class="pick pg">pgvector</div>
+      </div>
+      <div class="branch">
+        <div class="cond"><b>完全不想运维任何东西?</b>只想调个 API 就用上向量检索,且接受托管 SaaS。</div>
+        <div class="pick host">托管<br><span style="font-weight:400;font-size:11px">Pinecone / Qdrant Cloud / Zilliz Cloud</span></div>
+      </div>
+      <div class="branch">
+        <div class="cond"><b>海量向量(上亿~数十亿)+ 高并发,且有 infra / 运维团队?</b>要丰富索引(HNSW/IVF/DiskANN/GPU)和水平扩展。</div>
+        <div class="pick milvus">Milvus</div>
+      </div>
+      <div class="branch">
+        <div class="cond"><b>要自托管的通用首选?</b>百万~数十亿规模,看重「边搜边按标签/租户/时间强过滤还保持高召回」,性能稳。</div>
+        <div class="pick qdrant">Qdrant</div>
+      </div>
+      <div class="branch">
+        <div class="cond"><b>学习 / 原型 / 个人项目 / 中小规模?</b>想一行 pip 装好、内嵌进脚本、原文+向量一站式存,最快从 0 跑到 1。</div>
+        <div class="pick chroma">Chroma</div>
+      </div>
+    </div>
+    <div class="tldr" style="margin-top:16px"><b>最重要的一条:规模没到就别上 Milvus。</b>几万到几百万向量的场景,Milvus 的分布式优势用不上,反而要搭 etcd、对象存储、消息队列一整套,徒增运维复杂度——属于「杀鸡用牛刀」。这种规模优先 Chroma(原型)或 pgvector(已用 PG),要自托管通用就 Qdrant,真等数据涨到上亿、单机扛不住时再迁 Milvus 也不迟。</div>
+  </div></div>
+
+  <!-- ④ 四张卡片 -->
+  <div class="seg"><div class="seg-h"><h2>③ 逐个深读(点击进入详情页)</h2></div><div class="seg-b">
+    <div class="cards">
+      <a class="card" href="./milvus-db.html">
+        <h3>Milvus →</h3>
+        <p class="pos">为「海量向量 + 水平扩展 + 生产级功能」而生的云原生开源向量数据库,存算分离、能扛几十亿向量。</p>
+        <span class="tag">大规模生产</span> <span class="tag">分布式</span>
+        <p class="go" style="margin-top:8px">打开深度白盒 →</p>
+      </a>
+      <a class="card" href="./qdrant-db.html">
+        <h3>Qdrant →</h3>
+        <p class="pos">Rust 写的开源向量数据库,杀手锏是「可过滤的 HNSW」——边搜向量边按元数据强过滤还保持高召回。</p>
+        <span class="tag">自托管首选</span> <span class="tag">强过滤</span>
+        <p class="go" style="margin-top:8px">打开深度白盒 →</p>
+      </a>
+      <a class="card" href="./chroma-db.html">
+        <h3>Chroma →</h3>
+        <p class="pos">最容易上手的开源 AI 向量数据库,一行 pip 装好、内嵌进 Python 程序,原文/向量/元数据一站式存。</p>
+        <span class="tag">原型最快</span> <span class="tag">零运维内嵌</span>
+        <p class="go" style="margin-top:8px">打开深度白盒 →</p>
+      </a>
+      <a class="card" href="./pgvector-db.html">
+        <h3>pgvector →</h3>
+        <p class="pos">给 PostgreSQL 装上「向量」列类型和相似度算子,让你已有的业务数据库直接做语义检索,不必另建系统。</p>
+        <span class="tag">长在 Postgres 里</span> <span class="tag">SQL 原生</span>
+        <p class="go" style="margin-top:8px">打开深度白盒 →</p>
+      </a>
+    </div>
+  </div></div>
+
+  <div class="note">说明:本页为导航/选型用途,四库的语言、许可、部署、规模、过滤、混合、托管、最适合等信息均摘自本仓库各自的详情页速览卡。「库级 FAISS」不在对比内——它是相似度计算库而非数据库。规模区间为大致经验值,实际请以各项目官方文档为准。</div>
+</div><a id="home-fab" href="./knowledge-map.html" style="position:fixed;right:16px;bottom:16px;z-index:9999;background:#245f73;color:#fff;text-decoration:none;font:600 13px/1 -apple-system,BlinkMacSystemFont,sans-serif;padding:10px 14px;border-radius:24px;box-shadow:0 2px 10px rgba(0,0,0,.18)">🏠 总览</a>
+</body></html>

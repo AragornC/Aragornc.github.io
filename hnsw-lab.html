@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>HNSW 单步可视化 · 看着它"走图"找最近</title>
+<style>
+  :root{--bg:#fafaf7;--paper:#fff;--ink:#1a1a1a;--ink2:#4a4a4a;--muted:#8a8a8a;--line:#e8e6df;
+    --accent:#245f73;--accent2:#1f6f4f;--warn:#b84a36;--nav:#2f6f9f;
+    --font:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.7;font-size:15px}
+  .page{max-width:1040px;margin:0 auto;padding:32px 22px 80px}
+  h1{font-size:24px;margin:0 0 4px}.sub{color:var(--muted);margin:0 0 14px}a{color:var(--accent)}
+  .bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+  button{font:inherit;font-weight:700;padding:8px 14px;border:1px solid var(--accent);border-radius:8px;background:var(--accent);color:#fff;cursor:pointer}
+  button.ghost{background:#fff;color:var(--accent)}button:disabled{opacity:.4}
+  .ctl{display:flex;flex-direction:column;font-size:13px;color:var(--ink2)}input[type=range]{width:110px}
+  .now{margin:10px 0;padding:12px 16px;border-radius:10px;background:var(--paper);border:1px solid var(--line);font-size:15px}
+  .now b{color:var(--nav)}
+  canvas{background:#fbfbf8;border:1px solid var(--line);border-radius:10px;width:100%;cursor:crosshair;touch-action:none}
+  .legend{font-size:12.5px;color:var(--muted);margin-top:6px}
+  .steps{font-size:13px;color:var(--ink2);margin-top:10px;padding-left:18px}.steps li{margin:2px 0}
+  .box{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-top:16px;font-size:14px}
+  .box h3{margin:0 0 6px;font-size:15px}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>HNSW 单步可视化 · 看着它"在图上走"找最近邻</h1>
+  <p class="sub">点 = 向量。先建"近邻图"(每个点连到附近的点),再从入口<b>一跳一跳走向查询 ⭐</b>。2D 演示,几何真实;512维是一样的玩法。<a href="./index-lab.html">← 三方搜索对比</a></p>
+
+  <div class="bar">
+    <button id="build">① 建近邻图</button>
+    <label class="ctl">每点连 k 个邻居：<b><span id="kV">3</span></b><input type="range" id="k" min="2" max="5" value="3"></label>
+    <button class="ghost" id="newq" disabled>② 放查询点(或直接点图)</button>
+    <button id="step" disabled>③ 走一步</button>
+    <button class="ghost" id="auto" disabled>自动走到底</button>
+    <span class="ctl" id="status">先点①建图。</span>
+  </div>
+
+  <div class="now" id="now">等待建图…</div>
+  <canvas id="cv" width="1000" height="540"></canvas>
+  <div class="legend">灰细线=图的边　⭐=查询　绿圈=入口　蓝粗线=已走路径　大蓝点=当前所在　橙圈=本步在看的邻居　红圈=最终找到的最近邻</div>
+
+  <ol class="steps">
+    <li><b>建图</b>:逐点插入,每个点连到"已插入点里最近的 k 个"(早插入的点会形成跨区域的"长链")。</li>
+    <li><b>放查询</b>:在图上点一下放 ⭐。搜索从固定的"入口点"开始。</li>
+    <li><b>走一步(贪心)</b>:看当前点的所有邻居,跳到"离 ⭐ 最近的那个邻居"——只要它比当前更近。</li>
+    <li>当"所有邻居都不比当前更近"→ 停,当前点就是找到的最近邻。</li>
+  </ol>
+
+  <div class="box">
+    <h3>HNSW 的 "H"(Hierarchical 分层)——本页演的是底层,概念补上</h3>
+    上面这套"贪心走图"是 HNSW 的<b>底层</b>(也就是 NSW)。HNSW 在它上面再叠几层:
+    <ul style="margin:6px 0 0;padding-left:20px;color:var(--ink2)">
+      <li><b>顶层:点很稀疏、边很长</b>——像"高速公路",几跳就能从一头跨到另一头(粗定位)。</li>
+      <li><b>往下每层越来越稠密</b>——像"省道→市区小路",步子越来越小(精定位)。</li>
+      <li>搜索<b>从顶层大跳逼近 → 逐层下沉精修</b>,像看地图先缩小再放大。比只在一层走更快更稳。</li>
+    </ul>
+    （本页把"贪心走图"这个核心机制演清楚;分层只是把同样的走法叠成"先粗后细"。）
+  </div>
+</div>
+
+<script>
+const $=s=>document.querySelector(s);
+const status=$('#status'), nowEl=$('#now');
+let pts=[], graph=[], entry=0;
+let query=null, current=null, path=[], finished=false, considered=[], foundDist=0;
+const L2=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+function gen(){ // 散布的点(几团,留点空隙好看跳转)
+  let s=7;const r=()=>{s=(s*1103515245+12345)&0x7fffffff;return s/0x7fffffff;};
+  const g=()=>Math.sqrt(-2*Math.log(r()+1e-9))*Math.cos(2*Math.PI*r());
+  const C=[[0.18,0.25],[0.8,0.22],[0.78,0.8],[0.2,0.8],[0.5,0.52]];pts=[];
+  C.forEach(c=>{for(let i=0;i<13;i++){let x=c[0]+g()*0.08,y=c[1]+g()*0.08;pts.push({x:Math.min(.97,Math.max(.03,x)),y:Math.min(.97,Math.max(.03,y))});}});
+}
+function build(){
+  gen();const k=+$('#k').value;
+  const order=[...pts.keys()];let s=99;const r=()=>{s=(s*1103515245+12345)&0x7fffffff;return s/0x7fffffff;};
+  for(let i=order.length-1;i>0;i--){const j=Math.floor(r()*(i+1));[order[i],order[j]]=[order[j],order[i]];}
+  const gs=pts.map(()=>new Set());const ins=[];
+  for(const idx of order){if(ins.length){const near=ins.map(j=>[L2(pts[idx],pts[j]),j]).sort((a,b)=>a[0]-b[0]).slice(0,k);near.forEach(([,j])=>{gs[idx].add(j);gs[j].add(idx);});}ins.push(idx);}
+  graph=gs.map(x=>[...x]);entry=order[0];query=null;current=null;path=[];finished=false;considered=[];
+  draw();nowEl.innerHTML='图建好了('+pts.length+'个点,每点约连 '+k+' 个邻居,绿圈=入口)。点②或直接在图上点一下放查询 ⭐。';
+  $('#newq').disabled=false;status.textContent='图就绪。';
+}
+function map(p){const cv=$('#cv'),pad=30;return [pad+p.x*(cv.width-2*pad),pad+p.y*(cv.height-2*pad)];}
+function draw(){const cv=$('#cv'),ctx=cv.getContext('2d');ctx.clearRect(0,0,cv.width,cv.height);
+  ctx.strokeStyle='rgba(140,140,140,0.22)';ctx.lineWidth=1;
+  pts.forEach((p,i)=>{const[x,y]=map(p);graph[i].forEach(j=>{if(j>i){const[x2,y2]=map(pts[j]);ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x2,y2);ctx.stroke();}});});
+  // path
+  if(path.length>1){ctx.strokeStyle=getC('--nav');ctx.lineWidth=3;ctx.beginPath();path.forEach((i,idx)=>{const[x,y]=map(pts[i]);idx?ctx.lineTo(x,y):ctx.moveTo(x,y);});ctx.stroke();}
+  // points
+  pts.forEach((p,i)=>{const[x,y]=map(p);ctx.beginPath();ctx.arc(x,y,5,0,7);ctx.fillStyle=path.includes(i)?'#9bbdd6':'#c9c6bb';ctx.fill();});
+  // considered neighbors this step
+  considered.forEach(([j])=>{const[x,y]=map(pts[j]);ctx.beginPath();ctx.arc(x,y,9,0,7);ctx.strokeStyle='#d98c2a';ctx.lineWidth=2;ctx.stroke();});
+  // entry
+  if(pts[entry]){const[x,y]=map(pts[entry]);ctx.beginPath();ctx.arc(x,y,9,0,7);ctx.strokeStyle=getC('--accent2');ctx.lineWidth=2.5;ctx.stroke();ctx.fillStyle=getC('--accent2');ctx.font='11px sans-serif';ctx.textAlign='center';ctx.fillText('入口',x,y-13);}
+  // current (big)
+  if(current!=null){const[x,y]=map(pts[current]);ctx.beginPath();ctx.arc(x,y,8,0,7);ctx.fillStyle=getC('--nav');ctx.fill();}
+  // found
+  if(finished&&current!=null){const[x,y]=map(pts[current]);ctx.beginPath();ctx.arc(x,y,12,0,7);ctx.strokeStyle=getC('--warn');ctx.lineWidth=3;ctx.stroke();}
+  // query
+  if(query){const[x,y]=map(query);ctx.fillStyle='#1a1a1a';ctx.font='22px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('★',x,y);}
+}
+function getC(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+function setQuery(q){query=q;current=entry;path=[entry];finished=false;considered=[];draw();
+  nowEl.innerHTML=`⭐ 已放置。搜索从<b>入口</b>开始(当前距 ⭐ <b>${L2(pts[entry],query).toFixed(3)}</b>)。点「走一步」开始贪心逼近。`;
+  $('#step').disabled=false;$('#auto').disabled=false;}
+function step(){
+  if(finished||current==null)return;
+  const cd=L2(pts[current],query);considered=graph[current].map(j=>[j,L2(pts[j],query)]);
+  let best=current,bd=cd;considered.forEach(([j,d])=>{if(d<bd){bd=d;best=j;}});
+  if(best===current){finished=true;foundDist=cd;draw();
+    nowEl.innerHTML=`当前 d${current} 距 ⭐ <b>${cd.toFixed(3)}</b>;它的邻居<b>没有比它更近的</b> → <b>停!</b> 找到最近邻 ≈ d${current}(红圈)。`;
+    $('#step').disabled=true;return;}
+  const from=current;path.push(best);current=best;draw();
+  nowEl.innerHTML=`d${from}(距⭐ ${cd.toFixed(3)})看了邻居,最近的是 d${best}(距⭐ <b>${bd.toFixed(3)}</b>)< ${cd.toFixed(3)} → <b>跳过去</b>。继续走一步。`;
+}
+$('#build').onclick=build;
+$('#k').oninput=()=>{$('#kV').textContent=$('#k').value;if(pts.length)build();};
+$('#newq').onclick=()=>setQuery({x:0.1+Math.random()*0.8,y:0.1+Math.random()*0.8});
+$('#step').onclick=step;
+$('#auto').onclick=()=>{const t=setInterval(()=>{if(finished){clearInterval(t);return;}step();},650);};
+$('#cv').addEventListener('click',e=>{if(!pts.length)return;const cv=$('#cv'),r=cv.getBoundingClientRect(),pad=30;
+  const x=((e.clientX-r.left)/r.width*cv.width-pad)/(cv.width-2*pad);const y=((e.clientY-r.top)/r.height*cv.height-pad)/(cv.height-2*pad);
+  setQuery({x:Math.min(.97,Math.max(.03,x)),y:Math.min(.97,Math.max(.03,y))});});
+build();
+</script>
+<a id="home-fab" href="./knowledge-map.html" style="position:fixed;right:16px;bottom:16px;z-index:9999;background:#245f73;color:#fff;text-decoration:none;font:600 13px/1 -apple-system,BlinkMacSystemFont,sans-serif;padding:10px 14px;border-radius:24px;box-shadow:0 2px 10px rgba(0,0,0,.18)">🏠 总览</a>
+</body>
+</html>

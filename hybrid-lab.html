@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>混合检索白盒 · BM25 + Dense + RRF</title>
+<style>
+  :root{--bg:#fafaf7;--paper:#fff;--ink:#1a1a1a;--ink2:#4a4a4a;--muted:#8a8a8a;--line:#e8e6df;
+    --accent:#245f73;--bm:#8a5d1f;--dense:#245f73;--rrf:#1f6f4f;--warn:#b84a36;
+    --font:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    --mono:"SF Mono",ui-monospace,Menlo,monospace;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.6;font-size:15px}
+  .page{max-width:1080px;margin:0 auto;padding:30px 20px 80px}
+  h1{font-size:23px;margin:0 0 4px}.sub{color:var(--muted);margin:0 0 12px}a{color:var(--accent)}
+  .bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+  button{font:inherit;font-weight:700;padding:8px 14px;border:1px solid var(--accent);border-radius:8px;background:var(--accent);color:#fff;cursor:pointer}button:disabled{opacity:.4}
+  input[type=text]{font:inherit;padding:9px 11px;border:1px solid var(--line);border-radius:7px;background:#fffdf8;flex:1;min-width:240px}
+  .status{font-size:13px;color:var(--ink2)}
+  .cols{display:grid;grid-template-columns:1fr 1fr 1.1fr;gap:12px;margin-top:14px}
+  @media(max-width:820px){.cols{grid-template-columns:1fr}}
+  .col{border:1px solid var(--line);border-radius:10px;background:var(--paper);overflow:hidden}
+  .col h2{margin:0;font-size:14px;padding:9px 12px;color:#fff}
+  .col.bm h2{background:var(--bm)}.col.dense h2{background:var(--dense)}.col.rrf h2{background:var(--rrf)}
+  .col .desc{font-size:12px;color:var(--muted);padding:6px 12px;border-bottom:1px solid var(--line)}
+  .row{padding:8px 12px;border-bottom:1px solid #f0eee7;font-size:13px}
+  .row:last-child{border-bottom:none}
+  .row .r1{display:flex;justify-content:space-between;gap:8px}
+  .row .rk{font-family:var(--mono);font-weight:800;color:var(--muted)}
+  .row .sc{font-family:var(--mono);color:var(--muted);font-size:12px}
+  .row .tx{margin-top:2px}
+  .row.win{background:#eef6f0}
+  .src{font-size:11px;font-family:var(--mono)}.src .b{color:var(--bm)}.src .d{color:var(--dense)}
+  .rrf-tbl{margin-top:18px}.rrf-tbl table{border-collapse:collapse;width:100%;font-size:12.5px}
+  .rrf-tbl td,.rrf-tbl th{border:1px solid var(--line);padding:5px 8px;text-align:center}.rrf-tbl th{background:#f3f2ec}
+  .rrf-tbl td.t{text-align:left}
+  .note{font-size:12.5px;color:var(--ink2);margin-top:14px;padding:11px 13px;background:#f4f6f7;border:1px solid #e2ebec;border-radius:8px}
+  .note b{color:var(--accent)}
+  .formula{font-family:var(--mono);font-size:12.5px;background:#1f2328;color:#e6e6df;padding:8px 12px;border-radius:7px;margin:8px 0}
+  .err{color:var(--warn);font-weight:700}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>混合检索白盒 · BM25 + Dense,RRF 融合</h1>
+  <p class="sub">同一查询跑两路召回:<b>BM25</b>(关键词,懂精确词)+ <b>Dense</b>(向量,懂语义),再用 <b>RRF</b> 按排名融合。看它俩怎么互补。<a href="./retrieval-lab.html">← 召回</a> · <a href="./">导航</a></p>
+
+  <div class="bar"><button id="load">加载模型 + 建两套索引</button><span class="status" id="status">点按钮:建 BM25 索引 + 嵌入文档。</span></div>
+  <div class="bar" style="margin-top:6px"><input type="text" id="q" value="E1024 报错 总是掉线"><button id="go" disabled>混合检索</button></div>
+  <div class="formula">RRF 分数(doc) = Σ 各路 1/(K + 该路里的排名)   ，K=60。在任一路排得高都加分;两路都高 → 最高。</div>
+
+  <div class="cols">
+    <div class="col bm"><h2>① BM25(关键词)</h2><div class="desc">精确字面匹配,认得 E1024 这种码,但不懂同义词。</div><div id="bmList"></div></div>
+    <div class="col dense"><h2>② Dense(向量语义)</h2><div class="desc">懂"登不进去≈登录失败",但对精确码 E1024 模糊。</div><div id="denseList"></div></div>
+    <div class="col rrf"><h2>③ RRF 融合(最终)</h2><div class="desc">两路按排名合并,把各自的强项都捞进来。</div><div id="rrfList"></div></div>
+  </div>
+
+  <div class="rrf-tbl"><h3 style="font-size:15px;margin:18px 0 6px">RRF 计算明细(谁在哪路排第几 → 融合分)</h3><div id="rrfTable"></div></div>
+
+  <div class="note" id="insight"></div>
+  <div class="note">为什么用 RRF 而不是"两个分数直接相加"?因为 BM25 分数是无上限的大数、cosine 是 0~1,<b>量纲不同,直接加会被 BM25 压垮</b>。RRF 只看<b>排名</b>(第几名),绕开了量纲问题——这是业界做混合检索最常用的融合法。</div>
+</div>
+
+<script type="module">
+import { buildSparseIndex, searchBM25 } from './src/sparse.js?v=2';
+const $=s=>document.querySelector(s);
+const status=$('#status');
+const CORPUS=[
+  {id:'d01', text:'错误码 E1024 导致用户频繁掉线'},          // 两路都强(有E1024+掉线)
+  {id:'d02', text:'运维在 E1024 监控面板配置告警阈值'},      // BM25-only:有E1024但主题是监控面板
+  {id:'d03', text:'系统日志里出现大量 E1024 记录'},          // BM25-only:有E1024但主题是日志
+  {id:'d04', text:'用户反映网络连接频繁中断很不稳定'},        // Dense-only:掉线同义,无E1024
+  {id:'d05', text:'设备总是断开重连影响正常使用'},            // Dense-only:掉线同义,无E1024
+  {id:'d06', text:'如何重置账户密码找回访问权限'},            // 噪声
+  {id:'d07', text:'E2048 表示当前权限不足'},                  // 不同的码
+  {id:'d08', text:'上传文件大小超过平台限制'},                // 噪声
+  {id:'d09', text:'支付时提示余额不足请充值'},                // 噪声
+  {id:'d10', text:'服务器繁忙请稍后再试'},                    // 噪声
+];
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+let M=null, sidx=null, vecs=null;
+const K_RRF=60, TOPK=5;
+
+async function ensure(){if(M)return M;$('#load').disabled=true;status.textContent='加载 bge…';
+  try{M=await import('./src/dense.js?v=2');await M.loadModel(e=>{if(e&&e.status)status.textContent='加载：'+(e.file||e.status);});}
+  catch(e){status.innerHTML='<span class="err">加载失败：'+String(e.message||e)+'</span>';$('#load').disabled=false;throw e;}return M;}
+
+function rankMap(orderedIds){const m=new Map();orderedIds.forEach((id,i)=>m.set(id,i+1));return m;}
+
+async function run(){
+  const m=await ensure();const q=$('#q').value.trim();if(!q)return;status.textContent='两路召回 + 融合…';
+  // BM25 全量排名
+  const bm=searchBM25(sidx,q,{k:CORPUS.length}).results.map(r=>({id:r.doc.id,score:r.score}));
+  // Dense 全量排名
+  const qv=await m.embedQuery(q);
+  const dn=CORPUS.map((d,i)=>({id:d.id,score:m.cosine(qv,vecs[i])})).sort((a,b)=>b.score-a.score);
+  const bmRank=rankMap(bm.map(x=>x.id)), dnRank=rankMap(dn.map(x=>x.id));
+  // RRF
+  const rrf=CORPUS.map(d=>{const rb=bmRank.get(d.id),rd=dnRank.get(d.id);const s=1/(K_RRF+rb)+1/(K_RRF+rd);return {id:d.id,rb,rd,score:s};}).sort((a,b)=>b.score-a.score);
+  const txt=id=>esc(CORPUS.find(d=>d.id===id).text);
+  const bmTop=bm.slice(0,TOPK).map(x=>x.id), dnTop=dn.slice(0,TOPK).map(x=>x.id), rrfTop=rrf.slice(0,TOPK).map(x=>x.id);
+  const render=(el,list,scoreFmt)=>{$(el).innerHTML=list.slice(0,TOPK).map((x,i)=>`<div class="row"><div class="r1"><span class="rk">#${i+1} ${x.id}</span><span class="sc">${scoreFmt(x)}</span></div><div class="tx">${txt(x.id)}</div></div>`).join('');};
+  render('#bmList',bm,x=>x.score.toFixed(2));
+  render('#denseList',dn,x=>x.score.toFixed(3));
+  $('#rrfList').innerHTML=rrf.slice(0,TOPK).map((x,i)=>`<div class="row"><div class="r1"><span class="rk">#${i+1} ${x.id}</span><span class="sc">${x.score.toFixed(4)}</span></div><div class="tx">${txt(x.id)}</div><div class="src">来自 <span class="b">BM25第${x.rb}</span> + <span class="d">Dense第${x.rd}</span></div></div>`).join('');
+  // RRF table
+  let t='<table><tr><th>doc</th><th>原文</th><th>BM25排名</th><th>Dense排名</th><th>RRF分</th><th>最终</th></tr>';
+  rrf.forEach((x,i)=>{t+=`<tr><td>${x.id}</td><td class="t">${txt(x.id)}</td><td>${x.rb}</td><td>${x.rd}</td><td>${x.score.toFixed(4)}</td><td><b>#${i+1}</b></td></tr>`;});
+  $('#rrfTable').innerHTML=t+'</table>';
+  // 互补洞察:谁是某一路独有的强项
+  const bmOnly=bmTop.filter(id=>!dnTop.includes(id));
+  const dnOnly=dnTop.filter(id=>!bmTop.includes(id));
+  const recovered=rrfTop.filter(id=>bmOnly.includes(id)||dnOnly.includes(id));
+  $('#insight').innerHTML=`<b>互补观察</b>:BM25 前${TOPK}独有 = [${bmOnly.join(', ')||'无'}](多半靠精确词如 E1024);Dense 前${TOPK}独有 = [${dnOnly.join(', ')||'无'}](多半靠语义,如"登不进去≈登录失败/会话超时")。RRF 最终前${TOPK}里,<b>把两边的独有强项都捞了回来:[${recovered.join(', ')||'—'}]</b> —— 这就是混合检索补盲区的价值。`;
+  status.textContent='混合检索完成 ✓';
+}
+async function load(){const m=await ensure();status.textContent='建 BM25 索引 + 嵌入 '+CORPUS.length+' 条…';
+  sidx=buildSparseIndex(CORPUS);
+  vecs=[];for(const d of CORPUS)vecs.push(Array.from(await m.embed(d.text)));
+  $('#go').disabled=false;status.textContent='两套索引就绪 ✓';run();}
+$('#load').onclick=load;$('#go').onclick=run;
+</script>
+<a id="home-fab" href="./knowledge-map.html" style="position:fixed;right:16px;bottom:16px;z-index:9999;background:#245f73;color:#fff;text-decoration:none;font:600 13px/1 -apple-system,BlinkMacSystemFont,sans-serif;padding:10px 14px;border-radius:24px;box-shadow:0 2px 10px rgba(0,0,0,.18)">🏠 总览</a>
+</body>
+</html>

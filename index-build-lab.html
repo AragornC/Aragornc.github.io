@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>建索引白盒 · 索引怎么建 + 库里存了啥</title>
+<style>
+  :root{--bg:#fafaf7;--paper:#fff;--ink:#1a1a1a;--ink2:#4a4a4a;--muted:#8a8a8a;--line:#e8e6df;
+    --accent:#245f73;--accent2:#1f6f4f;--warn:#b84a36;
+    --font:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    --mono:"SF Mono",ui-monospace,Menlo,monospace;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.7;font-size:15px}
+  .page{max-width:1080px;margin:0 auto;padding:34px 22px 90px}
+  h1{font-size:25px;margin:0 0 4px}
+  .sub{color:var(--muted);margin:0 0 18px}
+  a{color:var(--accent)}
+  .bar{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+  button{font:inherit;font-weight:700;padding:8px 14px;border:1px solid var(--accent);border-radius:8px;background:var(--accent);color:#fff;cursor:pointer}
+  button.ghost{background:#fff;color:var(--accent)}
+  button:disabled{opacity:.5}
+  .ctl{display:flex;flex-direction:column;font-size:13px;color:var(--ink2)}
+  input[type=range]{width:130px}
+  .status{font-size:13px;color:var(--ink2)}
+  .seg{margin-top:20px;background:var(--paper);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .seg-head{padding:13px 18px;border-bottom:1px solid var(--line);background:#f6f5ef}
+  .seg-head h2{margin:0;font-size:17px}
+  .seg-head .algo{margin-top:3px;color:var(--ink2);font-size:13px}
+  .seg-body{padding:16px 18px}
+  table{border-collapse:collapse;font-size:12.5px;width:100%}
+  td,th{border:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top}
+  th{background:#f3f2ec;font-weight:700}
+  .mono{font-family:var(--mono);font-size:12px;color:var(--ink2)}
+  .store{background:#1f2328;color:#e6e6df;border-radius:8px;padding:12px 14px;font-family:var(--mono);font-size:12px;line-height:1.6;white-space:pre-wrap;word-break:break-word;overflow-x:auto;margin-top:8px}
+  .store .k{color:#79c0e8}.store .s{color:#b6d99a}.store .n{color:#e0a849}.store .c{color:#8a8a8a}
+  .label{display:inline-block;font-size:11px;font-weight:800;color:#fff;background:var(--accent);border-radius:4px;padding:1px 7px;margin-bottom:6px}
+  .label.idx{background:var(--accent2)}.label.pq{background:#6450a8}
+  .buildlog{background:#f4f6f7;border:1px solid #e2ebec;border-radius:8px;padding:10px 12px;font-size:12.5px;color:var(--ink2);font-family:var(--mono);max-height:240px;overflow:auto}
+  .hint{font-size:12.5px;color:var(--muted);margin-top:8px}
+  .err{color:var(--warn);font-weight:700}
+  .pill{display:inline-block;background:#eef4f5;color:var(--accent);border-radius:5px;padding:1px 6px;margin:1px;font-family:var(--mono);font-size:11.5px}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:14px}@media(max-width:760px){.two{grid-template-columns:1fr}}
+  .big{font-size:13px;color:var(--ink2)}.big b{color:var(--ink);font-size:16px}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>建索引白盒 · 索引到底怎么建、库里到底存了啥</h1>
+  <p class="sub">这一步<b>不做检索</b>,只看两件事:① 索引是怎么<b>构建</b>出来的;② 最终<b>存进向量库的数据和结构</b>长什么样(逐字摊开)。数据用真实风控文本。<a href="./index-lab.html">→ 想看"检索机制"看这个</a> · <a href="./rag-pipeline.html">流程总表</a></p>
+
+  <div class="bar">
+    <button id="load">加载模型 + 向量化(建库第一步)</button>
+    <label class="ctl">IVF 簇数 C：<b><span id="cV">4</span></b><input type="range" id="c" min="2" max="6" value="4"></label>
+    <label class="ctl">HNSW 近邻 k：<b><span id="kV">3</span></b><input type="range" id="k" min="2" max="6" value="3"></label>
+    <label class="ctl">PQ 段数 m：<b><span id="mV">8</span></b><input type="range" id="m" min="2" max="8" step="2" value="8"></label>
+    <span class="status" id="status">点按钮:把 12 条真实文本向量化,然后逐层展示索引怎么建、存成啥。</span>
+  </div>
+
+  <!-- 数据层 -->
+  <div class="seg"><div class="seg-head"><h2>① 数据层:每条 chunk 存成一条「记录」</h2>
+    <div class="algo">这是索引之前最基础的存储。每条记录 = id + 原文 + 元数据 + 向量。向量来自上一阶段的 embedding。</div></div>
+    <div class="seg-body"><div id="records"></div>
+      <div class="label">存储形态(一条记录的真实样子)</div><div class="store" id="recJSON"></div></div></div>
+
+  <!-- Flat -->
+  <div class="seg"><div class="seg-head"><h2>② Flat:其实没有"索引"</h2>
+    <div class="algo">最简单——啥额外结构都不建,就把所有向量并排放成一个大数组。构建 = 零。</div></div>
+    <div class="seg-body"><div class="label idx">Flat 存的索引结构</div><div class="store" id="flatStore"></div>
+      <div class="hint">就一个 N×512 的矩阵。检索时逐个比(但那是检索的事,这里不演)。</div></div></div>
+
+  <!-- IVF build -->
+  <div class="seg"><div class="seg-head"><h2>③ IVF 构建:k-means 分簇 → 建倒排表</h2>
+    <div class="algo">构建两步:(1) k-means 把向量分成 C 簇、得到 C 个簇心;(2) 建「倒排表」记录每个簇里有哪些向量 id。</div></div>
+    <div class="seg-body">
+      <div class="label">构建过程</div><div class="buildlog" id="ivfLog"></div>
+      <div class="label idx" style="margin-top:10px">IVF 存的索引结构(簇心 + 倒排表)</div><div class="store" id="ivfStore"></div>
+      <div class="hint">倒排表 = <code>簇 → [向量id列表]</code>。这就是 IVF 落进库里的东西(+ 上面的数据层记录)。</div></div></div>
+
+  <!-- HNSW build -->
+  <div class="seg"><div class="seg-head"><h2>④ HNSW 构建:逐点插入 → 连边成图</h2>
+    <div class="algo">构建 = 一个个插入向量,每个新点连到「已插入点中最近的 k 个」(双向)。早插入的点散布全局形成长链。结果是一张「邻接表」。</div></div>
+    <div class="seg-body">
+      <div class="label">构建过程(逐点插入,连了哪些边)</div><div class="buildlog" id="hnswLog"></div>
+      <div class="label idx" style="margin-top:10px">HNSW 存的索引结构(邻接表 = 每个点连到谁)</div><div class="store" id="hnswStore"></div>
+      <div class="hint">邻接表 = <code>节点id → [邻居id列表]</code> + 入口点。这就是 HNSW 落进库里的图。</div></div></div>
+
+  <!-- PQ build -->
+  <div class="seg"><div class="seg-head"><h2>⑤ PQ 编码:把 512 维向量压成几个字节</h2>
+    <div class="algo">构建:把每段子向量用 k-means 学一本小字典(原型)。存储:每个向量 → 每段记"最近的原型编号"。看一条向量被压成啥。</div></div>
+    <div class="seg-body">
+      <div class="label pq">拿第 1 条向量演示编码过程</div>
+      <div id="pqSteps" class="mono" style="margin-top:6px"></div>
+      <div class="label pq" style="margin-top:10px">PQ 存的索引结构(每条向量只剩 m 个编号)</div><div class="store" id="pqStore"></div>
+      <div class="big" id="pqSize" style="margin-top:8px"></div>
+      <div class="hint">注意:这里 12 条是玩具规模,字典只学 4 个原型/段;真实是百万条、256 原型/段。原理一样。</div></div></div>
+
+  <!-- 总览 -->
+  <div class="seg"><div class="seg-head"><h2>⑥ 总览:向量库里到底躺着什么</h2></div>
+    <div class="seg-body"><div class="store" id="overview"></div></div></div>
+</div>
+
+<script type="module">
+const $=s=>document.querySelector(s);
+const status=$('#status');
+const CHUNKS=[
+  {t:'主播在直播间诱导粉丝添加微信',c:'导流'},{t:'短视频评论区留二维码引导去站外付款',c:'导流'},{t:'笔记用谐音薇信号让用户去小号看价目',c:'导流'},
+  {t:'账号发布虚假中奖要求先交保证金',c:'诈骗'},{t:'冒充客服索要短信验证码解冻账户',c:'诈骗'},{t:'群里宣传刷单返佣需要先垫付本金',c:'诈骗'},
+  {t:'评论曝光他人手机号和家庭住址',c:'隐私'},{t:'发布人肉搜索请求披露身份证照片',c:'隐私'},
+  {t:'主播暗示用外挂脚本提升游戏排名',c:'作弊'},{t:'帖子提供自动抢券工具规避风控',c:'作弊'},
+  {t:'今天天气很好适合出去爬山',c:'闲聊'},{t:'推荐一家性价比高的火锅店',c:'闲聊'},
+];
+let M=null, vecs=null;
+const id=i=>'d'+String(i+1).padStart(2,'0');
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+function colorJSON(j){return esc(j)
+  .replace(/"([a-zA-Z_]+)":/g,'"<span class="k">$1</span>":')
+  .replace(/: (".*?")/g,': <span class="s">$1</span>')
+  .replace(/(-?\d+\.?\d*)/g,'<span class="n">$1</span>')
+  .replace(/(\/\/.*)$/gm,'<span class="c">$1</span>');}
+
+async function ensure(){ if(M)return M;$('#load').disabled=true;status.textContent='加载本地 bge 模型…';
+  try{M=await import('./src/dense.js?v=2');await M.loadModel(e=>{if(e&&e.status)status.textContent='加载：'+(e.file||e.status);});}
+  catch(e){status.innerHTML='<span class="err">加载失败：'+String(e.message||e)+'</span>';$('#load').disabled=false;throw e;}
+  return M;}
+
+const dot=(a,b)=>{let s=0;for(let i=0;i<a.length;i++)s+=a[i]*b[i];return s;};
+const norm=v=>{let n=0;for(const x of v)n+=x*x;n=Math.sqrt(n)||1;return v.map(x=>x/n);};
+const L2=(a,b)=>{let s=0;for(let i=0;i<a.length;i++){const d=a[i]-b[i];s+=d*d;}return Math.sqrt(s);};
+
+// ---- 数据层 ----
+function renderRecords(){
+  let rows='<table><tr><th>id</th><th>原文(text)</th><th>元数据</th><th>向量(前6维…共512)</th></tr>';
+  CHUNKS.forEach((c,i)=>{rows+=`<tr><td class="mono">${id(i)}</td><td>${esc(c.t)}</td><td class="mono">risk_type:${c.c}</td>
+    <td class="mono">[${[...vecs[i].slice(0,6)].map(x=>x.toFixed(3)).join(', ')}, …]</td></tr>`;});
+  $('#records').innerHTML=rows+'</table>';
+  const j=`{
+  "id": "${id(0)}",
+  "text": "${CHUNKS[0].t}",          // 原文,永远精确保存
+  "metadata": { "risk_type": "${CHUNKS[0].c}", "source": "风控手册.md" },
+  "vector": [${[...vecs[0].slice(0,4)].map(x=>x.toFixed(4)).join(', ')}, … 共512个]
+}`;
+  $('#recJSON').innerHTML=colorJSON(j);
+}
+
+// ---- Flat ----
+function renderFlat(){
+  $('#flatStore').innerHTML=colorJSON(`{
+  "type": "Flat",
+  "vectors": [ [${vecs[0].slice(0,3).map(x=>x.toFixed(3)).join(',')},…],   // ${id(0)}
+               [${vecs[1].slice(0,3).map(x=>x.toFixed(3)).join(',')},…],   // ${id(1)}
+               … 共 ${vecs.length} 行 × 512 列 ],
+  "index_structure": "无(就是向量数组本身)"
+}`);
+}
+
+// ---- IVF ----
+function kmeans(C){
+  let s=7;const r=()=>{s=(s*1103515245+12345)&0x7fffffff;return s/0x7fffffff;};
+  const cent=[];const used=new Set();for(let i=0;i<C;i++){let idx;do{idx=Math.floor(r()*vecs.length);}while(used.has(idx));used.add(idx);cent.push(vecs[idx].slice());}
+  let assign=new Array(vecs.length).fill(0),iters=0;
+  for(let it=0;it<15;it++){iters++;let moved=false;
+    for(let i=0;i<vecs.length;i++){let bs=-2,bj=0;for(let j=0;j<C;j++){const d=dot(vecs[i],cent[j]);if(d>bs){bs=d;bj=j;}}if(assign[i]!==bj)moved=true;assign[i]=bj;}
+    for(let j=0;j<C;j++){const acc=new Float64Array(512);let cnt=0;for(let i=0;i<vecs.length;i++)if(assign[i]===j){for(let k=0;k<512;k++)acc[k]+=vecs[i][k];cnt++;}if(cnt)cent[j]=norm([...acc]);}
+    if(!moved)break;}
+  return {cent,assign,iters};
+}
+function renderIVF(){
+  const C=+$('#c').value;const {cent,assign,iters}=kmeans(C);
+  const lists={};for(let i=0;i<vecs.length;i++)(lists[assign[i]]=lists[assign[i]]||[]).push(i);
+  let log=`k-means 在 12 条向量上迭代 ${iters} 轮收敛,得到 ${C} 个簇心。\n每条向量归到最近的簇心:\n`;
+  for(let i=0;i<vecs.length;i++)log+=`  ${id(i)}「${CHUNKS[i].t.slice(0,10)}」→ 簇${assign[i]}\n`;
+  $('#ivfLog').textContent=log;
+  let store=`{
+  "type": "IVF",
+  "centroids": {   // ${C} 个簇心向量(每个512维,这里只显前3维)\n`;
+  for(let j=0;j<C;j++)store+=`    "簇${j}": [${cent[j].slice(0,3).map(x=>x.toFixed(3)).join(',')}, …],\n`;
+  store+=`  },
+  "inverted_lists": {   // 倒排表:每个簇里有哪些向量id ← IVF 的核心\n`;
+  Object.keys(lists).sort().forEach(j=>{store+=`    "簇${j}": [${lists[j].map(i=>'"'+id(i)+'"').join(', ')}],\n`;});
+  store+=`  }\n}`;
+  $('#ivfStore').innerHTML=colorJSON(store);
+}
+
+// ---- HNSW ----
+function renderHNSW(){
+  const k=+$('#k').value;
+  const order=[...vecs.keys()];let s2=99;const r2=()=>{s2=(s2*1103515245+12345)&0x7fffffff;return s2/0x7fffffff;};
+  for(let i=order.length-1;i>0;i--){const j=Math.floor(r2()*(i+1));[order[i],order[j]]=[order[j],order[i]];}
+  const g=vecs.map(()=>new Set());const inserted=[];let log='插入顺序(随机),每个新点连到「已插入点」中最近的 '+k+' 个:\n';
+  for(const idx of order){
+    if(inserted.length){const near=inserted.map(j=>[L2(vecs[idx],vecs[j]),j]).sort((a,b)=>a[0]-b[0]).slice(0,k);
+      near.forEach(([,j])=>{g[idx].add(j);g[j].add(idx);});
+      log+=`  插入 ${id(idx)} → 连边 [${near.map(([,j])=>id(j)).join(', ')}]\n`;
+    } else log+=`  插入 ${id(idx)}(第一个,入口点,暂无边)\n`;
+    inserted.push(idx);
+  }
+  $('#hnswLog').textContent=log;
+  let store=`{
+  "type": "HNSW",
+  "entry_point": "${id(order[0])}",   // 搜索从这里开始
+  "graph": {   // 邻接表:每个节点连到哪些节点 ← HNSW 的核心\n`;
+  for(let i=0;i<vecs.length;i++)store+=`    "${id(i)}": [${[...g[i]].sort().map(j=>'"'+id(j)+'"').join(', ')}],\n`;
+  store+=`  }\n}`;
+  $('#hnswStore').innerHTML=colorJSON(store);
+}
+
+// ---- PQ ----
+function subKmeans(subs,K){
+  let s=3;const r=()=>{s=(s*1103515245+12345)&0x7fffffff;return s/0x7fffffff;};
+  const d=subs[0].length;const cent=[];const used=new Set();
+  for(let i=0;i<K;i++){let idx;do{idx=Math.floor(r()*subs.length);}while(used.has(idx)&&used.size<subs.length);used.add(idx);cent.push(subs[idx].slice());}
+  let assign=new Array(subs.length).fill(0);
+  for(let it=0;it<10;it++){
+    for(let i=0;i<subs.length;i++){let bd=1e9,bj=0;for(let j=0;j<K;j++){const dd=L2(subs[i],cent[j]);if(dd<bd){bd=dd;bj=j;}}assign[i]=bj;}
+    for(let j=0;j<K;j++){const acc=new Float64Array(d);let cnt=0;for(let i=0;i<subs.length;i++)if(assign[i]===j){for(let x=0;x<d;x++)acc[x]+=subs[i][x];cnt++;}if(cnt)for(let x=0;x<d;x++)cent[j][x]=acc[x]/cnt;}
+  }
+  return cent;
+}
+function renderPQ(){
+  const m=+$('#m').value;const K=4;const seg=512/m;
+  // 为每段训练一本字典(在全部12条向量的该段上跑 k-means)
+  const books=[];for(let s=0;s<m;s++){const subs=vecs.map(v=>[...v.slice(s*seg,(s+1)*seg)]);books.push(subKmeans(subs,K));}
+  // 编码第0条向量
+  const v=vecs[0];const code=[];let steps=`向量 ${id(0)}「${CHUNKS[0].t}」共 512 维,切成 ${m} 段、每段 ${seg} 维:\n`;
+  for(let s=0;s<m;s++){const sub=[...v.slice(s*seg,(s+1)*seg)];let bd=1e9,bj=0;for(let j=0;j<K;j++){const dd=L2(sub,books[s][j]);if(dd<bd){bd=dd;bj=j;}}code.push(bj);
+    steps+=`  第${s+1}段(维${s*seg}~${(s+1)*seg-1}) → 最像字典第 ${bj} 号原型 → 记 ${bj}\n`;}
+  $('#pqSteps').innerHTML=esc(steps).replace(/记 (\d)/g,'记 <b style="color:#6450a8">$1</b>');
+  $('#pqStore').innerHTML=colorJSON(`{
+  "type": "IVFPQ / PQ",
+  "codebooks": "${m} 本字典 × ${K} 个原型(每本原型是 ${seg} 维向量)",
+  "codes": {   // 每条向量只存 m 个编号!\n    "${id(0)}": [${code.join(', ')}],
+    "${id(1)}": [..同样 ${m} 个编号..],
+    … 共 ${vecs.length} 条
+  }
+}`);
+  const before=512*4, after=m; // 每编号≤1字节
+  $('#pqSize').innerHTML=`一条向量:<b>${before} 字节</b>(512×4) → <b>${after} 字节</b>(${m}个编号) · 压缩约 <b>${Math.round(before/after)}×</b>`;
+}
+
+function renderOverview(){
+  $('#overview').innerHTML=colorJSON(`向量库里实际躺着两层东西:
+
+【数据层 records】 ← 出结果时按 id 取回,文本永远精确
+  ${vecs.length} 条 × { id, text, metadata, vector(512维或PQ压缩) }
+
+【索引层 index】 ← 只为加速,存的是"指向 id 的结构",不重复存文本
+  · Flat : 向量大数组(无额外结构)
+  · IVF  : 簇心 + 倒排表 { 簇 → [id…] }
+  · HNSW : 邻接表 { id → [邻居id…] } + 入口点
+  · PQ   : 字典 + 每条向量的 m 个编号(把"数据层的向量"压小)
+
+检索时:走【索引层】拿候选 id → 回【数据层】按 id 取回真实文本。(检索在另一个页面演)`);
+}
+
+async function build(){
+  const m=await ensure();status.textContent=`向量化 ${CHUNKS.length} 条文本…`;
+  vecs=[];for(const c of CHUNKS)vecs.push(Array.from(await m.embed(c.t)));
+  renderRecords();renderFlat();renderIVF();renderHNSW();renderPQ();renderOverview();
+  status.textContent='完成 ✓ 从①到⑥:看索引怎么建、库里存了啥。拖滑杆改 C/k/m 看结构变化。';
+}
+$('#load').onclick=build;
+$('#c').oninput=()=>{$('#cV').textContent=$('#c').value;if(vecs)renderIVF();};
+$('#k').oninput=()=>{$('#kV').textContent=$('#k').value;if(vecs)renderHNSW();};
+$('#m').oninput=()=>{$('#mV').textContent=$('#m').value;if(vecs)renderPQ();};
+</script>
+<a id="home-fab" href="./knowledge-map.html" style="position:fixed;right:16px;bottom:16px;z-index:9999;background:#245f73;color:#fff;text-decoration:none;font:600 13px/1 -apple-system,BlinkMacSystemFont,sans-serif;padding:10px 14px;border-radius:24px;box-shadow:0 2px 10px rgba(0,0,0,.18)">🏠 总览</a>
+</body>
+</html>

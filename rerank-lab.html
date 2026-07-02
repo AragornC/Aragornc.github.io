@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>重排白盒 · Cross-Encoder 精排(真模型)</title>
+<style>
+  :root{--bg:#fafaf7;--paper:#fff;--ink:#1a1a1a;--ink2:#4a4a4a;--muted:#8a8a8a;--line:#e8e6df;
+    --accent:#245f73;--good:#1f6f4f;--warn:#b84a36;--gold:#8a5d1f;--up:#1f6f4f;--down:#b84a36;
+    --font:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    --mono:"SF Mono",ui-monospace,Menlo,monospace;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.65;font-size:15px}
+  .page{max-width:1000px;margin:0 auto;padding:30px 20px 90px}
+  h1{font-size:23px;margin:0 0 4px}.sub{color:var(--muted);margin:0 0 10px}a{color:var(--accent)}
+  .reassure{background:#eef6f0;border:1px solid #cfe6d8;border-radius:10px;padding:11px 15px;font-size:13.5px;color:#1f6f4f;margin:12px 0}
+  .reassure b{color:#155}
+  .arch{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0}
+  @media(max-width:720px){.arch{grid-template-columns:1fr}}
+  .arch .c{border:1px solid var(--line);border-radius:10px;background:#fff;padding:12px 14px}
+  .arch .c h4{margin:0 0 6px;font-size:14px}
+  .arch .bi h4{color:var(--accent)}.arch .cross h4{color:var(--warn)}
+  .arch .d{font-size:12.5px;color:var(--ink2);line-height:1.55}
+  .arch .pic{font-family:var(--mono);font-size:11.5px;color:#555;background:#f6f5ef;border-radius:6px;padding:7px 9px;margin-top:7px;white-space:pre-wrap}
+  .bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:14px 0 6px}
+  button{font:inherit;font-weight:700;padding:8px 14px;border:1px solid var(--accent);border-radius:8px;background:var(--accent);color:#fff;cursor:pointer}button:disabled{opacity:.4}
+  input[type=text]{font:inherit;padding:9px 11px;border:1px solid var(--line);border-radius:7px;background:#fffdf8;flex:1;min-width:240px}
+  .status{font-size:13px;color:var(--ink2)}
+  .cols{display:grid;grid-template-columns:1fr 56px 1fr;gap:8px;margin-top:14px;align-items:start}
+  @media(max-width:780px){.cols{grid-template-columns:1fr}.mid{display:none}}
+  .col{border:1px solid var(--line);border-radius:10px;background:var(--paper);overflow:hidden}
+  .col h2{margin:0;font-size:13.5px;padding:9px 12px;color:#fff}
+  .col.recall h2{background:var(--accent)}.col.rer h2{background:var(--warn)}
+  .col .desc{font-size:11.5px;color:var(--muted);padding:5px 12px;border-bottom:1px solid var(--line)}
+  .row{padding:8px 12px;border-bottom:1px solid #f0eee7;font-size:13px;display:flex;gap:9px;align-items:flex-start}
+  .row:last-child{border-bottom:none}
+  .row .rk{font-family:var(--mono);font-weight:800;color:var(--muted);min-width:20px}
+  .row .bd{flex:1}.row .bd .id{font-family:var(--mono);font-size:11px;color:var(--muted)}
+  .row .sc{font-family:var(--mono);font-size:12px;color:var(--accent);font-weight:700}
+  .row.kept{background:#fef6ec}
+  .mid{display:flex;flex-direction:column;gap:0;padding-top:62px}
+  .mv{height:34.5px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:12px;font-weight:800}
+  .mv .u{color:var(--up)}.mv .d{color:var(--down)}.mv .s{color:#bbb}
+  .note{font-size:12.5px;color:var(--ink2);margin-top:16px;padding:11px 14px;background:#f4f6f7;border:1px solid #e2ebec;border-radius:8px}
+  .note b{color:var(--accent)}
+  .err{color:var(--warn);font-weight:700}
+  .legend{font-size:12px;color:var(--muted);margin-top:6px}
+  .funnel{font-family:var(--mono);font-size:12px;color:var(--ink2);background:#f6f5ef;border-radius:7px;padding:9px 12px;margin:10px 0}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>重排白盒 · Cross-Encoder 精排(真模型)</h1>
+  <p class="sub">第 ⑧ 步:召回粗筛出候选后,用<b>交叉编码器</b>对「查询+每篇候选」逐对精打分,重新排序。<a href="./hybrid-lab.html">← 混合检索</a> · <a href="./">导航</a></p>
+
+  <div class="reassure">🎯 <b>这页用的是真的中文 reranker 模型(bge-reranker-base,本地加载)</b>,不是模拟。它和召回用的 bge 是<b>两种不同的模型</b>——区别就在下面这张图,先看懂它,再看排名怎么变。</div>
+
+  <div class="arch">
+    <div class="c bi"><h4>召回用的:Bi-Encoder(双塔/bi=双)</h4>
+      <div class="d">query 和 doc <b>各自单独</b>编码成一个向量,最后只比 cosine。doc 的向量能<b>提前算好存库</b>里 → 查询时极快。但 query 和 doc <b>从头到尾没"见过面"</b>,只在最后比了下方向 → 粗。</div>
+      <div class="pic">query →[模型]→ 向量Q   ┐
+doc   →[模型]→ 向量D   ┘→ cosine(Q,D)
+（两边分开算，doc可预存）</div></div>
+    <div class="c cross"><h4>重排用的:Cross-Encoder(交叉/cross=交叉)</h4>
+      <div class="d">把 query 和 doc <b>拼成一句话一起</b>喂进模型,模型内部让两者<b>逐词互相"对照"</b>,直接吐一个相关性分。准得多。但<b>没法预存</b>(每个 query 都得和每篇 doc 现拼现算)→ 慢 → 只能用在召回后那一小撮候选上。</div>
+      <div class="pic">[query ＋ doc] →[同一个模型]→ 相关分
+（拼一起进去，query和doc逐词交互）</div></div>
+  </div>
+
+  <div class="bar"><button id="load">加载两个模型(bge 召回 + reranker 重排)</button><span class="status" id="status">点按钮:加载召回模型 + 重排模型(重排模型 ~280MB,首次稍久)。</span></div>
+  <div class="bar"><input type="text" id="q" value="信用卡逾期了会怎么样"><button id="go" disabled>召回 → 重排</button></div>
+  <div class="funnel" id="funnel">漏斗:全库 → <b>召回(bi-encoder)粗筛 top-N</b> → <b>重排(cross-encoder)精排</b> → 取最终 top-k 喂 LLM。下面左=召回排名,右=重排后排名,中间箭头=名次变化。</div>
+
+  <div class="cols">
+    <div class="col recall"><h2>① 召回排名(bi-encoder cosine)</h2><div class="desc">快、粗。topical 相似就排前,不一定真回答了问题。</div><div id="recallList"></div></div>
+    <div class="mid" id="moves"></div>
+    <div class="col rer"><h2>② 重排后(cross-encoder 精排)</h2><div class="desc">慢、准。读懂"查询↔候选"的真实关系后重排。橙底=最终 top-k。</div><div id="rerList"></div></div>
+  </div>
+
+  <div class="note" id="insight"></div>
+  <div class="note">为什么不一开始就用 cross-encoder 搜全库?因为它<b>必须 query+doc 现拼现算,没法预存向量</b>。全库几百万篇,每次查询都现算几百万次 → 慢到不可用。所以分两步:<b>召回(快)负责"别漏",重排(准)负责"排对"</b>,只对召回出的那几十条候选跑重排。这就是"粗召回保全、重排保准"。</div>
+</div>
+
+<script type="module">
+import * as Dense from './src/dense.js?v=2';
+import { loadReranker, rerank, sigmoid } from './src/rerank.js?v=1';
+const $=s=>document.querySelector(s);
+const status=$('#status');
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+// 候选语料:大多和"信用卡"强相关(召回都会捞回来),但只有部分真在回答"逾期会怎么样"
+const CORPUS=[
+  {id:'c01', text:'信用卡逾期未还会产生高额罚息和违约金'},
+  {id:'c02', text:'逾期超过三个月可能被银行起诉并列入征信黑名单'},
+  {id:'c03', text:'信用卡逾期会在个人征信报告上留下不良记录影响贷款'},
+  {id:'c04', text:'如何申请一张额度更高的信用卡'},
+  {id:'c05', text:'信用卡的年费在什么情况下可以减免'},
+  {id:'c06', text:'信用卡的账单日和最后还款日怎么计算'},
+  {id:'c07', text:'信用卡怎么办理注销和销户'},
+  {id:'c08', text:'花呗和信用卡在使用上有什么区别'},
+  {id:'c09', text:'周末适合去郊外爬山放松心情'},
+  {id:'c10', text:'晚饭想吃点清淡的有什么推荐'},
+];
+const RECALL_K=8, FINAL_K=3;
+let loaded=false, vecs=null;
+
+async function ensure(){
+  if(loaded)return;$('#load').disabled=true;
+  status.textContent='加载召回模型 bge…';
+  await Dense.loadModel(e=>{if(e&&e.status)status.textContent='召回模型:'+(e.file||e.status);});
+  status.textContent='加载重排模型 bge-reranker(~280MB,首次稍久)…';
+  await loadReranker(e=>{if(e&&e.status)status.textContent='重排模型:'+(e.file||e.status)+(e.progress?(' '+Math.round(e.progress)+'%'):'');});
+  status.textContent='嵌入候选语料…';
+  vecs=[];for(const d of CORPUS)vecs.push(Array.from(await Dense.embed(d.text)));
+  loaded=true;$('#go').disabled=false;status.textContent='两个模型就绪 ✓';
+}
+
+async function run(){
+  await ensure();const q=$('#q').value.trim();if(!q)return;
+  // ① 召回:bi-encoder cosine,取 top-RECALL_K
+  status.textContent='① 召回中(bi-encoder)…';
+  const qv=await Dense.embedQuery(q);
+  const recall=CORPUS.map((d,i)=>({...d,cos:Dense.cosine(qv,vecs[i])}))
+    .sort((a,b)=>b.cos-a.cos).slice(0,RECALL_K);
+  renderRecall(recall);
+  // ② 重排:cross-encoder 对每个候选逐对打分
+  status.textContent='② 重排中(cross-encoder 逐对打分)…';
+  const reranked=await rerank(q,recall,c=>c.text,(i,n)=>{status.textContent=`② 重排中… ${i}/${n}`;});
+  renderRerank(recall,reranked);
+  status.textContent='完成 ✓ 左→右看名次怎么变的。';
+}
+
+function renderRecall(recall){
+  $('#recallList').innerHTML=recall.map((d,i)=>
+    `<div class="row"><span class="rk">#${i+1}</span><div class="bd"><div class="id">${d.id} · cos ${d.cos.toFixed(3)}</div>${esc(d.text)}</div></div>`).join('');
+}
+function renderRerank(recall,reranked){
+  const recallRank=new Map(recall.map((d,i)=>[d.id,i+1]));
+  $('#rerList').innerHTML=reranked.map((d,i)=>{
+    const kept=i<FINAL_K;
+    return `<div class="row${kept?' kept':''}"><span class="rk">#${i+1}</span><div class="bd"><div class="id">${d.id} · 相关 ${(d.prob*100).toFixed(1)}% <span style="color:#bbb">(logit ${d.logit.toFixed(2)})</span></div>${esc(d.text)}</div></div>`;
+  }).join('');
+  // 中间箭头:每个重排后位置,对比它召回时的名次
+  $('#moves').innerHTML=reranked.map((d,i)=>{
+    const from=recallRank.get(d.id), to=i+1, diff=from-to;
+    let cls='s',txt='＝';
+    if(diff>0){cls='u';txt='↑'+diff;}else if(diff<0){cls='d';txt='↓'+(-diff);}
+    return `<div class="mv"><span class="${cls}">${txt}</span></div>`;
+  }).join('');
+  // 洞察:按"相关分层"讲,而不是naively挑最大mover(那会挑到垃圾堆内部换位)
+  const cosOf=new Map(recall.map(d=>[d.id,d.cos]));
+  const info=reranked.map((d,i)=>({...d,to:i+1,from:recallRank.get(d.id),diff:recallRank.get(d.id)-(i+1),cos:cosOf.get(d.id)}));
+  const ANS=info.filter(d=>d.prob>=0.5), NOISE=info.filter(d=>d.prob<0.5);
+  let html='';
+  if(ANS.length && NOISE.length){
+    const ansMin=Math.min(...ANS.map(d=>d.prob))*100, noiseMax=Math.max(...NOISE.map(d=>d.prob))*100;
+    const cosAns=ANS.map(d=>d.cos), cosNoise=NOISE.map(d=>d.cos);
+    const gapBefore=(Math.min(...cosAns)-Math.max(...cosNoise));
+    html+=`<b>重排到底干了啥(看分离度)</b>:召回阶段,${ANS.length} 条真答案的 cosine(${Math.min(...cosAns).toFixed(2)}~${Math.max(...cosAns).toFixed(2)})和 ${NOISE.length} 条"话题沾边但没回答"的噪声(${Math.min(...cosNoise).toFixed(2)}~${Math.max(...cosNoise).toFixed(2)})<b>只差 ${gapBefore.toFixed(2)},挤在一起分不太开</b>。重排后:真答案全部 ≥${ansMin.toFixed(0)}% 相关、噪声全部 ≤${noiseMax.toFixed(1)}% —— <b>cross-encoder 把"相关/不相关"一刀切开</b>,果断得多。`;
+    // 真答案里升得最多的(必须 prob>=0.5 才算"真"升)
+    const riser=ANS.filter(d=>d.diff>0).sort((a,b)=>b.diff-a.diff)[0];
+    if(riser)html+=` 其中真答案「${esc(riser.text)}」从召回第 ${riser.from} 顶到第 ${riser.to}(↑${riser.diff})。`;
+    // 召回里 cosine 最高的那条噪声,被重排压到哪
+    const topNoise=NOISE.slice().sort((a,b)=>a.from-b.from)[0];
+    if(topNoise)html+=` 而召回里 cosine 排到第 ${topNoise.from} 的「${esc(topNoise.text)}」(话题很像、差点被当成相关),重排把它打到 ${(topNoise.prob*100).toFixed(1)}%、第 ${topNoise.to}。`;
+  }else{
+    html+='<b>名次变化见中间箭头。</b>';
+  }
+  html+=` 最终取重排后 top-${FINAL_K}(橙底)喂给 LLM。`;
+  $('#insight').innerHTML=html;
+}
+$('#load').onclick=()=>ensure().catch(e=>{status.innerHTML='<span class="err">加载失败:'+esc(e.message||e)+'</span>';$('#load').disabled=false;});
+$('#go').onclick=()=>run().catch(e=>{status.innerHTML='<span class="err">出错:'+esc(e.message||e)+'</span>';});
+</script>
+<a id="home-fab" href="./knowledge-map.html" style="position:fixed;right:16px;bottom:16px;z-index:9999;background:#245f73;color:#fff;text-decoration:none;font:600 13px/1 -apple-system,BlinkMacSystemFont,sans-serif;padding:10px 14px;border-radius:24px;box-shadow:0 2px 10px rgba(0,0,0,.18)">🏠 总览</a>
+</body>
+</html>

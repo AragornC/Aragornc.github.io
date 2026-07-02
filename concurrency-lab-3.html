@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>并发编程 · 第3课:线程池</title>
+<style>
+  :root{--bg:#fafaf7;--paper:#fff;--ink:#1a1a1a;--ink2:#4a4a4a;--muted:#8a8a8a;--line:#e8e6df;
+    --accent:#245f73;--good:#1f6f4f;--warn:#b84a36;--gold:#8a5d1f;
+    --core:#1f6f4f;--queue:#8a5d1f;--temp:#6450a8;--rej:#b84a36;
+    --font:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    --mono:"SF Mono",ui-monospace,Menlo,monospace;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.7;font-size:15px}
+  .page{max-width:1000px;margin:0 auto;padding:30px 20px 110px}
+  h1{font-size:24px;margin:0 0 4px}.sub{color:var(--muted);margin:0 0 10px;font-size:13.5px}a{color:var(--accent)}
+  .reassure{background:#eef6f0;border:1px solid #cfe6d8;border-radius:10px;padding:12px 15px;font-size:13.5px;color:#155;margin:12px 0}
+  .reassure b{color:#0a4}
+  .toc{display:flex;flex-wrap:wrap;gap:7px;margin:12px 0}
+  .toc a{font-size:12.5px;background:#fff;border:1px solid var(--line);border-radius:20px;padding:4px 11px;text-decoration:none;color:var(--accent)}
+  .topic{margin-top:22px;background:var(--paper);border:1px solid var(--line);border-radius:12px;overflow:hidden;scroll-margin-top:12px}
+  .topic-h{padding:13px 18px;background:#f6f5ef;border-bottom:1px solid var(--line);display:flex;align-items:baseline;gap:10px}
+  .topic-h .num{font-family:var(--mono);font-weight:800;color:var(--muted)}
+  .topic-h h2{margin:0;font-size:17px}
+  .topic-h .lv{font-size:11px;font-weight:800;border-radius:5px;padding:1px 8px;color:#fff;margin-left:auto}
+  .lv.核心{background:var(--warn)}.lv.基础{background:var(--accent)}
+  .topic-b{padding:16px 18px}
+  .lead{font-size:14px;color:var(--ink2);margin:0 0 12px}.lead b{color:var(--accent)}
+  code{font-family:var(--mono);font-size:12.5px;background:#f0eee8;padding:1px 5px;border-radius:4px}
+  .runblk{margin-top:14px;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .runblk-h{display:flex;align-items:center;gap:10px;padding:8px 12px;background:#1f2328;border-bottom:1px solid #333}
+  .runblk-h .t{font-size:12px;color:#9aa4ad;font-family:var(--mono)}
+  .runblk-h .va{font-size:11px;color:#e0a849;font-family:var(--mono);margin-left:auto}
+  .code{background:#1f2328;color:#cfd6dd;font-family:var(--mono);font-size:12px;line-height:1.55;padding:12px 14px;white-space:pre;overflow-x:auto;max-height:360px;overflow-y:auto}
+  .runbar{display:flex;align-items:center;gap:10px;padding:9px 12px;background:#181c20;border-top:1px solid #333}
+  .runbar button{font:inherit;font-weight:800;font-size:13px;padding:6px 16px;border:none;border-radius:7px;background:var(--good);color:#fff;cursor:pointer}
+  .runbar button:disabled{opacity:.5}
+  .runbar .hint{font-size:11.5px;color:#7c8893}
+  .out{font-family:var(--mono);font-size:12px;line-height:1.6;padding:12px 14px;white-space:pre-wrap;word-break:break-word;background:#11151a;color:#c7d0d8;min-height:24px;border-top:1px solid #333;display:none}
+  .out.show{display:block}.out.running{color:#e0a849}.out.err{color:#f0a08c}
+  .take{font-size:13px;color:var(--gold);background:#fbf7ee;border:1px solid #ecdfc7;border-radius:8px;padding:9px 13px;margin-top:12px}
+  .take b{color:#5e3f12}
+
+  /* 线程池模拟器 */
+  .pool{border:1px solid var(--line);border-radius:11px;overflow:hidden;margin-top:6px}
+  .pool-stage{padding:16px;background:#fbfaf6;display:flex;flex-direction:column;gap:12px}
+  .inflow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .zone{border:2px solid var(--line);border-radius:10px;padding:10px 12px;background:#fff;flex:1;min-width:150px}
+  .zone .zh{font-size:11.5px;font-weight:800;font-family:var(--mono);margin-bottom:8px;display:flex;justify-content:space-between}
+  .zone.core{border-color:#bfe0cc}.zone.core .zh{color:var(--core)}
+  .zone.queue{border-color:#e6d3a6}.zone.queue .zh{color:var(--queue)}
+  .zone.temp{border-color:#d6c9ee}.zone.temp .zh{color:var(--temp)}
+  .zone.rej{border-color:#eecdc4}.zone.rej .zh{color:var(--rej)}
+  .slots{display:flex;gap:7px;flex-wrap:wrap;min-height:40px;align-content:flex-start}
+  .slot{width:38px;height:38px;border-radius:8px;border:1.5px dashed #cfcabf;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:800;font-size:14px;color:var(--muted);background:#fafaf7}
+  .slot.fill{border-style:solid;color:#fff}
+  .zone.core .slot.fill{background:var(--core);border-color:var(--core)}
+  .zone.queue .slot.fill{background:var(--queue);border-color:var(--queue)}
+  .zone.temp .slot.fill{background:var(--temp);border-color:var(--temp)}
+  .zone.rej .slot.fill{background:var(--rej);border-color:var(--rej)}
+  .rowzones{display:flex;gap:10px;flex-wrap:wrap}
+  .pool-narr{padding:12px 16px;background:#11151a;color:#d6dee5;font-size:13px;line-height:1.6;min-height:42px;border-top:1px solid #2a2f35}
+  .pool-ctl{display:flex;align-items:center;gap:8px;padding:10px 12px;background:#181c20;border-top:1px solid #2a2f35;flex-wrap:wrap}
+  .pool-ctl button{font:inherit;font-weight:800;font-size:13px;padding:6px 13px;border:none;border-radius:7px;cursor:pointer}
+  .pool-ctl .submit{background:var(--accent);color:#fff}.pool-ctl .done{background:var(--good);color:#fff}.pool-ctl .sec{background:#2a2f35;color:#cfd6dd}
+  .pool-ctl .cfg{font-size:11px;color:#8a949c;font-family:var(--mono);margin-left:auto}
+  .flowtip{font-size:11.5px;color:var(--ink2);margin-top:8px;display:flex;flex-wrap:wrap;gap:6px}
+  .flowtip span{background:#f4f6f7;border:1px solid var(--line);border-radius:6px;padding:2px 7px}
+
+  table.t{width:100%;border-collapse:collapse;margin-top:12px;font-size:12.5px}
+  table.t th,table.t td{border:1px solid var(--line);padding:7px 9px;text-align:left;vertical-align:top}
+  table.t th{background:#f6f5ef;font-weight:800;color:var(--ink2)}
+  table.t code{font-size:11.5px}
+  .warnbox{font-size:12.5px;color:#7a2a1a;background:#fbeae6;border:1px solid #eecdc4;border-radius:8px;padding:10px 13px;margin-top:12px}
+  .warnbox b{color:var(--warn)}
+  .note{font-size:12.5px;color:var(--ink2);margin-top:22px;padding:11px 14px;background:#f4f6f7;border:1px solid #e2ebec;border-radius:8px}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>并发编程 · 第 3 课:线程池</h1>
+  <p class="sub">为什么要线程池 · 任务分配流程(核心) · 7 大参数 &amp; 内置池的坑　|　<a href="./concurrency-lab-2.html">← 第2课</a> · <a href="./concurrency-lab-4.html">第4课:并发容器 &amp; CAS →</a> · <a href="./knowledge-map.html">知识地图</a></p>
+
+  <div class="reassure">😌 <b>这一课最实用,面试也最爱问。</b> 前两课你都在手写 <code>new Thread()</code>。但真实项目里<b>几乎不允许这么写</b>——要用<b>线程池</b>。这一课讲清楚:为什么不能每次 new、线程池<b>来一个任务到底怎么安排</b>(一个你能点的模拟器)、以及那几个一配错就线上事故的参数。</div>
+
+  <div class="toc" id="toc"></div>
+
+  <!-- ① 为什么要线程池 -->
+  <div class="topic" id="t-why">
+    <div class="topic-h"><span class="num">①</span><h2>为什么不能每次都 new Thread?</h2><span class="lv 基础">基础</span></div>
+    <div class="topic-b">
+      <p class="lead">每 <code>new Thread()</code> 一次,操作系统就要<b>真的创建一条系统线程</b>(要分配栈内存、要内核登记),用完又销毁——<b>又贵又慢</b>。任务一多(比如每个网络请求开一条),线程数失控,内存直接爆掉。</p>
+      <p class="lead"><b>线程池的思路:</b>预先养一小批线程,<b>反复复用</b>,任务来了排队让这几条线程轮流干。下面真跑一下——6 个任务丢给只有 2 条线程的池子,看线程名是怎么被<b>反复复用</b>的:</p>
+      <div class="runblk">
+        <div class="runblk-h"><span class="t">▶ 线程池复用:6 个任务,只用 2 条线程</span><span class="va">无特殊参数</span></div>
+        <div class="code" id="code-reuse"></div>
+        <div class="runbar"><button data-run="reuse">▶ 运行</button><span class="hint">看输出:从头到尾只有 pool-1-thread-1 和 -2 两个名字</span></div>
+        <div class="out" id="out-reuse"></div>
+      </div>
+      <div class="take">📌 <b>一句话:</b>线程池 = <b>把"线程"这种贵资源养起来反复用</b>,而不是用完就扔。它帮你做三件事:复用线程(省创建开销)、<b>控制最大并发数</b>(不让线程无限暴涨)、统一管理(排队、拒绝、监控)。</div>
+    </div>
+  </div>
+
+  <!-- ② 任务分配流程 -->
+  <div class="topic" id="t-flow">
+    <div class="topic-h"><span class="num">②</span><h2>来一个任务,线程池怎么安排它?(核心)</h2><span class="lv 核心">核心</span></div>
+    <div class="topic-b">
+      <p class="lead">这是线程池<b>最核心、面试必考</b>的一张图。一个任务进来,线程池按<b>固定优先级</b>四步决定它去哪。下面这个池子配置成 <b>核心线程=2、队列=2、最大线程=3</b>。<b>点「提交一个任务」</b>,亲眼看它落到哪个区;再点「让一个任务跑完」看队列怎么被取走:</p>
+      <div class="pool" id="poolSim">
+        <div class="pool-stage">
+          <div class="rowzones">
+            <div class="zone core"><div class="zh"><span>① 核心线程(常驻)</span><span id="coreCnt">0/2</span></div><div class="slots" id="coreSlots"></div></div>
+            <div class="zone queue"><div class="zh"><span>② 任务队列(排队)</span><span id="queueCnt">0/2</span></div><div class="slots" id="queueSlots"></div></div>
+          </div>
+          <div class="rowzones">
+            <div class="zone temp"><div class="zh"><span>③ 临时线程(救急,最多 max-core=1)</span><span id="tempCnt">0/1</span></div><div class="slots" id="tempSlots"></div></div>
+            <div class="zone rej"><div class="zh"><span>④ 拒绝区(救不了了)</span><span id="rejCnt">0</span></div><div class="slots" id="rejSlots"></div></div>
+          </div>
+          <div class="flowtip">
+            <span>优先级:① 核心没满就开核心</span><span>→ ② 满了就进队列</span><span>→ ③ 队列也满、线程没到 max 就开临时线程</span><span>→ ④ 全满 → 拒绝</span>
+          </div>
+        </div>
+        <div class="pool-narr" id="poolNarr"></div>
+        <div class="pool-ctl">
+          <button class="submit" id="poolSubmit">＋ 提交一个任务</button>
+          <button class="done" id="poolDone">▶ 让一个运行中的任务跑完</button>
+          <button class="sec" id="poolReset">↺ 重置</button>
+          <span class="cfg">core=2 · queue=2 · max=3</span>
+        </div>
+      </div>
+      <p class="lead" style="margin-top:14px">用真实的 <code>ThreadPoolExecutor</code> 跑一遍同样的配置,丢 6 个会卡住的任务,看后端打印每一步的"活跃线程数 / 排队数",和上面模拟器对得一模一样:</p>
+      <div class="runblk">
+        <div class="runblk-h"><span class="t">▶ 真实 ThreadPoolExecutor(core2/queue2/max3,丢 6 个任务)</span><span class="va">无特殊参数</span></div>
+        <div class="code" id="code-flow"></div>
+        <div class="runbar"><button data-run="flow">▶ 运行</button><span class="hint">第 6 个任务会被 AbortPolicy 拒绝抛异常</span></div>
+        <div class="out" id="out-flow"></div>
+      </div>
+      <div class="take">📌 <b>背下这个顺序:</b>核心线程 → 队列 → 临时线程 → 拒绝。⚠️ 最反直觉的一点:<b>队列没满之前,线程池不会开临时线程</b>!很多人以为"任务多了它就多开线程",其实是<b>先把队列塞满</b>,逼不得已才开临时线程。这点几乎是面试送命题。</div>
+    </div>
+  </div>
+
+  <!-- ③ 参数与内置池 -->
+  <div class="topic" id="t-param">
+    <div class="topic-h"><span class="num">③</span><h2>7 个参数 &amp; 为什么大厂禁用 Executors</h2><span class="lv 核心">核心</span></div>
+    <div class="topic-b">
+      <p class="lead">上面 <code>new ThreadPoolExecutor(...)</code> 里那一串参数,就是线程池的全部"性格"。逐个认一下:</p>
+      <table class="t">
+        <tr><th>参数</th><th>是什么</th></tr>
+        <tr><td><code>corePoolSize</code></td><td>核心线程数:常驻不回收的线程数(上图的 2)</td></tr>
+        <tr><td><code>maximumPoolSize</code></td><td>最大线程数:核心 + 临时,能开到的上限(上图的 3)</td></tr>
+        <tr><td><code>keepAliveTime</code> + <code>unit</code></td><td>临时线程"空闲多久没活干"就被回收(救急完就裁掉)</td></tr>
+        <tr><td><code>workQueue</code></td><td>任务排队的队列(上图那 2 格)。有界/无界,选哪种是关键</td></tr>
+        <tr><td><code>threadFactory</code></td><td>怎么造线程(可给线程起名字,方便排查问题)</td></tr>
+        <tr><td><code>handler</code>(拒绝策略)</td><td>满了之后第④步怎么办,见下</td></tr>
+      </table>
+      <p class="lead" style="margin-top:14px"><b>4 种拒绝策略</b>(队列+线程都满了,新任务怎么处置):</p>
+      <table class="t">
+        <tr><th>策略</th><th>行为</th></tr>
+        <tr><td><code>AbortPolicy</code>(默认)</td><td>直接抛异常 <code>RejectedExecutionException</code>(上面 demo 就是它)</td></tr>
+        <tr><td><code>CallerRunsPolicy</code></td><td>谁提交的谁自己跑这个任务(变相降速、不丢任务,很常用)</td></tr>
+        <tr><td><code>DiscardPolicy</code></td><td>默默丢掉新任务,不报错(危险:悄悄丢数据)</td></tr>
+        <tr><td><code>DiscardOldestPolicy</code></td><td>丢掉队列里最老的,腾位给新的</td></tr>
+      </table>
+      <div class="warnbox">⚠️ <b>大厂(阿里规约)明令禁止用 <code>Executors</code> 那几个快捷方法建池</b>,原因全在"队列/线程没有上限":<br>
+        ・<code>Executors.newFixedThreadPool(n)</code> / <code>newSingleThreadExecutor()</code> → 用的是<b>无界队列</b> <code>LinkedBlockingQueue</code>,任务积压到几百万 → <b>内存撑爆 OOM</b>。<br>
+        ・<code>Executors.newCachedThreadPool()</code> → 最大线程数是 <code>Integer.MAX_VALUE</code>(约 21 亿)→ 任务一冲<b>线程暴涨 OOM</b>。<br>
+        <b>正确做法:永远手动 <code>new ThreadPoolExecutor(...)</code>,自己定有界队列和明确的 max 与拒绝策略</b>——就像上面 demo 那样。</div>
+      <div class="take">📌 <b>记住:</b>线程池配错参数是<b>线上事故高发区</b>。两条铁律:① <b>用有界队列</b>(不然 OOM);② <b>想清楚满了怎么办</b>(选对拒绝策略,别用默默丢的)。参数怎么定多大?CPU 密集型≈核数+1,IO 密集型可以更大——这个后面结合压测再细讲。</div>
+    </div>
+  </div>
+
+  <div class="note">👉 <b><a href="./concurrency-lab-4.html">进入第 4 课:并发容器 &amp; CAS →</a></b>　为什么 <code>HashMap</code> 多线程下会丢一半数据、<code>ConcurrentHashMap</code> 怎么救;<code>AtomicInteger</code> 底层的 <b>CAS</b>(第1课那个"不加锁也对"的魔法)到底怎么回事、它的 ABA 问题。本页所有 Java 都在你本机真实运行。</div>
+</div>
+
+<a id="home-fab" href="./knowledge-map.html" style="position:fixed;right:16px;bottom:16px;z-index:9999;background:#245f73;color:#fff;text-decoration:none;font:600 13px/1 -apple-system,BlinkMacSystemFont,sans-serif;padding:10px 14px;border-radius:24px;box-shadow:0 2px 10px rgba(0,0,0,.18)">🏠 总览</a>
+
+<script>
+const $=s=>document.querySelector(s);
+$('#toc').innerHTML=[['t-why','① 为什么要线程池'],['t-flow','② 任务分配流程'],['t-param','③ 参数 & 内置池坑']]
+  .map(([id,t])=>`<a href="#${id}">${t}</a>`).join('');
+
+/* ===== 可运行代码 ===== */
+const CODE={
+reuse:`import java.util.concurrent.*;
+public class PoolReuse {
+  public static void main(String[] a) throws Exception {
+    ExecutorService pool = Executors.newFixedThreadPool(2);   // 只养 2 条线程
+    for (int i = 1; i <= 6; i++) {
+      final int id = i;
+      pool.submit(() -> {                                      // 丢 6 个任务进去
+        System.out.println("任务 " + id + " 由线程 [" + Thread.currentThread().getName() + "] 执行");
+        try { Thread.sleep(100); } catch (Exception e) {}
+      });
+    }
+    pool.shutdown();
+    pool.awaitTermination(5, TimeUnit.SECONDS);
+    System.out.println("→ 6 个任务,从头到尾只用了 2 条线程,反复复用");
+  }
+}`,
+flow:`import java.util.concurrent.*;
+public class PoolFlow {
+  public static void main(String[] a) throws Exception {
+    ThreadPoolExecutor pool = new ThreadPoolExecutor(
+        2, 3,                                   // 核心2, 最大3
+        10, TimeUnit.SECONDS,
+        new ArrayBlockingQueue<>(2),            // 有界队列,只能排 2 个
+        new ThreadPoolExecutor.AbortPolicy());  // 满了就抛异常(拒绝)
+    for (int i = 1; i <= 6; i++) {
+      final int id = i;
+      try {
+        pool.submit(() -> { try { Thread.sleep(2000); } catch (Exception e) {} });  // 每个任务占住 2 秒
+        System.out.println("提交任务 " + id + " OK   (活跃线程=" + pool.getPoolSize()
+            + ", 排队中=" + pool.getQueue().size() + ")");
+      } catch (RejectedExecutionException e) {
+        System.out.println("提交任务 " + id + " 被【拒绝】!(核心满+队列满+临时线程到顶)");
+      }
+    }
+    pool.shutdownNow();
+  }
+}`
+};
+for(const k in CODE){ const el=document.getElementById('code-'+k); if(el) el.textContent=CODE[k]; }
+async function runJava(key, outEl, btn){
+  btn.disabled=true;const old=btn.textContent;btn.textContent='运行中…';
+  outEl.className='out show running';outEl.textContent='⏳ 正在本机编译 + 运行 Java…';
+  try{
+    const r=await fetch('/api/run-java',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({code:CODE[key]})}).then(r=>r.json());
+    outEl.textContent=r.output||'(无输出)';
+    outEl.className='out show '+(r.ok?'':'err');
+  }catch(e){ outEl.textContent='运行失败:'+(e.message||e)+'\n(本地 8001 后端没在跑?)';outEl.className='out show err'; }
+  btn.disabled=false;btn.textContent=old;
+}
+document.querySelectorAll('button[data-run]').forEach(btn=>{
+  const key=btn.getAttribute('data-run');
+  btn.onclick=()=>runJava(key, document.getElementById('out-'+key), btn);
+});
+
+/* ===== ② 线程池模拟器 ===== */
+const CORE=2, QCAP=2, MAX=3;
+let coreSlots, queue, tempSlots, rejected, seq;
+function poolReset(){ coreSlots=[null,null]; queue=[]; tempSlots=[null]; rejected=[]; seq=0;
+  $('#poolNarr').textContent='点「＋ 提交一个任务」开始。这个池子:核心线程 2、队列 2、最大线程 3(即临时线程最多 1)。';
+  poolRender(); }
+function chip(v){ return v==null?'<div class="slot"></div>':'<div class="slot fill">'+v+'</div>'; }
+function poolRender(){
+  $('#coreSlots').innerHTML=coreSlots.map(chip).join('');
+  // 队列固定显示 QCAP 格
+  let q=[]; for(let i=0;i<QCAP;i++) q.push(queue[i]!=null?queue[i]:null);
+  $('#queueSlots').innerHTML=q.map(chip).join('');
+  $('#tempSlots').innerHTML=tempSlots.map(chip).join('');
+  $('#rejSlots').innerHTML=rejected.length?rejected.map(v=>'<div class="slot fill">'+v+'</div>').join(''):'<div class="slot"></div>';
+  $('#coreCnt').textContent=coreSlots.filter(x=>x!=null).length+'/2';
+  $('#queueCnt').textContent=queue.length+'/2';
+  $('#tempCnt').textContent=tempSlots.filter(x=>x!=null).length+'/1';
+  $('#rejCnt').textContent=rejected.length;
+}
+$('#poolSubmit').onclick=()=>{
+  seq++; const id=seq; let msg;
+  const ci=coreSlots.indexOf(null);
+  if(ci>=0){ coreSlots[ci]=id; msg='① 核心线程没满 → 开核心线程 '+(ci+1)+',直接执行任务 '+id+'。'; }
+  else if(queue.length<QCAP){ queue.push(id); msg='② 核心线程满了,但队列没满 → 任务 '+id+' 进队列排队等。(注意:这时并不会去开新线程!)'; }
+  else { const ti=tempSlots.indexOf(null);
+    if(ti>=0){ tempSlots[ti]=id; msg='③ 核心满、队列也满了,线程数还没到 max → 开一条【临时线程】救急,执行任务 '+id+'。'; }
+    else { rejected.push(id); msg='④ 核心满 + 队列满 + 临时线程也到顶(已 3 条)→ 任务 '+id+' 被【拒绝策略】挡下!(默认会抛异常)'; }
+  }
+  $('#poolNarr').textContent=msg; poolRender();
+};
+$('#poolDone').onclick=()=>{
+  let ci=coreSlots.findIndex(x=>x!=null);
+  if(ci>=0){ const done=coreSlots[ci]; coreSlots[ci]=null;
+    if(queue.length){ const nx=queue.shift(); coreSlots[ci]=nx; $('#poolNarr').textContent='核心线程 '+(ci+1)+' 的任务 '+done+' 跑完了 → 它立刻从队列头取出任务 '+nx+' 接着执行。(队列被消费)'; }
+    else { $('#poolNarr').textContent='核心线程 '+(ci+1)+' 的任务 '+done+' 跑完,队列空了,这条核心线程闲着待命(核心线程不回收)。'; }
+    poolRender(); return; }
+  let ti=tempSlots.findIndex(x=>x!=null);
+  if(ti>=0){ const done=tempSlots[ti]; tempSlots[ti]=null;
+    if(queue.length){ const nx=queue.shift(); tempSlots[ti]=nx; $('#poolNarr').textContent='临时线程的任务 '+done+' 跑完 → 取队列任务 '+nx+' 继续。'; }
+    else { $('#poolNarr').textContent='临时线程的任务 '+done+' 跑完,没活干了 → 空闲超过 keepAliveTime 后这条临时线程会被回收。'; }
+    poolRender(); return; }
+  $('#poolNarr').textContent='现在没有正在运行的任务可完成,先「＋ 提交一个任务」吧。';
+};
+$('#poolReset').onclick=poolReset;
+poolReset();
+</script>
+<script>
+if(!/^(localhost|127\.)/.test(location.hostname)){
+  var _b=document.createElement('div');
+  _b.style.cssText='position:sticky;top:0;z-index:9998;background:#fdf6e6;border-bottom:1px solid #e6d3a6;color:#8a5d1f;font:12.5px/1.6 -apple-system,BlinkMacSystemFont,sans-serif;padding:7px 14px;text-align:center';
+  _b.innerHTML='🌐 线上版:「▶ 运行」需要本地 Java 后端(localhost 才能真跑);讲解与交互动画不受影响';
+  document.body.prepend(_b);
+}
+</script>
+</body>
+</html>

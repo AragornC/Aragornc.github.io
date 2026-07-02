@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RAG 效果评测体系 · 分层框架 + 指标白盒 + 改进诊断</title>
+<style>
+  :root{--bg:#fafaf7;--paper:#fff;--ink:#1a1a1a;--ink2:#4a4a4a;--muted:#8a8a8a;--line:#e8e6df;
+    --accent:#245f73;--good:#1f6f4f;--warn:#b84a36;--gold:#8a5d1f;--purple:#6450a8;
+    --retr:#245f73;--gen:#b84a36;--tool:#6450a8;--imp:#1f6f4f;
+    --font:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    --mono:"SF Mono",ui-monospace,Menlo,monospace;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.7;font-size:15px}
+  .page{max-width:1000px;margin:0 auto;padding:30px 22px 90px}
+  h1{font-size:25px;margin:0 0 4px}.sub{color:var(--muted);margin:0 0 12px}a{color:var(--accent)}
+  .intro{background:#eef6f0;border:1px solid #cfe6d8;border-radius:10px;padding:13px 16px;font-size:13.5px;color:#155;margin:12px 0}
+  .intro b{color:#0d3}
+  .phase{margin-top:26px}
+  .phase-h{display:flex;align-items:center;gap:10px;border-bottom:2px solid var(--line);padding-bottom:6px;margin-bottom:6px}
+  .phase-h .tag{font-size:12px;color:#fff;border-radius:5px;padding:2px 9px;font-weight:800}
+  .tag.retr{background:var(--retr)}.tag.gen{background:var(--gen)}.tag.tool{background:var(--tool)}.tag.imp{background:var(--imp)}
+  .phase-h h2{margin:0;font-size:19px}
+  .ov{font-size:13.5px;color:var(--ink2);background:var(--paper);border:1px solid var(--line);border-radius:9px;padding:11px 14px;margin:8px 0 12px}
+  .card{border:1px solid var(--line);border-radius:10px;background:var(--paper);padding:12px 14px;margin:9px 0}
+  .card .nm{font-weight:800;font-size:15px}
+  .card .en{font-family:var(--mono);font-size:11.5px;color:var(--muted);margin-left:6px}
+  .card .what{font-size:13.5px;color:var(--ink);margin:4px 0}
+  .card .lbl{font-size:11px;font-weight:800;color:var(--muted);margin-top:7px}
+  .card .detail{font-size:13px;color:var(--ink2)}
+  .card .note{font-size:12.5px;color:var(--gold);background:#fbf7ee;border-radius:6px;padding:6px 9px;margin-top:6px}
+  .hl{background:#f4f6f7;border:1px solid #e2ebec;border-radius:9px;padding:10px 14px;margin-top:12px}
+  .hl h4{margin:0 0 5px;font-size:13px;color:var(--accent)}
+  .hl ul{margin:4px 0;padding-left:20px}.hl li{font-size:12.5px;color:var(--ink2);margin:4px 0}
+  .grp{font-size:13px;font-weight:800;color:var(--tool);margin:14px 0 4px}
+  .mono{font-family:var(--mono)}
+  /* 分层框架图 */
+  .frame{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:16px;margin:10px 0}
+  .pipe{display:flex;flex-wrap:wrap;gap:6px;align-items:center;justify-content:center;margin:6px 0}
+  .pstep{background:#f6f5ef;border:1px solid var(--line);border-radius:7px;padding:6px 10px;font-size:12px;font-weight:600}
+  .parrow{color:var(--muted);font-weight:800}
+  .braces{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+  @media(max-width:680px){.braces{grid-template-columns:1fr}}
+  .brace{border-radius:8px;padding:9px 12px;font-size:12.5px}
+  .brace.r{background:#eef4f5;border:1px solid #cfe0e4}.brace.g{background:#fbeeea;border:1px solid #ecd0c7}
+  .brace b{font-size:13px}
+  /* RAG Triad SVG */
+  .triadwrap{display:flex;justify-content:center;margin:8px 0}
+  /* 计算器 */
+  .calc{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin:12px 0}
+  .calc h3{margin:0 0 4px;font-size:15px}
+  .rankrow{display:flex;flex-wrap:wrap;gap:5px;margin:8px 0}
+  .doc{display:flex;flex-direction:column;align-items:center;border:1px solid var(--line);border-radius:7px;padding:5px 8px;cursor:pointer;min-width:40px;background:#fff;user-select:none}
+  .doc .pos{font-size:10px;color:var(--muted);font-family:var(--mono)}
+  .doc .mark{font-weight:800;font-size:15px}
+  .doc.rel{background:#eef6f0;border-color:#9ad0b0}.doc.rel .mark{color:var(--good)}
+  .doc.no{background:#faf0ec}.doc.no .mark{color:var(--warn)}
+  .doc.ink{outline:2px solid var(--accent)}
+  .ctl{display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin:8px 0;font-size:13px}
+  .ctl input[type=range]{vertical-align:middle}
+  .ctl input[type=number]{width:54px;font:inherit;padding:3px 6px;border:1px solid var(--line);border-radius:6px}
+  .mtable{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:8px}
+  .mtable td,.mtable th{border:1px solid var(--line);padding:5px 9px;text-align:left}
+  .mtable th{background:#f3f2ec}.mtable .v{font-family:var(--mono);font-weight:800;color:var(--accent);text-align:right}
+  .mtable .calc2{font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+  .srcbox{font-size:11.5px;color:var(--ink2);background:#f6f5ef;border-radius:8px;padding:10px 13px;margin-top:10px;word-break:break-all}
+  .srcbox a{display:inline-block;margin:2px 8px 2px 0}
+  .note2{font-size:12.5px;color:var(--ink2);margin-top:14px;padding:11px 14px;background:#fbf7ee;border:1px solid #ecdfc7;border-radius:8px}
+  .loading{color:var(--muted);font-size:13px;padding:20px;text-align:center}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>RAG 效果怎么评测 · 全景体系</h1>
+  <p class="sub">分层认知框架 + 指标白盒 + 工具基准 + 改进诊断手册。内容由多 agent 研究 + WebSearch 事实核查。<a href="./">← RAG 导航</a></p>
+
+  <div class="intro">🎯 <b>为什么 RAG 难评?</b> 因为它是<b>两段式</b>系统:检索(找料)+ 生成(写答),坏答案可能坏在任一段;而且<b>没有单一标准答案</b>(同一问题多种好答法),还要专门防<b>幻觉</b>(答得流畅却没依据)。所以评测必须<b>分层</b>:先量化每一层、定位是哪段坏了,再对症改。下面这套体系就是干这个的。</div>
+
+  <!-- 分层框架 -->
+  <div class="frame">
+    <div style="font-weight:800;font-size:15px;margin-bottom:6px">① 分层框架:评测层 ↔ 你建过的流水线</div>
+    <div class="pipe">
+      <span class="pstep">切块</span><span class="parrow">→</span>
+      <span class="pstep">嵌入</span><span class="parrow">→</span>
+      <span class="pstep">建索引</span><span class="parrow">→</span>
+      <span class="pstep">召回</span><span class="parrow">→</span>
+      <span class="pstep">混合</span><span class="parrow">→</span>
+      <span class="pstep">重排</span><span class="parrow">→</span>
+      <span class="pstep" style="background:#fbeeea;border-color:#ecd0c7">生成</span>
+    </div>
+    <div class="braces">
+      <div class="brace r"><b style="color:var(--retr)">检索层评测</b>(覆盖切块→重排):问"<b>找对了吗</b>"。指标:Recall@k / Precision@k / MRR / NDCG / Context Precision·Recall</div>
+      <div class="brace g"><b style="color:var(--gen)">生成层评测</b>(覆盖生成):问"<b>用对了吗、有没有胡编</b>"。指标:Faithfulness / Answer Relevance / Correctness</div>
+    </div>
+    <div style="text-align:center;font-size:12.5px;color:var(--muted);margin-top:8px">⬆ 两层之上还有 <b style="color:var(--purple)">端到端 / RAG Triad</b>(下图)横跨全链路,以及延迟、成本、用户满意度等体验指标</div>
+  </div>
+
+  <!-- RAG Triad -->
+  <div class="frame">
+    <div style="font-weight:800;font-size:15px;margin-bottom:2px">② RAG 三角(RAG Triad):一眼定位坏在哪段</div>
+    <div style="font-size:12.5px;color:var(--ink2);margin-bottom:4px">问题(Query)、上下文(检索结果)、答案 两两连边,每条边一个评测。三条都达标≈既切题又有据;哪条边掉,就指向该修哪一段。三条都<b>不需要人工标准答案</b>,可在线对采样流量跑。</div>
+    <div class="triadwrap">
+      <svg viewBox="0 0 620 350" width="100%" style="max-width:600px" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,PingFang SC,sans-serif">
+        <defs><style>.vtx{fill:#fff;stroke-width:2}.vt{font-size:14px;font-weight:800;text-anchor:middle}.vs{font-size:11px;fill:#8a8a8a;text-anchor:middle}.edge{stroke-width:2.5;fill:none}.el{font-size:13px;font-weight:700;text-anchor:middle}.ed{font-size:10.5px;text-anchor:middle}</style></defs>
+        <!-- edges -->
+        <line class="edge" x1="310" y1="58" x2="95" y2="290" stroke="#245f73"/>
+        <line class="edge" x1="95" y1="290" x2="525" y2="290" stroke="#b84a36"/>
+        <line class="edge" x1="525" y1="290" x2="310" y2="58" stroke="#6450a8"/>
+        <!-- edge labels -->
+        <g transform="translate(165,165) rotate(-47)"><text class="el" fill="#245f73">Context Relevance</text><text class="ed" y="15" fill="#245f73">上下文相关性 · 检索准不准</text></g>
+        <g transform="translate(310,305)"><text class="el" fill="#b84a36">Groundedness / Faithfulness</text><text class="ed" y="15" fill="#b84a36">有据性 · 答案有没有瞎编</text></g>
+        <g transform="translate(455,165) rotate(47)"><text class="el" fill="#6450a8">Answer Relevance</text><text class="ed" y="15" fill="#6450a8">答案相关性 · 切不切题</text></g>
+        <!-- vertices -->
+        <circle class="vtx" cx="310" cy="45" r="30" stroke="#1a1a1a"/><text class="vt" x="310" y="42">问题</text><text class="vs" x="310" y="56">Query</text>
+        <circle class="vtx" cx="95" cy="300" r="34" stroke="#245f73"/><text class="vt" x="95" y="296">上下文</text><text class="vs" x="95" y="310">Context</text>
+        <circle class="vtx" cx="525" cy="300" r="30" stroke="#b84a36"/><text class="vt" x="525" y="297">答案</text><text class="vs" x="525" y="311">Answer</text>
+      </svg>
+    </div>
+  </div>
+
+  <div id="root"><div class="loading">加载评测体系数据…</div></div>
+</div>
+
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+// ---------- 检索指标计算器(已用 node 对照手算验证) ----------
+function buildCalculator(){
+  let ranking=[1,0,1,0,0,1,0,0]; // 各检索结果是否相关(可点击切换)
+  let R=5, k=5;
+  const sum=a=>a.reduce((x,y)=>x+y,0);
+  const pAtK=(r,k)=>sum(r.slice(0,k))/k;
+  const rAtK=(r,k,R)=>R?sum(r.slice(0,k))/R:0;
+  const hit=(r,k)=>r.slice(0,k).some(x=>x)?1:0;
+  const rr=r=>{const i=r.indexOf(1);return i<0?0:1/(i+1);};
+  const ap=(r,R)=>{let h=0,s=0;r.forEach((v,i)=>{if(v){h++;s+=h/(i+1);}});return R?s/R:0;};
+  const dcg=(r,k)=>{let s=0;for(let i=0;i<k;i++)s+=r[i]/Math.log2(i+2);return s;};
+  const idcg=(k,R)=>{let s=0;for(let i=0;i<k;i++)s+=(i<R?1:0)/Math.log2(i+2);return s;};
+  const ndcg=(r,k,R)=>{const id=idcg(k,R);return id?dcg(r,k)/id:0;};
+  const f=(x,n=3)=>Number(x).toFixed(n);
+
+  const host=document.createElement('div');host.className='calc';
+  host.innerHTML=`<h3>🧮 检索指标计算器(可点)</h3>
+    <div style="font-size:12.5px;color:var(--ink2)">点下面每个检索结果切换「相关✓/无关✗」,拖 k 和"总相关数 R",实时看 6 个指标怎么算出来。绿=相关,红=无关。</div>
+    <div class="rankrow" id="cRank"></div>
+    <div class="ctl">
+      <label>k(取前几个)= <b id="cKv" class="mono"></b> <input type="range" id="cK" min="1" max="8" value="5"></label>
+      <label>语料里总相关数 R = <input type="number" id="cR" min="1" max="12" value="5"></label>
+      <span style="color:var(--muted);font-size:12px">(R 可大于召回到的相关数 → 有的相关没被召回)</span>
+    </div>
+    <table class="mtable"><tbody id="cTbl"></tbody></table>
+    <div style="font-size:11.5px;color:var(--muted);margin-top:6px">MRR/MAP 是"多条查询取平均";这里只一条,显示的是单条的 RR / AP。NDCG 这里用二元相关(相关=1),分级相关度时 rel 可取 0~3。</div>`;
+
+  function renderRank(){
+    host.querySelector('#cRank').innerHTML=ranking.map((v,i)=>
+      `<div class="doc ${v?'rel':'no'} ${i<k?'ink':''}" data-i="${i}"><span class="pos">#${i+1}</span><span class="mark">${v?'✓':'✗'}</span></div>`).join('');
+    host.querySelectorAll('.doc').forEach(d=>d.onclick=()=>{const i=+d.dataset.i;ranking[i]=ranking[i]?0:1;update();});
+  }
+  function update(){
+    k=+host.querySelector('#cK').value;R=Math.max(1,+host.querySelector('#cR').value);
+    host.querySelector('#cKv').textContent=k;
+    renderRank();
+    const inTopK=sum(ranking.slice(0,k));
+    const firstRel=ranking.indexOf(1)+1;
+    // AP 算式
+    let apTerms=[],h=0;ranking.forEach((v,i)=>{if(v){h++;apTerms.push(`${h}/${i+1}`);}});
+    const rows=[
+      ['Precision@k','前k个里相关占比',`${inTopK}/${k}`,pAtK(ranking,k)],
+      ['Recall@k','前k个相关数/总相关R',`${inTopK}/${R}`,rAtK(ranking,k,R)],
+      ['Hit@k','前k里有没有相关',hit(ranking,k)?'有→1':'无→0',hit(ranking,k)],
+      ['RR(单条)','1/第一个相关的排名',firstRel?`1/${firstRel}`:'无相关→0',rr(ranking)],
+      ['AP(单条)','(Σ命中位Precision)/R',apTerms.length?`(${apTerms.join('+')})/${R}`:'0',ap(ranking,R)],
+      ['DCG@k','Σ relᵢ/log₂(i+1)','位置折损累加',dcg(ranking,k)],
+      ['IDCG@k','理想排序的DCG','相关项全排最前',idcg(k,R)],
+      ['NDCG@k','DCG/IDCG(归一到0~1)',`${f(dcg(ranking,k),3)}/${f(idcg(k,R),3)}`,ndcg(ranking,k,R)],
+    ];
+    host.querySelector('#cTbl').innerHTML='<tr><th>指标</th><th>含义</th><th>代入</th><th>值</th></tr>'+
+      rows.map(r=>`<tr><td class="mono">${r[0]}</td><td>${r[1]}</td><td class="calc2">${r[2]}</td><td class="v">${typeof r[3]==='number'?f(r[3], r[0].startsWith('Hit')?0:3):r[3]}</td></tr>`).join('');
+  }
+  host.querySelector('#cK').oninput=update;host.querySelector('#cR').oninput=update;
+  setTimeout(update,0);
+  return host;
+}
+
+// ---------- 渲染各维度 ----------
+function metricCard(it){
+  return `<div class="card"><div><span class="nm">${esc(it.name)}</span>${it.en?`<span class="en">${esc(it.en)}</span>`:''}</div>
+    <div class="what">${esc(it.what)}</div>
+    <div class="lbl">怎么算 / 方法</div><div class="detail">${esc(it.detail)}</div>
+    ${it.good_or_note?`<div class="note">📌 ${esc(it.good_or_note)}</div>`:''}</div>`;
+}
+function highlights(arr){
+  return `<div class="hl"><h4>✦ 实践要点</h4><ul>${arr.map(h=>`<li>${esc(h)}</li>`).join('')}</ul></div>`;
+}
+function diagnostic(it){
+  return `<div class="card"><div><span class="nm" style="color:var(--warn)">${esc(it.name)}</span>${it.en?`<span class="en">${esc(it.en)}</span>`:''}</div>
+    <div class="what">${esc(it.what)}</div>
+    <div class="lbl" style="color:var(--imp)">🔧 怎么修</div><div class="detail">${esc(it.detail)}</div>
+    ${it.good_or_note?`<div class="note">📌 ${esc(it.good_or_note)}</div>`:''}</div>`;
+}
+
+function render(dims){
+  const by=k=>dims.find(d=>d.key===k);
+  const root=$('#root');root.innerHTML='';
+
+  // 检索层
+  const retr=by('retrieval');
+  let h=`<div class="phase"><div class="phase-h"><span class="tag retr">检索层</span><h2>③ 检索层评测指标 + 计算器</h2></div>
+    <div class="ov">${esc(retr.overview)}</div>${retr.items.map(metricCard).join('')}</div>`;
+  root.insertAdjacentHTML('beforeend',h);
+  root.querySelector('.phase:last-child').appendChild(buildCalculator());
+  root.querySelector('.phase:last-child').insertAdjacentHTML('beforeend',highlights(retr.highlights));
+
+  // 生成层
+  const gen=by('generation');
+  root.insertAdjacentHTML('beforeend',`<div class="phase"><div class="phase-h"><span class="tag gen">生成层</span><h2>④ 生成层评测 + RAG Triad 指标</h2></div>
+    <div class="ov">${esc(gen.overview)}</div>${gen.items.map(metricCard).join('')}${highlights(gen.highlights)}</div>`);
+
+  // 工具/基准(按 A/B/C 分组)
+  const tool=by('tools');
+  const grp=it=>{const m=/^\((A组|B组|C组)[^)]*\)/.exec(it.what);return m?m[0]:'其它';};
+  const groups={}; tool.items.forEach(it=>{const g=grp(it);(groups[g]=groups[g]||[]).push(it);});
+  let th=`<div class="phase"><div class="phase-h"><span class="tag tool">工具/基准</span><h2>⑤ 评测工具 · 框架 · 基准数据集</h2></div><div class="ov">${esc(tool.overview)}</div>`;
+  Object.keys(groups).forEach(g=>{
+    th+=`<div class="grp">${esc(g.replace(/[()]/g,''))}</div>`;
+    th+=groups[g].map(it=>{const it2={...it,what:it.what.replace(/^\([^)]*\)\s*/,'')};return metricCard(it2);}).join('');
+  });
+  th+=highlights(tool.highlights)+`</div>`;
+  root.insertAdjacentHTML('beforeend',th);
+
+  // 改进诊断
+  const imp=by('improve');
+  root.insertAdjacentHTML('beforeend',`<div class="phase"><div class="phase-h"><span class="tag imp">改进诊断</span><h2>⑥ 改进诊断手册:症状 → 定位层 → 修法</h2></div>
+    <div class="ov">${esc(imp.overview)}</div>
+    <div class="note2">💡 用法:RAG 答得不好,先用上面的指标量化是<b>检索层</b>还是<b>生成层</b>的病,再对照下面找症状、照修法改一层、回归测。<b>多数坏答案的首要瓶颈在检索层</b>,别一上来就换大模型。</div>
+    ${imp.items.map(diagnostic).join('')}${highlights(imp.highlights)}</div>`);
+
+  // 来源
+  const allSrc=[...new Set(dims.flatMap(d=>d.sources||[]))];
+  root.insertAdjacentHTML('beforeend',`<div class="phase"><div class="phase-h"><h2 style="font-size:16px">参考来源(${allSrc.length})</h2></div>
+    <div class="srcbox">本页内容经 WebSearch 核实(Ragas/TruLens/DeepEval 官方文档、MTEB/BEIR/ARES/RGB 论文等)。指标公式与计算器已对照手算验证。具体阈值为经验参考(通常/约),以你自己 golden set 上的纵向回归为准。<br>${allSrc.map(u=>`<a href="${esc(u)}" target="_blank" rel="noopener">${esc(u.replace(/^https?:\/\//,'').slice(0,46))}</a>`).join('')}</div></div>`);
+}
+
+fetch('./rag-eval-data.json?v=1').then(r=>r.json()).then(render).catch(e=>{
+  $('#root').innerHTML='<div class="loading" style="color:var(--warn)">数据加载失败:'+esc(e.message||e)+'</div>';
+});
+</script>
+<a id="home-fab" href="./knowledge-map.html" style="position:fixed;right:16px;bottom:16px;z-index:9999;background:#245f73;color:#fff;text-decoration:none;font:600 13px/1 -apple-system,BlinkMacSystemFont,sans-serif;padding:10px 14px;border-radius:24px;box-shadow:0 2px 10px rgba(0,0,0,.18)">🏠 总览</a>
+</body>
+</html>

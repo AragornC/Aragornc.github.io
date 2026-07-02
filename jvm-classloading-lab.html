@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>类加载机制 · 单步白盒</title>
+<style>
+  :root{--bg:#fafaf7;--paper:#fff;--ink:#1a1a1a;--ink2:#4a4a4a;--muted:#8a8a8a;--line:#e8e6df;
+    --accent:#245f73;--good:#1f6f4f;--warn:#b84a36;--gold:#8a5d1f;--share:#b07b24;--priv:#245f73;
+    --font:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    --mono:"SF Mono",ui-monospace,Menlo,monospace;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.7;font-size:15px}
+  .page{max-width:1040px;margin:0 auto;padding:30px 20px 90px}
+  h1{font-size:23px;margin:0 0 4px}.sub{color:var(--muted);margin:0 0 10px}a{color:var(--accent)}
+  .reassure{background:#eef6f0;border:1px solid #cfe6d8;border-radius:10px;padding:11px 15px;font-size:13.5px;color:#155;margin:12px 0}
+  .reassure b{color:#0a4}
+  .step{margin-top:18px;background:var(--paper);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .step-h{padding:12px 16px;background:#f6f5ef;border-bottom:1px solid var(--line)}
+  .step-h h2{margin:0;font-size:16px}.step-h .q{margin-top:2px;font-size:12.5px;color:var(--ink2)}
+  .step-b{padding:15px 16px}
+  .jargon{font-size:12px;color:var(--ink2);background:#f6f5ef;border-radius:7px;padding:8px 11px;margin:8px 0}
+  .jargon b{color:var(--accent)}
+  .flow3{display:flex;gap:8px;align-items:stretch;flex-wrap:wrap;margin:8px 0}
+  .flow3 .b{flex:1;min-width:150px;border:1px solid var(--line);border-radius:9px;padding:9px 11px;background:#fff;font-size:12.5px}
+  .flow3 .b b{font-size:13px;color:var(--accent)}
+  .arrow{align-self:center;color:var(--accent);font-weight:800}
+  /* phase stepper */
+  .ctl{display:flex;gap:8px;align-items:center;margin:10px 0 6px;flex-wrap:wrap}
+  button{font:inherit;font-weight:700;padding:7px 13px;border:1px solid var(--accent);border-radius:8px;background:var(--accent);color:#fff;cursor:pointer}
+  button:disabled{opacity:.4}button.ghost{background:#fff;color:var(--accent)}
+  .stepno{font-size:12.5px;color:var(--muted)}
+  .phases{display:flex;gap:4px;flex-wrap:wrap;margin:8px 0}
+  .ph{font-size:11.5px;padding:3px 8px;border-radius:6px;border:1px solid var(--line);background:#fff;color:var(--muted)}
+  .ph.done{background:#eef6f0;border-color:#bfe0cc;color:var(--good)}
+  .ph.cur{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:800}
+  .runwrap{display:grid;grid-template-columns:1fr 1fr;gap:14px}@media(max-width:780px){.runwrap{grid-template-columns:1fr}}
+  .code{background:#1f2328;border-radius:9px;padding:12px 12px;font-family:var(--mono);font-size:12.5px;line-height:1.8;color:#cfd6dd}
+  .code .kw{color:#e0a849}.code .ty{color:#79c0e8}.code .nm{color:#e06c9a}.code .cm{color:#6b7681}
+  .mem{display:flex;flex-direction:column;gap:9px}
+  .panel{border:1px solid var(--line);border-radius:9px;overflow:hidden}
+  .panel-h{font-size:12px;font-weight:800;padding:5px 10px;color:#fff;display:flex;gap:6px}
+  .panel.share .panel-h{background:var(--share)}.panel.heap .panel-h{background:var(--priv)}
+  .panel-b{padding:9px 11px;font-family:var(--mono);font-size:12px;min-height:28px}
+  .kv{display:flex;justify-content:space-between;gap:8px;padding:2px 0}
+  .cval{font-weight:800;color:var(--warn);font-family:var(--mono)}
+  .cval.big{font-size:15px}
+  .ph-flag{font-size:11px;color:var(--good);margin-left:6px}
+  .explain{font-size:13.5px;color:var(--ink);background:#f4f6f7;border:1px solid #e2ebec;border-radius:9px;padding:11px 14px;margin-top:8px;line-height:1.7}
+  .explain b{color:var(--accent)}.explain .hl{background:#fff4d6;border-radius:3px;padding:0 3px}.explain code{background:#eceae3;border-radius:4px;padding:0 4px;font-size:12px}
+  .countbar{display:flex;gap:6px;align-items:center;font-size:12.5px;margin-top:8px;flex-wrap:wrap}
+  .countbar .pill{font-family:var(--mono);font-weight:800;border-radius:6px;padding:2px 9px;background:#f0eee8;color:#999}
+  .countbar .pill.on{background:#fbe7df;color:var(--warn)}
+  /* 双亲委派 */
+  .classbtns{display:flex;gap:7px;flex-wrap:wrap;margin:6px 0}
+  .classbtns button{font-family:var(--mono);font-size:12px;background:#fff;color:var(--accent)}
+  .classbtns button.act{background:var(--accent);color:#fff}
+  .chain{display:flex;flex-direction:column;gap:7px;margin-top:10px}
+  .lvl{border:1px solid var(--line);border-radius:9px;padding:9px 12px;background:#fff;display:flex;gap:10px;align-items:center}
+  .lvl .ln{font-weight:800;font-size:13.5px;min-width:170px}
+  .lvl .ld{font-size:12px;color:var(--muted);flex:1}
+  .lvl .mk{font-size:12px;font-weight:800;white-space:nowrap}
+  .lvl.loader{background:#eef6f0;border-color:#9ad0b0}.lvl.loader .ln{color:var(--good)}.lvl.loader .mk{color:var(--good)}
+  .lvl.passed{opacity:.7}.lvl.passed .mk{color:var(--accent)}
+  .concl{font-size:13.5px;color:var(--ink);background:#fbf7ee;border:1px solid #ecdfc7;border-radius:9px;padding:11px 14px;margin-top:10px}
+  .concl b{color:#5e3f12}
+  .note{font-size:12.5px;color:var(--ink2);margin-top:14px;padding:11px 14px;background:#f4f6f7;border:1px solid #e2ebec;border-radius:8px}
+  .note b{color:var(--accent)}.warn{background:#fbeeea;border-color:#ecd0c7}.warn b{color:var(--warn)}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>类加载机制 · 单步白盒</h1>
+  <p class="sub">类的"图纸"怎么从 .class 文件装进元空间;双亲委派怎么走;类加载器为啥会泄漏。<a href="./jvm-memory-lab.html">← 内存结构</a> · <a href="./gc-lab.html">GC 垃圾回收 →</a> · <a href="./knowledge-map.html">知识地图</a></p>
+
+  <div class="reassure">😌 <b>接着上一页:</b> 内存那页里我们说"类的图纸已经在元空间了"——<b>它是怎么进去的?就是"类加载"干的活。</b> 一句话:把磁盘上的 <code>.class</code> 文件读进来、检查、登记到元空间、生成入口对象,让这个类能被使用。</div>
+
+  <!-- ① 类加载在干嘛 -->
+  <div class="step"><div class="step-h"><h2>① 类加载在干嘛:.class → 能用的类</h2></div>
+    <div class="step-b">
+      <div class="jargon"><b>.class 文件</b>=你写的 <code>.java</code> 被编译后生成的文件,里面是 JVM 能懂的<b>字节码</b>(一种中间指令)。类加载就是把它"装进"JVM 变成能用的类。</div>
+      <div class="flow3">
+        <div class="b"><b>.class 字节流</b><br>从 jar/磁盘/网络/<b>运行时动态生成</b>读进来</div>
+        <span class="arrow">→</span>
+        <div class="b"><b>元空间:类元信息</b><br>把"图纸"(类结构、方法字节码、静态变量、常量池)登记进去</div>
+        <span class="arrow">→</span>
+        <div class="b"><b>堆:Class 对象</b><br>造一个该类的 Class 对象,当作反射访问的入口</div>
+      </div>
+      <div class="note">所以"类加载"的产物落在两处:<b>元空间</b>(类的图纸/元信息)+ <b>堆</b>(一个 Class 对象当门把手)。下面看它具体分几步走。</div>
+    </div></div>
+
+  <!-- ② 五阶段单步走 -->
+  <div class="step"><div class="step-h"><h2>② 五个阶段,单步走(重点:静态变量啥时候才是真实值)</h2>
+    <div class="q">加载→验证→准备→解析→初始化。点"下一步",盯住右边那个静态变量 count 的值怎么变。</div></div>
+    <div class="step-b">
+      <div class="phases" id="phases"></div>
+      <div class="ctl"><button id="prev" class="ghost">← 上一步</button><button id="next">下一步 →</button><button id="reset" class="ghost">重置</button><span class="stepno" id="stepno"></span></div>
+      <div class="runwrap">
+        <div>
+          <div class="code">
+<span class="kw">class</span> <span class="ty">Counter</span> {<br>
+&nbsp;&nbsp;<span class="kw">static int</span> <span class="nm">count</span> = <span style="color:#b6d99a">10</span>;&nbsp;<span class="cm">// 静态变量</span><br>
+&nbsp;&nbsp;<span class="kw">static</span> {&nbsp;<span class="cm">// 静态代码块</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="nm">count</span> = <span class="nm">count</span> + <span style="color:#b6d99a">5</span>;<br>
+&nbsp;&nbsp;}<br>
+}
+          </div>
+          <div class="countbar">count 的值轨迹:
+            <span class="pill" id="t0">加载 ·未分配</span>
+            <span class="pill" id="t1">验证 ·未分配</span>
+            <span class="pill" id="t2">准备 ·0</span>
+            <span class="pill" id="t3">解析 ·0</span>
+            <span class="pill" id="t4">初始化 ·15</span>
+          </div>
+        </div>
+        <div class="mem">
+          <div class="panel share"><div class="panel-h">📐 元空间:Counter 类元信息（共享）</div><div class="panel-b" id="metaP"></div></div>
+          <div class="panel heap"><div class="panel-h">📦 堆:Counter 的 Class 对象</div><div class="panel-b" id="heapP"></div></div>
+        </div>
+      </div>
+      <div class="explain" id="explain"></div>
+    </div></div>
+
+  <!-- ③ 双亲委派 -->
+  <div class="step"><div class="step-h"><h2>③ 双亲委派:一个类该谁来加载?(点类名看)</h2>
+    <div class="q">类加载器分层:有请求时,先<b>往上委派给父亲</b>,父亲能加载就父亲加载;父亲不行才自己来。点个类名试试。</div></div>
+    <div class="step-b">
+      <div class="jargon"><b>类加载器(ClassLoader)</b>=专门负责"把类装进来"的组件,它们有上下级关系(下面三层)。<b>双亲委派</b>=收到加载请求时,自己先不动手,<b>一路上交给父亲</b>,直到顶层;顶层能加载就加载,逐级往上谁先找到谁加载。</div>
+      <div class="classbtns" id="classbtns"></div>
+      <div class="chain" id="chain"></div>
+      <div class="concl" id="concl"></div>
+    </div></div>
+
+  <!-- ④ 层次 + 泄漏 -->
+  <div class="step"><div class="step-h"><h2>④ 类加载器层次 + 为什么会"泄漏"撑爆元空间</h2></div>
+    <div class="step-b">
+      <p style="margin:0 0 8px;font-size:13.5px;color:var(--ink2)">三层(+ 可选自定义),从顶到下:</p>
+      <div class="chain">
+        <div class="lvl"><span class="ln">启动类加载器 Bootstrap</span><span class="ld">C++ 写的、JVM 自带。加载最核心的库(java.lang.* 等)。它没有"父亲"。</span></div>
+        <div class="lvl"><span class="ln">平台/扩展类加载器 Platform</span><span class="ld">加载 JDK 的一些扩展模块。父亲是 Bootstrap。</span></div>
+        <div class="lvl"><span class="ln">应用类加载器 Application</span><span class="ld">加载<b>你自己的 classpath</b>(你写的业务类)。父亲是 Platform。日常你的类都它加载。</span></div>
+        <div class="lvl"><span class="ln">自定义类加载器（可选）</span><span class="ld">框架/容器自己写的,用于热部署、隔离、动态加载等。父亲一般是 Application。</span></div>
+      </div>
+      <div class="note warn">⚠️ <b>泄漏怎么发生的(接上一页元空间 OOM):</b><br>
+        规则:<b>一个类的元信息(在元空间)能被卸载,当且仅当"加载它的那个类加载器"被 GC 回收掉。</b> 而类加载器引用着它加载的<b>所有类</b>,类又反过来引用着加载器——<b>它们是"一损俱损"的一团,要卸一起卸。</b><br><br>
+        于是<b>热部署</b>翻车就这么来的:每次重新部署都 new 一个<b>新的类加载器</b>装一遍类;如果<b>旧的类加载器</b>被某个静态变量、缓存、或没停的线程<b>抓着不放、回收不掉</b> → 它装的那一整批类的元信息就<b>永远卡在元空间</b> → 部署几次,元空间一路涨 → <code style="background:#eee;padding:0 3px;border-radius:3px">OutOfMemoryError: Metaspace</code>。<br>
+        所以你上一问的"类加载器为什么会泄漏",根子就在这条<b>"加载器↔类 互相引用、一起生死"</b>的规则上。</div>
+    </div></div>
+
+  <div class="note">小结:类加载 = <b>加载→验证→准备→解析→初始化</b> 五步,把 .class 变成元空间里的类 + 堆里的 Class 对象;<b>双亲委派</b>保证核心类不被篡改、同名类不重复加载;<b>类加载器和它的类一起生死</b>,加载器泄漏 = 元空间泄漏。下一个白盒就是 <b>GC(垃圾回收)</b>——把"谁是垃圾、怎么清"讲穿。</div>
+</div>
+
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+// ===== ② 五阶段 =====
+const PH=['① 加载','② 验证','③ 准备','④ 解析','⑤ 初始化'];
+const STEPS=[
+  { count:'(未分配)', cls:'load',
+    meta:'· 类结构、方法字节码 ✔ 已登记<br>· 静态变量 count:<span style="color:#aaa">还没分配内存</span>',
+    heap:'Counter 的 Class 对象 ✔ 已生成',
+    ex:'<b>① 加载 Loading</b>:用类的全名找到 <code>Counter.class</code> 字节流(从 classpath 的 jar/磁盘,也可能是<b>运行时动态生成</b>的),读进来 → 在<b>元空间</b>登记 Counter 的图纸,同时在<b>堆</b>里造一个 Class 对象当入口。此时静态变量 count <b>还没分配内存</b>。' },
+  { count:'(未分配)', cls:'verify',
+    meta:'· 字节码合法性 ✔ 校验通过<br>· 静态变量 count:<span style="color:#aaa">还没分配内存</span>',
+    heap:'Counter 的 Class 对象（已存在）',
+    ex:'<b>② 验证 Verification</b>:检查这份字节码<b>格式对不对、有没有危险动作</b>。目的是防一个<b>损坏或恶意的 .class</b> 把 JVM 搞崩——相当于进门前的安检。count 仍未分配。' },
+  { count:'0', cls:'prepare', big:true,
+    meta:'· 静态变量 count:<span class="cval big">0</span> ← <span class="ph-flag">刚分配,赋默认值</span>',
+    heap:'Counter 的 Class 对象（已存在）',
+    ex:'<b>③ 准备 Preparation</b> —— <span class="hl">这步最容易被坑</span>:给<b>静态变量</b> count <b>分配内存</b>,并赋 <span class="hl">默认值 0</span>。<b>注意:是 0,不是你代码里写的 10!</b> 此刻 count = <b>0</b>。(默认值规则:数字→0、boolean→false、引用→null)' },
+  { count:'0', cls:'resolve',
+    meta:'· 静态变量 count:<span class="cval">0</span>（不变）<br>· 符号引用 → 直接引用 ✔ 已替换',
+    heap:'Counter 的 Class 对象（已存在）',
+    ex:'<b>④ 解析 Resolution</b>:把常量池里的<b>符号引用</b>(用名字描述,如"我要用一个叫 <code>java/lang/System</code> 的东西")换成<b>直接引用</b>(真正指向它内存地址的指针)。count 这步<b>不变,还是 0</b>。' },
+  { count:'15', cls:'init', big:true,
+    meta:'· 静态变量 count:<span class="cval big">15</span> ← <span class="ph-flag">执行 &lt;clinit&gt; 后</span>',
+    heap:'Counter 的 Class 对象（已存在,now 可用）',
+    ex:'<b>⑤ 初始化 Initialization</b> —— <span class="hl">这才执行你写的代码!</span> JVM 把所有静态赋值 + 静态代码块打包成一个 <code>&lt;clinit&gt;</code> 方法顺序执行:<br>&nbsp;&nbsp;· <code>static int count = 10</code> → count 变 <b>10</b><br>&nbsp;&nbsp;· <code>static { count = count + 5 }</code> → count 变 <b>15</b><br>所以 count:准备时 <span class="hl">0</span> → 初始化后 <span class="hl">15</span>。<b>"准备给默认值、初始化才给真实值"</b>——这就是经典考点。' },
+];
+let cur=0;
+function renderPhase(){
+  const s=STEPS[cur];
+  $('#phases').innerHTML=PH.map((p,i)=>`<span class="ph ${i<cur?'done':''} ${i===cur?'cur':''}">${p}</span>`).join('');
+  $('#metaP').innerHTML='· Counter 类元信息 ✔ 已在元空间<br>'+s.meta;
+  $('#heapP').innerHTML=s.heap;
+  $('#explain').innerHTML=s.ex;
+  $('#stepno').textContent=`第 ${cur+1} / ${STEPS.length} 步`;
+  ['t0','t1','t2','t3','t4'].forEach((id,i)=>$('#'+id).classList.toggle('on', i===cur));
+  $('#prev').disabled=cur===0;$('#next').disabled=cur===STEPS.length-1;
+}
+$('#next').onclick=()=>{if(cur<STEPS.length-1){cur++;renderPhase();}};
+$('#prev').onclick=()=>{if(cur>0){cur--;renderPhase();}};
+$('#reset').onclick=()=>{cur=0;renderPhase();};
+renderPhase();
+
+// ===== ③ 双亲委派 =====
+const LOADERS=[
+  {k:'boot', n:'启动类加载器 Bootstrap', load:'核心库 java.lang.* 等'},
+  {k:'plat', n:'平台类加载器 Platform', load:'JDK 扩展模块'},
+  {k:'app',  n:'应用类加载器 Application', load:'你的 classpath(业务类)'},
+];
+const CLASSES=[
+  {name:'java.lang.String', by:'boot',
+    concl:'<b>java.lang.String 由 Bootstrap 加载。</b> 关键:你就算自己写一个 <code>java.lang.String</code>,也<b>永远用不上</b>——请求一路委派到顶,Bootstrap 先把官方的 String 加载了,你那个轮不到。<b>这就是双亲委派防止"核心类被篡改"的机制。</b>'},
+  {name:'java.util.HashMap', by:'boot',
+    concl:'<b>java.util.HashMap 也由 Bootstrap 加载</b>(JDK 自带)。所有 JDK 核心类统一由顶层加载,整个程序共用同一份,不会重复也不会被掉包。'},
+  {name:'com.myapp.OrderService', by:'app',
+    concl:'<b>你的业务类 com.myapp.OrderService 由应用类加载器加载。</b> 请求委派上去,Bootstrap、Platform 在核心库/扩展里都<b>找不到</b>它,逐级退回,最后<b>应用类加载器</b>在你的 classpath 里找到并加载。'},
+];
+function renderChain(cls){
+  const byIdx=LOADERS.findIndex(l=>l.k===cls.by);
+  // 委派:请求从 app(最底) 一路上交到 boot(最顶);命中层在 byIdx
+  $('#chain').innerHTML=LOADERS.map((l,i)=>{
+    let mk='', clsName='lvl';
+    if(i===byIdx){mk='✓ 由我加载';clsName='lvl loader';}
+    else if(i<byIdx){mk='↑ 我没有,继续往下试';clsName='lvl passed';} // 顶层往下:比命中层高的,先试了没有
+    else {mk='↑ 先委派给父亲,自己没出手';clsName='lvl passed';} // 比命中层低的:把请求往上交了
+    return `<div class="${clsName}"><span class="ln">${esc(l.n)}</span><span class="ld">管:${esc(l.load)}</span><span class="mk">${mk}</span></div>`;
+  }).join('');
+  $('#concl').innerHTML='结论:'+cls.concl;
+}
+$('#classbtns').innerHTML=CLASSES.map((c,i)=>`<button data-i="${i}" class="${i===0?'act':''}">${esc(c.name)}</button>`).join('');
+$('#classbtns').querySelectorAll('button').forEach(b=>b.onclick=()=>{
+  $('#classbtns').querySelectorAll('button').forEach(x=>x.classList.remove('act'));b.classList.add('act');
+  renderChain(CLASSES[+b.dataset.i]);
+});
+renderChain(CLASSES[0]);
+</script>
+<a id="home-fab" href="./knowledge-map.html" style="position:fixed;right:16px;bottom:16px;z-index:9999;background:#245f73;color:#fff;text-decoration:none;font:600 13px/1 -apple-system,BlinkMacSystemFont,sans-serif;padding:10px 14px;border-radius:24px;box-shadow:0 2px 10px rgba(0,0,0,.18)">🏠 总览</a>
+</body>
+</html>

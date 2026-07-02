@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>并发编程 · 第4课:并发容器 & CAS</title>
+<style>
+  :root{--bg:#fafaf7;--paper:#fff;--ink:#1a1a1a;--ink2:#4a4a4a;--muted:#8a8a8a;--line:#e8e6df;
+    --accent:#245f73;--good:#1f6f4f;--warn:#b84a36;--gold:#8a5d1f;
+    --A:#2f6f9f;--Abg:#eaf3fa;--B:#c4702a;--Bbg:#fbf0e4;
+    --font:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    --mono:"SF Mono",ui-monospace,Menlo,monospace;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.7;font-size:15px}
+  .page{max-width:1000px;margin:0 auto;padding:30px 20px 110px}
+  h1{font-size:24px;margin:0 0 4px}.sub{color:var(--muted);margin:0 0 10px;font-size:13.5px}a{color:var(--accent)}
+  .reassure{background:#eef6f0;border:1px solid #cfe6d8;border-radius:10px;padding:12px 15px;font-size:13.5px;color:#155;margin:12px 0}.reassure b{color:#0a4}
+  .toc{display:flex;flex-wrap:wrap;gap:7px;margin:12px 0}
+  .toc a{font-size:12.5px;background:#fff;border:1px solid var(--line);border-radius:20px;padding:4px 11px;text-decoration:none;color:var(--accent)}
+  .topic{margin-top:22px;background:var(--paper);border:1px solid var(--line);border-radius:12px;overflow:hidden;scroll-margin-top:12px}
+  .topic-h{padding:13px 18px;background:#f6f5ef;border-bottom:1px solid var(--line);display:flex;align-items:baseline;gap:10px}
+  .topic-h .num{font-family:var(--mono);font-weight:800;color:var(--muted)}
+  .topic-h h2{margin:0;font-size:17px}
+  .topic-h .lv{font-size:11px;font-weight:800;border-radius:5px;padding:1px 8px;color:#fff;margin-left:auto}
+  .lv.核心{background:var(--warn)}.lv.进阶{background:#6450a8}
+  .topic-b{padding:16px 18px}
+  .lead{font-size:14px;color:var(--ink2);margin:0 0 12px}.lead b{color:var(--accent)}
+  code{font-family:var(--mono);font-size:12.5px;background:#f0eee8;padding:1px 5px;border-radius:4px}
+  .runblk{margin-top:14px;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .runblk-h{display:flex;align-items:center;gap:10px;padding:8px 12px;background:#1f2328;border-bottom:1px solid #333}
+  .runblk-h .t{font-size:12px;color:#9aa4ad;font-family:var(--mono)}
+  .runblk-h .va{font-size:11px;color:#e0a849;font-family:var(--mono);margin-left:auto}
+  .code{background:#1f2328;color:#cfd6dd;font-family:var(--mono);font-size:12px;line-height:1.55;padding:12px 14px;white-space:pre;overflow-x:auto;max-height:360px;overflow-y:auto}
+  .runbar{display:flex;align-items:center;gap:10px;padding:9px 12px;background:#181c20;border-top:1px solid #333}
+  .runbar button{font:inherit;font-weight:800;font-size:13px;padding:6px 16px;border:none;border-radius:7px;background:var(--good);color:#fff;cursor:pointer}
+  .runbar button:disabled{opacity:.5}
+  .runbar .hint{font-size:11.5px;color:#7c8893}
+  .out{font-family:var(--mono);font-size:12px;line-height:1.6;padding:12px 14px;white-space:pre-wrap;word-break:break-word;background:#11151a;color:#c7d0d8;min-height:24px;border-top:1px solid #333;display:none}
+  .out.show{display:block}.out.running{color:#e0a849}.out.err{color:#f0a08c}
+  .take{font-size:13px;color:var(--gold);background:#fbf7ee;border:1px solid #ecdfc7;border-radius:8px;padding:9px 13px;margin-top:12px}.take b{color:#5e3f12}
+
+  /* CAS stepper */
+  .sim{border:1px solid var(--line);border-radius:11px;overflow:hidden;margin-top:6px}
+  .sim-stage{display:flex;align-items:stretch;gap:12px;padding:20px 16px;background:#fbfaf6}
+  .col{flex:1;border:2px solid var(--line);border-radius:11px;padding:12px;background:#fff;transition:.15s;text-align:center}
+  .col.A{border-color:#cfe0ee}.col.B{border-color:#eedcc6}
+  .col.active{box-shadow:0 0 0 3px rgba(47,111,159,.18)}
+  .col.A.active{border-color:var(--A)}.col.B.active{border-color:var(--B)}
+  .col .ct{font-weight:800;font-size:13px;margin-bottom:8px}
+  .col.A .ct{color:var(--A)}.col.B .ct{color:var(--B)}
+  .kv{font-family:var(--mono);font-size:12px;color:var(--ink2);background:#f7f7f4;border:1px solid var(--line);border-radius:7px;padding:6px;margin-bottom:6px}
+  .kv b{font-size:15px;color:var(--ink)}
+  .res{font-size:12px;font-weight:800;border-radius:6px;padding:5px;min-height:28px}
+  .res.ok{background:#e9f5ee;color:var(--good)}.res.fail{background:#fbeae6;color:var(--warn)}.res.none{background:#f4f4f1;color:var(--muted)}
+  .mid{flex:0 0 140px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px}
+  .countbox{width:104px;height:104px;border-radius:14px;border:3px solid var(--accent);background:#eef6f9;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:.18s}
+  .countbox .cl{font-size:11px;color:var(--muted);font-family:var(--mono)}
+  .countbox .cv{font-size:38px;font-weight:800;color:var(--accent);line-height:1;font-family:var(--mono)}
+  .countbox.good{border-color:var(--good);background:#e9f5ee}.countbox.good .cv{color:var(--good)}
+  .narr{padding:13px 16px;background:#11151a;color:#d6dee5;font-size:13.5px;line-height:1.65;min-height:46px;border-top:1px solid #2a2f35}
+  .narr.good{color:#9fe0bb}.narr.warn{color:#f0cf8c}.narr.fail{color:#f3b0a0}
+  .sim-ctl{display:flex;align-items:center;gap:8px;padding:10px 12px;background:#181c20;border-top:1px solid #2a2f35;flex-wrap:wrap}
+  .sim-ctl button{font:inherit;font-weight:800;font-size:13px;padding:6px 14px;border:none;border-radius:7px;cursor:pointer}
+  .sim-ctl .nx{background:var(--good);color:#fff}.sim-ctl .sec{background:#2a2f35;color:#cfd6dd}
+  .sim-ctl button:disabled{opacity:.4;cursor:default}
+  .sim-ctl .pg{font-size:11.5px;color:#8a949c;font-family:var(--mono);margin-left:auto}
+
+  /* 对照表 */
+  table.t{width:100%;border-collapse:collapse;margin-top:12px;font-size:12.5px}
+  table.t th,table.t td{border:1px solid var(--line);padding:7px 9px;text-align:left;vertical-align:top}
+  table.t th{background:#f6f5ef;font-weight:800;color:var(--ink2)}
+  /* ABA 时间轴 */
+  .aba{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center;margin:8px 0 4px;padding:14px;background:#fbfaf6;border:1px solid var(--line);border-radius:11px}
+  .abacell{border:2px solid var(--accent);border-radius:10px;padding:8px 12px;text-align:center;background:#fff;min-width:78px}
+  .abacell .v{font-family:var(--mono);font-weight:800;font-size:18px;color:var(--accent)}
+  .abacell .s{font-size:10.5px;color:var(--muted);font-family:var(--mono);margin-top:2px}
+  .abaarrow{color:var(--muted);font-size:18px}
+  .abaeyes{display:flex;gap:10px;margin-top:10px;flex-wrap:wrap}
+  .eye{flex:1;min-width:200px;border-radius:9px;padding:9px 12px;font-size:12.5px}
+  .eye.bad{background:#fbeae6;border:1px solid #eecdc4;color:#7a2a1a}
+  .eye.good{background:#e9f5ee;border:1px solid #bfe0cc;color:#14502f}
+  .eye b{font-weight:800}
+  .note{font-size:12.5px;color:var(--ink2);margin-top:22px;padding:11px 14px;background:#f4f6f7;border:1px solid #e2ebec;border-radius:8px}
+  /* HashMap 桶位覆盖动画 */
+  .htwrap{flex:0 0 196px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px}
+  .htable{width:100%;display:flex;flex-direction:column;gap:5px}
+  .bkt{display:flex;align-items:center;gap:7px;border:1.5px solid var(--line);border-radius:8px;padding:5px 8px;background:#fff;min-height:34px;transition:.15s}
+  .bkt.hot{border-color:var(--accent);box-shadow:0 0 0 2px rgba(36,95,115,.14)}
+  .bkt .bi{font-family:var(--mono);font-size:11px;font-weight:800;color:var(--muted);min-width:36px}
+  .bkt .bc{flex:1;display:flex;gap:5px;align-items:center;min-height:20px}
+  .knode{font-size:12px;font-weight:700;border-radius:14px;padding:2px 10px;color:#fff;white-space:nowrap}
+  .knode.apple{background:#b84a36}.knode.banana{background:#b07b24}
+  .barrow{color:var(--muted);font-size:12px}
+  .bempty{font-size:11px;color:#cfcabf}
+  .alive{font-size:12px;font-family:var(--mono);color:var(--ink2)}.alive b{color:var(--warn);font-size:16px}
+  .hand{font-family:var(--mono);font-size:12px;color:var(--ink2);background:#f7f7f4;border:1px solid var(--line);border-radius:7px;padding:7px;line-height:1.65;min-height:52px}
+  .hand b{color:var(--ink)}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>并发编程 · 第 4 课:并发容器 &amp; CAS</h1>
+  <p class="sub">HashMap 为什么会丢数据 · CAS 无锁原理(回收第1课伏笔)· ABA 问题　|　<a href="./concurrency-lab-3.html">← 第3课</a> · <a href="./concurrency-lab-5.html">第5课:显式锁 &amp; 死锁 →</a> · <a href="./knowledge-map.html">知识地图</a></p>
+
+  <div class="reassure">😌 <b>这一课解开第 1 课留的谜。</b> 第 1 课结尾那个"不加锁也对"的 <code>AtomicInteger</code>,靠的就是 <b>CAS</b>。这一课:① 先看普通 <code>HashMap</code> 多线程下<b>真的会丢一半数据</b>;② 用一个能点的动画把 <b>CAS</b> 讲透(它和"加锁"是两种完全不同的思路);③ CAS 的著名坑 <b>ABA</b>。</div>
+
+  <div class="toc" id="toc"></div>
+
+  <!-- ① 并发容器 -->
+  <div class="topic" id="t-map">
+    <div class="topic-h"><span class="num">①</span><h2>HashMap 多线程会"丢数据",ConcurrentHashMap 来救</h2><span class="lv 核心">核心</span></div>
+    <div class="topic-b">
+      <p class="lead">你可能会想:<code>HashMap</code> 不是"先算 hash → 再分桶 → 放进去"吗,怎么会冲突?关键在于——<b>"放进桶"这一下根本不是一步</b>:它得先<b>看一眼这个桶空不空</b>,再决定<b>怎么写进去</b>。两个线程如果<b>都看到桶是空的</b>,就会都直接往里写,后写的把先写的<b>整个盖掉</b>。点「下一步 ▶」,亲眼看"苹果"是怎么被"香蕉"冲没的(假设两个 key 的 hash 恰好落到同一个桶——这叫哈希冲突,很常见):</p>
+      <div class="sim" id="hsim">
+        <div class="sim-stage">
+          <div class="col A" id="hColA"><div class="ct">线程 A</div>
+            <div class="hand" id="hHandA">要放的:🍎 苹果<br>算出落点:—</div>
+          </div>
+          <div class="htwrap">
+            <div style="font-size:11px;color:var(--muted);font-family:var(--mono)">HashMap 的桶数组</div>
+            <div class="htable" id="htable"></div>
+            <div class="alive" id="aliveLine">真正存活的 key:<b>0</b></div>
+          </div>
+          <div class="col B" id="hColB"><div class="ct">线程 B</div>
+            <div class="hand" id="hHandB">要放的:🍌 香蕉<br>算出落点:—</div>
+          </div>
+        </div>
+        <div class="narr" id="hNarr"></div>
+        <div class="sim-ctl">
+          <button class="sec" id="hPrev">◀ 上一步</button>
+          <button class="nx" id="hNext">下一步 ▶</button>
+          <button class="sec" id="hReset">↺ 重置</button>
+          <span class="pg" id="hPg"></span>
+        </div>
+      </div>
+      <p class="lead" style="margin-top:14px">这只是丢数据的<b>第一种</b>方式(桶位互相覆盖)。其实还有两处也会丢:<b>② <code>size++</code> 不是原子的</b>(就是第 1 课 <code>count++</code> 的老毛病,导致记录的个数算错)、<b>③ 扩容时</b>(元素变多要把整张表翻倍、把节点重新搬一遍,两个线程同时搬会丢节点甚至搬乱)。三处叠加,就成了下面真跑出来的"只剩四五千"。开 10 个线程,每个放 1000 个<b>不重复</b>的 key,期望 10000,点 ▶ 运行看实际丢多少:</p>
+      <div class="runblk">
+        <div class="runblk-h"><span class="t">▶ 普通 HashMap:10 线程各放 1000 个 key</span><span class="va">无特殊参数</span></div>
+        <div class="code" id="code-mapun"></div>
+        <div class="runbar"><button data-run="mapun">▶ 运行</button><span class="hint">本机实测常常只剩 4000~6000 个 —— 丢了近一半!多跑几次每次还不同</span></div>
+        <div class="out" id="out-mapun"></div>
+      </div>
+      <p class="lead" style="margin-top:14px">把 <code>new HashMap</code> 换成 <code>new ConcurrentHashMap</code>,<b>一个字其它都不改</b>,再跑:</p>
+      <div class="runblk">
+        <div class="runblk-h"><span class="t">▶ ConcurrentHashMap:同样的压力</span><span class="va">无特殊参数</span></div>
+        <div class="code" id="code-mapsafe"></div>
+        <div class="runbar"><button data-run="mapsafe">▶ 运行</button><span class="hint">稳稳 10000,一个不丢</span></div>
+        <div class="out" id="out-mapsafe"></div>
+      </div>
+      <div class="take">📌 <b>并发容器</b> = 内部已经做好线程安全处理的容器,直接拿来用,别在多线程里用普通的。常用对照:<code>HashMap→ConcurrentHashMap</code>、<code>ArrayList→CopyOnWriteArrayList</code>、<code>普通队列→BlockingQueue</code>(线程池的队列就是它)。ConcurrentHashMap 不是"整个锁住",而是<b>分段/分桶只锁一小块</b>(Java8 用 CAS + synchronized 锁单个桶),所以又安全又快。</div>
+    </div>
+  </div>
+
+  <!-- ② CAS -->
+  <div class="topic" id="t-cas">
+    <div class="topic-h"><span class="num">②</span><h2>CAS:不加锁也能对的"魔法"(回收第1课伏笔)</h2><span class="lv 核心">核心</span></div>
+    <div class="topic-b">
+      <p class="lead">第 1 课用<b>锁</b>修 bug:谁拿到钥匙谁进,别人<b>阻塞等待</b>(悲观:假设一定会冲突)。CAS 是<b>另一种思路</b>(乐观:假设基本不冲突)——<b>先不抢锁,直接算;写回的瞬间再核对一次"内存还是不是我读到的旧值",是就写、不是就说明被人插队了,那就重来一遍。</b> CAS = <b>C</b>ompare(比一比)<b>A</b>nd <b>S</b>wap(再交换)。点「下一步 ▶」走一遍:</p>
+      <div class="sim" id="sim">
+        <div class="sim-stage">
+          <div class="col A" id="colA"><div class="ct">线程 A</div>
+            <div class="kv" id="kvA">读到旧值:—<br>算出新值:—</div>
+            <div class="res none" id="resA">等待…</div>
+          </div>
+          <div class="mid">
+            <div class="countbox" id="countbox"><span class="cl">内存值</span><span class="cv" id="countv">5</span></div>
+          </div>
+          <div class="col B" id="colB"><div class="ct">线程 B</div>
+            <div class="kv" id="kvB">读到旧值:—<br>算出新值:—</div>
+            <div class="res none" id="resB">等待…</div>
+          </div>
+        </div>
+        <div class="narr" id="narr"></div>
+        <div class="sim-ctl">
+          <button class="sec" id="prevBtn">◀ 上一步</button>
+          <button class="nx" id="nextBtn">下一步 ▶</button>
+          <button class="sec" id="resetBtn">↺ 重置</button>
+          <span class="pg" id="pg"></span>
+        </div>
+      </div>
+      <p class="lead" style="margin-top:14px">这就是第 1 课 <code>AtomicInteger</code> 内部干的事(<code>incrementAndGet</code> = 一个"失败就自动重试"的 CAS 循环)。再跑一遍确认它对:</p>
+      <div class="runblk">
+        <div class="runblk-h"><span class="t">▶ AtomicInteger(底层 CAS):两线程各 +10万</span><span class="va">无特殊参数</span></div>
+        <div class="code" id="code-atomic"></div>
+        <div class="runbar"><button data-run="atomic">▶ 运行</button><span class="hint">稳稳 200000,而且没用锁、没人被阻塞</span></div>
+        <div class="out" id="out-atomic"></div>
+      </div>
+      <table class="t">
+        <tr><th></th><th>🔒 加锁(synchronized,悲观)</th><th>⚡ CAS(原子类,乐观)</th></tr>
+        <tr><td>思路</td><td>假设会冲突,先抢钥匙再干</td><td>假设不冲突,先干,写回时核对</td></tr>
+        <tr><td>冲突时</td><td>抢不到的线程<b>阻塞睡觉</b>等唤醒</td><td>失败的线程<b>不睡,立刻重试</b></td></tr>
+        <tr><td>适合</td><td>冲突多、临界区大</td><td>冲突少、操作短(如计数器)</td></tr>
+      </table>
+      <div class="take">📌 <b>CAS 三件套:</b>内存地址 V、我读到的旧值 A、要写的新值 B。写回时硬件保证"<b>原子地</b>":如果 V 处还等于 A,就改成 B 并返回成功;否则不改、返回失败。失败了就重读重算重试(自旋)。<b>整个过程没有锁、没有阻塞</b>,所以叫"无锁(lock-free)"。</div>
+    </div>
+  </div>
+
+  <!-- ③ ABA -->
+  <div class="topic" id="t-aba">
+    <div class="topic-h"><span class="num">③</span><h2>CAS 的著名坑:ABA 问题</h2><span class="lv 进阶">进阶</span></div>
+    <div class="topic-b">
+      <p class="lead">CAS 只问"现在的值<b>等不等于</b>我当初读的值",它<b>看不出"中间有没有被人动过又改回来"</b>。如果值经历 <b>A → B → 又变回 A</b>,CAS 一看"还是 A 嘛",就以为风平浪静,其实早被人翻动过。看这条时间轴:</p>
+      <div class="aba">
+        <div class="abacell"><div class="v">100</div><div class="s">起点</div></div>
+        <div class="abaarrow">→</div>
+        <div class="abacell" style="border-color:#b84a36"><div class="v" style="color:#b84a36">50</div><div class="s">被取走</div></div>
+        <div class="abaarrow">→</div>
+        <div class="abacell"><div class="v">100</div><div class="s">又被存回</div></div>
+        <div class="abaarrow">⇒</div>
+        <div class="abacell" style="border-color:#8a5d1f;background:#fff7e6"><div class="v" style="color:#8a5d1f">CAS</div><div class="s">期望100,现在也100</div></div>
+      </div>
+      <div class="abaeyes">
+        <div class="eye bad">👁 <b>只看值的 CAS</b>:期望 100 == 现在 100 → <b>成功</b>。它没发现中间被取走又存回,<b>被骗了</b>。</div>
+        <div class="eye good">🔖 <b>带版本号的 CAS</b>(AtomicStampedReference):每次改动版本号 +1。值虽都是 100,但版本号 1→3 对不上 → <b>失败,识破!</b></div>
+      </div>
+      <div class="runblk">
+        <div class="runblk-h"><span class="t">▶ 真跑:只看值 vs 带版本号,谁能识破 A→B→A</span><span class="va">无特殊参数</span></div>
+        <div class="code" id="code-aba"></div>
+        <div class="runbar"><button data-run="aba">▶ 运行</button><span class="hint">只看值的返回 true(被骗);带版本号的返回 false(识破)</span></div>
+        <div class="out" id="out-aba"></div>
+      </div>
+      <div class="take">📌 <b>ABA 何时要紧?</b>大多数计数场景(值本身就是你要的)不在乎 ABA;但在<b>无锁链表/栈</b>这类"靠指针判断有没有变"的结构里,ABA 会导致把已经回收的节点错当成没变。<b>解法:给值挂个版本号/时间戳</b>,用 <code>AtomicStampedReference</code> 连版本一起比。</div>
+    </div>
+  </div>
+
+  <div class="note">👉 <b><a href="./concurrency-lab-5.html">进入第 5 课:显式锁 &amp; 协调 &amp; 死锁 →</a></b>　<code>ReentrantLock</code> 比 synchronized 多了啥(可中断/可超时/公平锁)、<code>CountDownLatch</code>/<code>Semaphore</code> 怎么让线程"等齐再走 / 限流",以及亲手制造一个<b>死锁</b>并让 JVM 揪出来。本页所有 Java 都在你本机真实运行。</div>
+</div>
+
+<a id="home-fab" href="./knowledge-map.html" style="position:fixed;right:16px;bottom:16px;z-index:9999;background:#245f73;color:#fff;text-decoration:none;font:600 13px/1 -apple-system,BlinkMacSystemFont,sans-serif;padding:10px 14px;border-radius:24px;box-shadow:0 2px 10px rgba(0,0,0,.18)">🏠 总览</a>
+
+<script>
+const $=s=>document.querySelector(s);
+$('#toc').innerHTML=[['t-map','① 并发容器'],['t-cas','② CAS 原理'],['t-aba','③ ABA 问题']]
+  .map(([id,t])=>`<a href="#${id}">${t}</a>`).join('');
+
+const CODE={
+mapun:`import java.util.*; import java.util.concurrent.*;
+public class MapUnsafe {
+  public static void main(String[] a) throws Exception {
+    Map<Integer,Integer> map = new HashMap<>();        // ← 线程不安全
+    ExecutorService pool = Executors.newFixedThreadPool(10);
+    CountDownLatch latch = new CountDownLatch(10);
+    for (int t=0;t<10;t++){ final int base=t*1000;
+      pool.submit(()->{ for(int i=0;i<1000;i++) map.put(base+i,1); latch.countDown(); });
+    }
+    latch.await(); pool.shutdown();
+    System.out.println("HashMap 期望 10000,实际 = " + map.size() + "   ← 丢了一大半!");
+  }
+}`,
+mapsafe:`import java.util.*; import java.util.concurrent.*;
+public class MapSafe {
+  public static void main(String[] a) throws Exception {
+    Map<Integer,Integer> map = new ConcurrentHashMap<>();   // ← 只改这一处
+    ExecutorService pool = Executors.newFixedThreadPool(10);
+    CountDownLatch latch = new CountDownLatch(10);
+    for (int t=0;t<10;t++){ final int base=t*1000;
+      pool.submit(()->{ for(int i=0;i<1000;i++) map.put(base+i,1); latch.countDown(); });
+    }
+    latch.await(); pool.shutdown();
+    System.out.println("ConcurrentHashMap 期望 10000,实际 = " + map.size() + "   ← 一个不丢");
+  }
+}`,
+atomic:`import java.util.concurrent.atomic.AtomicInteger;
+public class FixAtomic {
+  static AtomicInteger count = new AtomicInteger(0);   // 内部用 CAS
+  public static void main(String[] a) throws Exception {
+    Runnable job = () -> { for (int i=0;i<100000;i++) count.incrementAndGet(); };  // CAS 自旋重试
+    Thread t1=new Thread(job), t2=new Thread(job);
+    t1.start(); t2.start(); t1.join(); t2.join();
+    System.out.println("AtomicInteger(CAS) count = " + count.get() + "   ← 200000,没用锁");
+  }
+}`,
+aba:`import java.util.concurrent.atomic.*;
+public class AbaDemo {
+  public static void main(String[] a) throws Exception {
+    // 只看"值"的 CAS:会被 A→B→A 骗过
+    AtomicReference<Integer> ref = new AtomicReference<>(100);
+    ref.compareAndSet(100, 50);                     // 有人把 100 改成 50
+    ref.compareAndSet(50, 100);                     // 又改回 100(值绕回来了)
+    boolean fooled = ref.compareAndSet(100, 999);   // 我以为"没变过"
+    System.out.println("只看值: 期望100==现在100 → CAS=" + fooled + "  (被 A→B→A 骗了)");
+
+    // 带版本号的 CAS:能识破
+    AtomicStampedReference<Integer> s = new AtomicStampedReference<>(100, 1);
+    int v0 = s.getStamp();                           // 记下初始版本号 1
+    s.compareAndSet(100, 50,  s.getStamp(), s.getStamp()+1);   // 版本 1→2
+    s.compareAndSet(50, 100, s.getStamp(), s.getStamp()+1);    // 版本 2→3
+    boolean caught = s.compareAndSet(100, 999, v0, v0+1);      // 用老版本号 1 去 CAS
+    System.out.println("带版本号: 值虽100,但版本号1≠3 → CAS=" + caught + "  (识破了!)");
+  }
+}`
+};
+for(const k in CODE){ const el=document.getElementById('code-'+k); if(el) el.textContent=CODE[k]; }
+async function runJava(key, outEl, btn){
+  btn.disabled=true;const old=btn.textContent;btn.textContent='运行中…';
+  outEl.className='out show running';outEl.textContent='⏳ 正在本机编译 + 运行 Java…';
+  try{
+    const r=await fetch('/api/run-java',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({code:CODE[key]})}).then(r=>r.json());
+    outEl.textContent=r.output||'(无输出)';
+    outEl.className='out show '+(r.ok?'':'err');
+  }catch(e){ outEl.textContent='运行失败:'+(e.message||e);outEl.className='out show err'; }
+  btn.disabled=false;btn.textContent=old;
+}
+document.querySelectorAll('button[data-run]').forEach(btn=>{
+  const key=btn.getAttribute('data-run');
+  btn.onclick=()=>runJava(key, document.getElementById('out-'+key), btn);
+});
+
+/* ===== CAS stepper ===== */
+const CAS=[
+ {mem:5, A:null,B:null, act:null, resA:'none|等待…', resB:'none|等待…',
+   n:'初始:内存值 = 5。线程 A、B 都想把它 +1(正确结果应是 7)。CAS 玩法:读旧值→算新值→写回时核对内存是否还等于旧值。'},
+ {mem:5, A:{o:5,n:6},B:null, act:'A', resA:'none|读旧值=5,算新值=6,还没写', resB:'none|等待…',
+   n:'A 读到内存=5,在自己手里算出新值 6。(还没写回内存)'},
+ {mem:5, A:{o:5,n:6},B:{o:5,n:6}, act:'B', resA:'none|准备 CAS', resB:'none|读旧值=5,算新值=6,还没写',
+   n:'B 也读到内存=5(A 还没写回),也算出新值 6。两人现在都拿着"旧值5、新值6"。'},
+ {mem:6, A:{o:5,n:6},B:{o:5,n:6}, act:'A', resA:'ok|✅ CAS 成功:期望5==内存5,写入6', resB:'none|准备 CAS',
+   n:'A 抢先做 CAS:期望内存还是5,一看内存确实=5 → ✅ 成功!内存被原子地写成 6。'},
+ {mem:6, A:{o:5,n:6},B:{o:5,n:6}, act:'B', resA:'ok|✅ 已成功', resB:'fail|❌ CAS 失败:期望5≠内存6',
+   n:'❌ 轮到 B 做 CAS:它期望内存=5,可现在内存已经是 6 了!对不上 → 失败。CAS 当场发现"有人插队改过了"。'},
+ {mem:6, A:{o:5,n:6},B:{o:6,n:7}, act:'B', resA:'ok|✅ 已成功', resB:'none|重新读旧值=6,算新值=7',
+   n:'B 不丢数据、也不报错,只是【重来一遍】:重新读内存=6,算出新值 7。'},
+ {mem:7, A:{o:5,n:6},B:{o:6,n:7}, act:'B', resA:'ok|✅ 已成功', resB:'ok|✅ CAS 成功:期望6==内存6,写入7',
+   n:'B 再做 CAS:期望内存=6,现在确实=6 → ✅ 成功!内存写成 7。'},
+ {mem:7, A:null,B:null, act:null, resA:'ok|✅ 完成', resB:'ok|✅ 完成(重试1次)', good:true,
+   n:'✅ 内存 5→7,一次没丢!对比第1课的锁:这里 B 从没被阻塞睡觉,只是"失败→重试"。这就是 AtomicInteger 不加锁也对的真相。'},
+];
+let step=0;
+function setRes(el,spec){ const [cls,txt]=spec.split('|'); el.className='res '+cls; el.textContent=txt; }
+function render(){
+  const s=CAS[step];
+  $('#countv').textContent=s.mem;
+  $('#countbox').className='countbox'+(s.good?' good':'');
+  $('#kvA').innerHTML = s.A? ('读到旧值:<b>'+s.A.o+'</b><br>算出新值:<b>'+s.A.n+'</b>') : '读到旧值:—<br>算出新值:—';
+  $('#kvB').innerHTML = s.B? ('读到旧值:<b>'+s.B.o+'</b><br>算出新值:<b>'+s.B.n+'</b>') : '读到旧值:—<br>算出新值:—';
+  setRes($('#resA'), s.resA); setRes($('#resB'), s.resB);
+  $('#colA').className='col A'+(s.act==='A'?' active':'');
+  $('#colB').className='col B'+(s.act==='B'?' active':'');
+  const narr=$('#narr'); narr.textContent=s.n;
+  narr.className='narr'+(s.good?' good':(/❌/.test(s.n)?' fail':''));
+  $('#pg').textContent='第 '+(step+1)+' / '+CAS.length+' 步';
+  $('#prevBtn').disabled=step===0; $('#nextBtn').disabled=step===CAS.length-1;
+}
+$('#nextBtn').onclick=()=>{step=Math.min(CAS.length-1,step+1);render();};
+$('#prevBtn').onclick=()=>{step=Math.max(0,step-1);render();};
+$('#resetBtn').onclick=()=>{step=0;render();};
+render();
+
+/* ===== HashMap 桶位覆盖 stepper ===== */
+const HM=[
+ {tbl:[[],[],[],[]], hot:-1, hA:'要放的:🍎 苹果<br>算出落点:—', hB:'要放的:🍌 香蕉<br>算出落点:—', act:null, alive:0,
+   n:'初始:HashMap 有 4 个桶,全空。线程 A 要 put("🍎苹果"),线程 B 要 put("🍌香蕉")。假设这两个 key 的 hash 恰好都落在【桶2】(哈希冲突,很常见)。'},
+ {tbl:[[],[],[],[]], hot:2, hA:'要放的:🍎 苹果<br>算出落点:<b>桶2</b>(看了一眼:空的)', hB:'要放的:🍌 香蕉<br>算出落点:—', act:'A', alive:0,
+   n:'① A 算 hash("🍎苹果") → 落到桶2。A 看桶2:是空的 → 打算"直接把苹果放进桶2"。'},
+ {tbl:[[],[],[],[]], hot:2, hA:'要放的:🍎 苹果<br>落点:<b>桶2</b>(空,准备写)', hB:'要放的:🍌 香蕉<br>算出落点:<b>桶2</b>(看了一眼:也空)', act:'B', alive:0, warn:1,
+   n:'⚠️ ① B 算 hash("🍌香蕉") → 也落到桶2。B 看桶2:还是空的(A 还没真写进去呢!)→ 也打算"直接把香蕉放进桶2"。两人都以为桶是空的。'},
+ {tbl:[[],[],['🍎苹果'],[]], hot:2, hA:'已写入桶2 ✅', hB:'要放的:🍌 香蕉<br>落点:<b>桶2</b>(以为空,准备写)', act:'A', alive:1,
+   n:'② A 写入:桶2 = [🍎苹果]。现在真正存活 1 个 key。'},
+ {tbl:[[],[],['🍌香蕉'],[]], hot:2, hA:'已写入桶2 ✅', hB:'已写入桶2 💥', act:'B', alive:1, danger:1,
+   n:'💥 ② B 写入:它以为桶2还是空的,于是【直接整个写进去】→ 桶2 = [🍌香蕉]。A 刚放的🍎苹果被盖掉了!'},
+ {tbl:[[],[],['🍌香蕉'],[]], hot:2, hA:'🍎 苹果没了 ❌', hB:'🍌 香蕉(留下)', act:null, alive:1, danger:1, end:1,
+   n:'结局:put 了 2 个 key,桶2 里却只剩🍌香蕉,🍎苹果凭空消失。对比单线程:B 会发现桶2已经有苹果 → 把香蕉接在后面成链表 [🍎→🍌],俩都在;并发时 B 在 A 写入前就检查了桶、看到空,于是覆盖。问题就出在"检查空不空"和"写进去"之间的那条缝。'},
+];
+let hstep=0;
+function hRender(){
+  const s=HM[hstep];
+  $('#htable').innerHTML = s.tbl.map((b,i)=>{
+    const content = b.length
+      ? b.map(k=>`<span class="knode ${k.indexOf('苹果')>=0?'apple':'banana'}">${k}</span>`).join('<span class="barrow">→</span>')
+      : '<span class="bempty">空</span>';
+    return `<div class="bkt ${s.hot===i?'hot':''}"><span class="bi">桶${i}</span><span class="bc">${content}</span></div>`;
+  }).join('');
+  $('#hHandA').innerHTML=s.hA; $('#hHandB').innerHTML=s.hB;
+  $('#hColA').className='col A'+(s.act==='A'?' active':'');
+  $('#hColB').className='col B'+(s.act==='B'?' active':'');
+  $('#aliveLine').innerHTML='真正存活的 key:<b>'+s.alive+'</b>'+(s.end?' <span style="color:#8a8a8a">/ 本该 2 个</span>':'');
+  const n=$('#hNarr'); n.textContent=s.n; n.className='narr'+(s.danger?' fail':(s.warn?' warn':''));
+  $('#hPg').textContent='第 '+(hstep+1)+' / '+HM.length+' 步';
+  $('#hPrev').disabled=hstep===0; $('#hNext').disabled=hstep===HM.length-1;
+}
+$('#hNext').onclick=()=>{hstep=Math.min(HM.length-1,hstep+1);hRender();};
+$('#hPrev').onclick=()=>{hstep=Math.max(0,hstep-1);hRender();};
+$('#hReset').onclick=()=>{hstep=0;hRender();};
+hRender();
+</script>
+<script>
+if(!/^(localhost|127\.)/.test(location.hostname)){
+  var _b=document.createElement('div');
+  _b.style.cssText='position:sticky;top:0;z-index:9998;background:#fdf6e6;border-bottom:1px solid #e6d3a6;color:#8a5d1f;font:12.5px/1.6 -apple-system,BlinkMacSystemFont,sans-serif;padding:7px 14px;text-align:center';
+  _b.innerHTML='🌐 线上版:「▶ 运行」需要本地 Java 后端(localhost 才能真跑);讲解与交互动画不受影响';
+  document.body.prepend(_b);
+}
+</script>
+</body>
+</html>

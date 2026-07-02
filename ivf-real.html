@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>IVF on 真实文本 · 把切块→向量→聚类→检索串起来</title>
+<style>
+  :root{--bg:#fafaf7;--paper:#fff;--ink:#1a1a1a;--ink2:#4a4a4a;--muted:#8a8a8a;--line:#e8e6df;
+    --accent:#245f73;--accent2:#1f6f4f;--warn:#b84a36;
+    --font:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    --mono:"SF Mono",ui-monospace,Menlo,monospace;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.7;font-size:15px}
+  .page{max-width:1080px;margin:0 auto;padding:34px 22px 90px}
+  h1{font-size:25px;margin:0 0 4px}
+  .sub{color:var(--muted);margin:0 0 18px}
+  a{color:var(--accent)}
+  .bar{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+  button{font:inherit;font-weight:700;padding:8px 14px;border:1px solid var(--accent);border-radius:8px;background:var(--accent);color:#fff;cursor:pointer}
+  button.ghost{background:#fff;color:var(--accent)}
+  button:disabled{opacity:.5}
+  .ctl{display:flex;flex-direction:column;font-size:13px;color:var(--ink2)}
+  input[type=range]{width:130px}
+  input[type=text]{font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:7px;background:#fffdf8}
+  .status{font-size:13px;color:var(--ink2)}
+  .seg{margin-top:20px;background:var(--paper);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .seg-head{padding:13px 18px;border-bottom:1px solid var(--line);background:#f6f5ef}
+  .seg-head h2{margin:0;font-size:17px}
+  .seg-head .algo{margin-top:3px;color:var(--ink2);font-size:13px}
+  .seg-body{padding:16px 18px}
+  .clusters{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
+  .cluster{border:1px solid var(--line);border-radius:9px;padding:10px 12px}
+  .cluster h4{margin:0 0 6px;font-size:13px;display:flex;align-items:center;gap:6px}
+  .cdot{width:12px;height:12px;border-radius:3px;display:inline-block}
+  .cluster ul{margin:0;padding-left:16px}
+  .cluster li{font-size:13px;margin:2px 0;color:var(--ink2)}
+  canvas{background:#fbfbf8;border:1px solid var(--line);border-radius:8px;width:100%}
+  .res{margin-top:8px}
+  .res .item{padding:6px 10px;border:1px solid var(--line);border-radius:7px;margin:5px 0;font-size:13.5px;display:flex;justify-content:space-between;gap:10px}
+  .res .item.hit{background:#eef6f0;border-color:#bfe0cc}
+  .res .item .sc{font-family:var(--mono);color:var(--muted)}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:760px){.two{grid-template-columns:1fr}}
+  .stat{font-size:13px;color:var(--ink2);margin-top:8px}.stat b{color:var(--ink)}
+  .hint{font-size:12.5px;color:var(--muted);margin-top:6px}
+  .err{color:var(--warn);font-weight:700}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>IVF · 用真实文本跑一遍(切块 → 向量 → 聚类 → 检索)</h1>
+  <p class="sub">这版把建索引接回真实内容:下面每个"点"都是<b>一条真实文本 chunk 的 512 维向量</b>。看 k-means 把哪些文本归到了一堆、查询时只搜哪几堆。<a href="./index-lab.html">← 看纯机制版(2D)</a> · <a href="./rag-pipeline.html">流程总表</a></p>
+
+  <div class="bar">
+    <button id="load">加载模型 + 向量化所有文本</button>
+    <label class="ctl">簇数 C：<b><span id="cV">4</span></b><input type="range" id="c" min="2" max="6" step="1" value="4"></label>
+    <label class="ctl">探查簇 nprobe：<b><span id="npV">1</span></b><input type="range" id="np" min="1" max="4" step="1" value="1"></label>
+    <span class="status" id="status">点按钮:把下面 15 条风控文本各算成 512 维向量,再 k-means 聚类。</span>
+  </div>
+
+  <div class="seg"><div class="seg-head"><h2>① k-means 把真实文本分成了几堆</h2>
+    <div class="algo">每条文本 → bge 向量 → 按向量相近度聚成 C 堆。看同类风险的文本是不是被自动归到一起。</div></div>
+    <div class="seg-body"><div class="clusters" id="clusters"></div>
+      <div class="hint">每堆里列的是<b>真实 chunk 文本</b>。色块=簇。理想情况:导流类聚一堆、诈骗类聚一堆…</div></div></div>
+
+  <div class="seg"><div class="seg-head"><h2>② 语义地图(PCA 投影,点上是真实文本)</h2>
+    <div class="algo">把 512 维压到 2D 看分布。✕=簇心。颜色=所属簇。距离近≈意思近。</div></div>
+    <div class="seg-body"><canvas id="map" width="1000" height="520"></canvas></div></div>
+
+  <div class="seg"><div class="seg-head"><h2>③ 拿真实查询检索:Flat vs IVF</h2>
+    <div class="algo">输入一句话,看 Flat(跟全部15条比) 和 IVF(只搜最近 nprobe 堆) 各召回哪些真实文本、IVF 漏没漏。</div></div>
+    <div class="seg-body">
+      <div class="bar"><input type="text" id="q" value="主播让粉丝加微信私下买东西" style="flex:1;min-width:260px"><button class="ghost" id="goq">检索</button></div>
+      <div class="two">
+        <div><b style="font-size:13px">Flat(真值:跟全部15条比)</b><div class="res" id="resFlat"></div></div>
+        <div><b style="font-size:13px">IVF(只搜最近的簇)</b><div class="res" id="resIvf"></div><div class="stat" id="ivfStat"></div></div>
+      </div>
+    </div></div>
+</div>
+
+<script type="module">
+const $=s=>document.querySelector(s);
+const status=$('#status');
+const CHUNKS=[
+  {t:'主播在直播间诱导粉丝添加微信',c:'导流'},
+  {t:'短视频评论区留二维码引导去站外付款',c:'导流'},
+  {t:'笔记用谐音薇信号让用户去小号看价目',c:'导流'},
+  {t:'账号发布虚假中奖要求先交保证金',c:'诈骗'},
+  {t:'冒充客服索要短信验证码解冻账户',c:'诈骗'},
+  {t:'群里宣传刷单返佣需要先垫付本金',c:'诈骗'},
+  {t:'评论曝光他人手机号和家庭住址',c:'隐私'},
+  {t:'发布人肉搜索请求披露身份证照片',c:'隐私'},
+  {t:'主播暗示用外挂脚本提升游戏排名',c:'作弊'},
+  {t:'帖子提供自动抢券工具规避风控',c:'作弊'},
+  {t:'出售接码服务绕开新用户注册限制',c:'作弊'},
+  {t:'今天天气很好适合出去爬山',c:'闲聊'},
+  {t:'推荐一家性价比高的火锅店',c:'闲聊'},
+  {t:'周末打算在家看一部老电影',c:'闲聊'},
+  {t:'分享几个提高工作效率的小技巧',c:'闲聊'},
+];
+const PALETTE=['#b94d2d','#6450a8','#207864','#b07b24','#2f6f9f','#8c4b71'];
+let M=null, vecs=null, km=null;
+
+async function ensure(){ if(M)return M; $('#load').disabled=true;status.textContent='加载本地 bge 模型…';
+  try{M=await import('./src/dense.js?v=2');await M.loadModel(e=>{if(e&&e.status)status.textContent='加载：'+(e.file||e.status);});}
+  catch(e){status.innerHTML='<span class="err">加载失败：'+String(e.message||e)+'</span>';$('#load').disabled=false;throw e;}
+  return M;
+}
+const dot=(a,b)=>{let s=0;for(let i=0;i<a.length;i++)s+=a[i]*b[i];return s;}; // 已归一化 → dot=cosine
+const normalize=v=>{let n=0;for(const x of v)n+=x*x;n=Math.sqrt(n)||1;return v.map(x=>x/n);};
+function kmeans(C){
+  let s=7;const r=()=>{s=(s*1103515245+12345)&0x7fffffff;return s/0x7fffffff;};
+  const cent=[];const used=new Set();for(let i=0;i<C;i++){let idx;do{idx=Math.floor(r()*vecs.length);}while(used.has(idx));used.add(idx);cent.push(vecs[idx].slice());}
+  let assign=new Array(vecs.length).fill(0);
+  for(let it=0;it<15;it++){
+    for(let i=0;i<vecs.length;i++){let bs=-2,bj=0;for(let j=0;j<C;j++){const d=dot(vecs[i],cent[j]);if(d>bs){bs=d;bj=j;}}assign[i]=bj;}
+    for(let j=0;j<C;j++){const acc=new Float64Array(vecs[0].length);let cnt=0;for(let i=0;i<vecs.length;i++)if(assign[i]===j){for(let k=0;k<acc.length;k++)acc[k]+=vecs[i][k];cnt++;}if(cnt)cent[j]=normalize([...acc]);}
+  }
+  return {cent,assign,C};
+}
+function pca2(V){
+  const n=V.length,d=V[0].length;const mean=new Float64Array(d);for(const v of V)for(let j=0;j<d;j++)mean[j]+=v[j];for(let j=0;j<d;j++)mean[j]/=n;
+  const X=V.map(v=>{const r=new Float64Array(d);for(let j=0;j<d;j++)r[j]=v[j]-mean[j];return r;});
+  const top=(X)=>{let v=new Float64Array(d).fill(1/Math.sqrt(d));for(let it=0;it<80;it++){const u=new Float64Array(n);for(let i=0;i<n;i++){let s=0;for(let j=0;j<d;j++)s+=X[i][j]*v[j];u[i]=s;}const w=new Float64Array(d);for(let i=0;i<n;i++){const ui=u[i];for(let j=0;j<d;j++)w[j]+=X[i][j]*ui;}let nn=0;for(let j=0;j<d;j++)nn+=w[j]*w[j];nn=Math.sqrt(nn)||1;for(let j=0;j<d;j++)w[j]/=nn;v=w;}return v;};
+  const p1=top(X);for(let i=0;i<n;i++){let p=0;for(let j=0;j<d;j++)p+=X[i][j]*p1[j];for(let j=0;j<d;j++)X[i][j]-=p*p1[j];}const p2=top(X);
+  return V.map(v=>{let x=0,y=0;for(let j=0;j<d;j++){const c=v[j]-mean[j];x+=c*p1[j];y+=c*p2[j];}return[x,y];});
+}
+function renderClusters(){
+  const groups={};km.assign.forEach((a,i)=>{(groups[a]=groups[a]||[]).push(i);});
+  $('#clusters').innerHTML=Object.keys(groups).sort((a,b)=>a-b).map(a=>`<div class="cluster">
+    <h4><span class="cdot" style="background:${PALETTE[a%PALETTE.length]}"></span>簇 ${+a+1}（${groups[a].length} 条）</h4>
+    <ul>${groups[a].map(i=>`<li>${CHUNKS[i].t} <small style="color:#aaa">·${CHUNKS[i].c}</small></li>`).join('')}</ul></div>`).join('');
+}
+function renderMap(){
+  const pts=pca2(vecs);const cv=$('#map'),ctx=cv.getContext('2d');const W=cv.width,H=cv.height,pad=60;
+  const xs=pts.map(p=>p[0]),ys=pts.map(p=>p[1]);const mnx=Math.min(...xs),mxx=Math.max(...xs),mny=Math.min(...ys),mxy=Math.max(...ys);
+  const sx=x=>pad+(x-mnx)/(mxx-mnx||1)*(W-2*pad),sy=y=>H-pad-(y-mny)/(mxy-mny||1)*(H-2*pad);
+  ctx.clearRect(0,0,W,H);ctx.font='13px -apple-system,sans-serif';
+  pts.forEach((p,i)=>{const x=sx(p[0]),y=sy(p[1]),col=PALETTE[km.assign[i]%PALETTE.length];
+    ctx.beginPath();ctx.arc(x,y,6,0,7);ctx.fillStyle=col;ctx.fill();ctx.fillStyle='#1a1a1a';ctx.fillText(CHUNKS[i].t.slice(0,12),x+9,y+4);});
+}
+async function build(){
+  const m=await ensure();status.textContent=`向量化 ${CHUNKS.length} 条文本…`;
+  vecs=[];for(const c of CHUNKS)vecs.push(Array.from(await m.embed(c.t)));
+  km=kmeans(+$('#c').value);renderClusters();renderMap();
+  status.textContent='完成 ✓ 看每堆里的真实文本。改簇数/查询可重算。';
+}
+$('#load').onclick=build;
+$('#c').oninput=()=>{$('#cV').textContent=$('#c').value;if(vecs){km=kmeans(+$('#c').value);renderClusters();renderMap();}};
+$('#np').oninput=()=>{$('#npV').textContent=$('#np').value;};
+
+async function query(){
+  if(!vecs){await build();}
+  const m=await ensure();const qt=$('#q').value.trim();if(!qt)return;
+  const qv=Array.from(await m.embed(qt));const K=4;
+  // Flat
+  const flat=vecs.map((v,i)=>[dot(qv,v),i]).sort((a,b)=>b[0]-a[0]).slice(0,K);
+  const flatIds=flat.map(x=>x[1]);
+  $('#resFlat').innerHTML=flat.map(([s,i])=>`<div class="item"><span>${CHUNKS[i].t}</span><span class="sc">${s.toFixed(3)}</span></div>`).join('');
+  // IVF
+  const np=+$('#np').value;
+  const cd=km.cent.map((c,j)=>[dot(qv,c),j]).sort((a,b)=>b[0]-a[0]);
+  const probed=new Set(cd.slice(0,np).map(x=>x[1]));
+  const cand=[];for(let i=0;i<vecs.length;i++)if(probed.has(km.assign[i]))cand.push(i);
+  const ivf=cand.map(i=>[dot(qv,vecs[i]),i]).sort((a,b)=>b[0]-a[0]).slice(0,K);
+  const ivfIds=ivf.map(x=>x[1]);
+  $('#resIvf').innerHTML=ivf.map(([s,i])=>`<div class="item ${flatIds.includes(i)?'hit':''}"><span>${CHUNKS[i].t}</span><span class="sc">${s.toFixed(3)}</span></div>`).join('')||'<div class="hint">该簇里没有文本</div>';
+  const rec=Math.round(flatIds.filter(i=>ivfIds.includes(i)).length/K*100);
+  $('#ivfStat').innerHTML=`只搜了簇 ${[...probed].map(x=>x+1).join(',')}（${cand.length}/${vecs.length} 条参与比较） · 召回 <b style="color:${rec===100?'#1f6f4f':'#b84a36'}">${rec}%</b> · 比 Flat 省 <b>${Math.round((1-cand.length/vecs.length)*100)}%</b> 比较${rec<100?'（绿底=和Flat一致;没绿底的是IVF漏选或选错）':''}`;
+}
+$('#goq').onclick=query;
+</script>
+<a id="home-fab" href="./knowledge-map.html" style="position:fixed;right:16px;bottom:16px;z-index:9999;background:#245f73;color:#fff;text-decoration:none;font:600 13px/1 -apple-system,BlinkMacSystemFont,sans-serif;padding:10px 14px;border-radius:24px;box-shadow:0 2px 10px rgba(0,0,0,.18)">🏠 总览</a>
+</body>
+</html>

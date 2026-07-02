@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RAG 向量检索解剖站 · 导航</title>
+<style>
+  :root{--bg:#fafaf7;--paper:#fff;--ink:#1a1a1a;--ink2:#4a4a4a;--muted:#8a8a8a;--line:#e8e6df;
+    --accent:#245f73;--accent2:#1f6f4f;--warn:#b84a36;--write:#8a5d1f;--read:#1f6f4f;
+    --font:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.65;font-size:15px}
+  .page{max-width:1080px;margin:0 auto;padding:38px 22px 90px}
+  h1{font-size:28px;margin:0 0 4px}
+  .sub{color:var(--muted);margin:0 0 8px}
+  .phase{margin-top:30px}
+  .phase-h{display:flex;align-items:baseline;gap:10px;border-bottom:2px solid var(--line);padding-bottom:6px;margin-bottom:14px}
+  .phase-h h2{margin:0;font-size:19px}
+  .phase-h .tag{font-size:12.5px;color:#fff;border-radius:5px;padding:1px 8px;font-weight:700}
+  .tag.w{background:var(--write)}.tag.r{background:var(--read)}.tag.o{background:var(--accent)}
+  .phase-h .note{font-size:13px;color:var(--muted)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(248px,1fr));gap:12px}
+  a.card{display:block;border:1px solid var(--line);border-radius:10px;background:var(--paper);padding:13px 15px;text-decoration:none;color:inherit;transition:border-color .15s,transform .15s}
+  a.card:hover{border-color:#c9c6bb;transform:translateY(-1px)}
+  .card h3{margin:0 0 4px;font-size:15px;color:var(--ink)}
+  .card .d{font-size:13px;color:var(--ink2);line-height:1.5}
+  .card .chips{margin-top:8px}
+  .chip{display:inline-block;font-size:11px;border-radius:4px;padding:1px 6px;margin:1px 3px 1px 0;background:#eef4f5;color:var(--accent)}
+  .chip.bai{background:#eaf1ec;color:var(--read)}.chip.step{background:#f7efe0;color:var(--write)}.chip.viz{background:#f1eef7;color:#6450a8}
+  .sub-group{font-size:13px;color:var(--muted);font-weight:700;margin:14px 0 6px;grid-column:1/-1}
+  .todo{opacity:.5;border-style:dashed;cursor:default;pointer-events:none}
+  .todo .badge{font-size:11px;color:var(--warn);font-weight:700}
+  .legend{font-size:12.5px;color:var(--muted);margin-top:6px}
+  .legend .chip{cursor:default}
+  .num{display:inline-block;width:22px;height:22px;line-height:22px;text-align:center;background:var(--accent);color:#fff;border-radius:50%;font-size:12px;font-weight:800;margin-right:6px}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>RAG 向量检索解剖站</h1>
+  <p class="sub">把 RAG 从「写入(建库)」到「检索(查询)」拆成一个个能真跑、看得见的白盒实验台。按下面分层逛。 · <a href="./knowledge-map.html" style="color:var(--accent);font-weight:700">↑ 技术知识全景地图</a>(这是其中「模型工程 › RAG」一块)</p>
+  <div class="legend">标签:<span class="chip">理论</span>讲原理 <span class="chip bai">白盒</span>看存储结构 <span class="chip step">单步</span>一步步走 <span class="chip viz">可视化</span>图形演示</div>
+
+  <!-- 总览 -->
+  <div class="phase">
+    <div class="phase-h"><span class="tag o">总览</span><h2>从这里开始</h2></div>
+    <div class="grid">
+      <a class="card" href="./rag-pipeline.html"><h3>📋 流程总表</h3><div class="d">RAG 全 9 步(切块→向量化→建索引→查询→召回→融合→重排→生成)+ 每一步的选型对照表。</div><div class="chips"><span class="chip">理论</span></div></a>
+      <a class="card" href="./anatomy.html"><h3>🔬 向量检索解剖台</h3><div class="d">BM25 / Dense(中文) / 图式渐近 三种召回方式并排,带准确度评估(recall/MRR)横向对比。</div><div class="chips"><span class="chip viz">可视化</span></div></a>
+      <a class="card" href="./vectordb-lab.html"><h3>🗄️ 向量库选型对比</h3><div class="d">Milvus / Qdrant / Chroma / pgvector 四个深度白盒(来源·原理·存储数据样子·优劣·选型)+ 对比表 + 决策树。</div><div class="chips"><span class="chip">理论</span><span class="chip bai">白盒</span></div></a>
+      <a class="card" href="./rag-eval-lab.html"><h3>📊 效果评测体系</h3><div class="d">RAG 怎么评:分层框架 + RAG Triad + 检索/生成指标(带可交互计算器)+ 工具基准 + 改进诊断手册。多 agent 研究+核查。</div><div class="chips"><span class="chip">理论</span><span class="chip viz">可视化</span></div></a>
+      <a class="card" href="./context-recall-lab.html"><h3>↳ Context Recall 从头白盒</h3><div class="d">RAGAS"不给相关清单也能算召回"到底咋算的:本地 LLM 当裁判,把标准答案拆 claim、逐条判支撑,亲眼看分母=答案事实点≠库里相关数。</div><div class="chips"><span class="chip bai">白盒</span><span class="chip viz">可视化</span></div></a>
+    </div>
+  </div>
+
+  <!-- 写入侧 -->
+  <div class="phase">
+    <div class="phase-h"><span class="tag w">写入侧 · 建库</span><h2>把资料变成可检索的索引(离线,做一次)</h2></div>
+    <div class="grid">
+      <a class="card" href="./chunking-lab.html"><h3><span class="num">1</span>切块 Chunking</h3><div class="d">四种切法(固定/递归/结构/语义)并排,层级树、存储元数据、超长切+过短合并、buffer 分组全可调。</div><div class="chips"><span class="chip viz">可视化</span><span class="chip bai">白盒</span></div></a>
+      <a class="card" href="./embedding-lab.html"><h3><span class="num">2</span>向量化 Embedding</h3><div class="d">文本→512维向量(热力图)、两两相似度矩阵、十几个短语的语义地图(PCA 聚类)。</div><div class="chips"><span class="chip viz">可视化</span></div></a>
+
+      <div class="sub-group">③ 建索引 —— 总入口与存储白盒</div>
+      <a class="card" href="./index-build-lab.html"><h3><span class="num">3</span>建索引白盒</h3><div class="d">数据层(记录)+ Flat/IVF/HNSW/PQ 各自存什么,逐字摊开看库里到底躺着啥。</div><div class="chips"><span class="chip bai">白盒</span></div></a>
+      <a class="card" href="./index-lab.html"><h3>检索机制对比(2D)</h3><div class="d">Flat/IVF/HNSW 三方在 2D 上并排:各比较了多少点、漏没漏(速度↔召回权衡)。</div><div class="chips"><span class="chip viz">可视化</span></div></a>
+
+      <div class="sub-group">③ 建索引 —— 子算法深入</div>
+      <a class="card" href="./kmeans-lab.html"><h3>k-means 单步</h3><div class="d">看着它"挑→归→挪"一步步把点分簇、收敛(IVF 分簇就靠它)。</div><div class="chips"><span class="chip step">单步</span></div></a>
+      <a class="card" href="./ivf-real.html"><h3>IVF 真实文本聚类</h3><div class="d">真实文本→向量→k-means 分簇,看哪些文本归到一堆、nprobe 怎么影响召回。</div><div class="chips"><span class="chip viz">可视化</span></div></a>
+      <a class="card" href="./ivf-index-lab.html"><h3>IVF · 索引存储结构</h3><div class="d">码本(簇中心)+ 每簇倒排列表 + 完整 JSON 白盒:IVF 在库里长什么样,nprobe 扫哪几条列表。</div><div class="chips"><span class="chip bai">白盒</span></div></a>
+      <a class="card" href="./pq-lab.html"><h3>PQ 量化白盒</h3><div class="d">512维→切段→每段查字典→压成几个编号(512×压缩)+ 还原误差。</div><div class="chips"><span class="chip bai">白盒</span></div></a>
+
+      <div class="sub-group">③ 建索引 —— HNSW 专题(从建到搜到存)</div>
+      <a class="card" href="./hnsw-build-lab.html"><h3>HNSW · 从零建图</h3><div class="d">空白开始,一个个插入点、连近邻,看图(含长边)从无到有长出来。</div><div class="chips"><span class="chip step">单步</span></div></a>
+      <a class="card" href="./hnsw-lab.html"><h3>HNSW · 走图搜索</h3><div class="d">从入口贪心走图:长边大跳、短边精修,一跳跳逼近查询。</div><div class="chips"><span class="chip step">单步</span></div></a>
+      <a class="card" href="./hnsw-layers-lab.html"><h3>HNSW · 分层(H)</h3><div class="d">三层:顶层稀疏大跳→底层稠密精修,看搜索逐层下沉。</div><div class="chips"><span class="chip step">单步</span></div></a>
+      <a class="card" href="./hnsw-index-lab.html"><h3>HNSW · 索引存储结构</h3><div class="d">入口点+每点层级+每层邻接表,完整 JSON 白盒:HNSW 在库里长什么样。</div><div class="chips"><span class="chip bai">白盒</span></div></a>
+    </div>
+  </div>
+
+  <!-- 检索侧 -->
+  <div class="phase">
+    <div class="phase-h"><span class="tag r">检索侧 · 查询</span><h2>每次提问都跑一遍(在线)</h2></div>
+    <div class="grid">
+      <a class="card" href="./query-embed-lab.html"><h3><span class="num">5</span>查询向量化</h3><div class="d">查询→(bge 指令前缀)→向量,落进和文档同一空间。讲清"非对称/前缀"。</div><div class="chips"><span class="chip bai">白盒</span></div></a>
+      <a class="card" href="./retrieval-lab.html"><h3><span class="num">6</span>召回 Retrieval</h3><div class="d">拿查询向量在索引上跑出 top-k 真实文档(带原文+元数据+分数),支持元数据预过滤。</div><div class="chips"><span class="chip bai">白盒</span></div></a>
+      <a class="card" href="./hybrid-lab.html"><h3><span class="num">7</span>混合检索 + RRF 融合</h3><div class="d">BM25 + Dense 两路召回并排,RRF 按排名融合;看"向量救同义词、关键词救精确码"的互补。</div><div class="chips"><span class="chip viz">可视化</span></div></a>
+      <a class="card" href="./bm25-lab.html"><h3>↳ BM25 从零手推</h3><div class="d">混合检索里"关键词"那一路的打分公式,拆成 TF/IDF/饱和/长度 4 块积木,纯数数无向量,每个数都算给你看。</div><div class="chips"><span class="chip bai">白盒</span><span class="chip step">单步</span></div></a>
+      <a class="card" href="./inverted-index-lab.html"><h3>↳ 倒排索引存储</h3><div class="d">BM25 的数据存哪?摊开倒排表(词→文档:次数)+ 长度 + 全局统计 + 落盘 JSON。补上稀疏侧的建索引白盒。</div><div class="chips"><span class="chip bai">白盒</span></div></a>
+      <a class="card" href="./rerank-lab.html"><h3><span class="num">8</span>重排 Rerank</h3><div class="d">真·中文 cross-encoder(bge-reranker)对召回候选逐对精排;看 bi-encoder vs cross-encoder 差别 + 名次怎么被纠正。</div><div class="chips"><span class="chip bai">白盒</span><span class="chip viz">可视化</span></div></a>
+      <a class="card" href="./cross-encoder-lab.html"><h3>↳ Cross-Encoder 从头走一遍</h3><div class="d">一对 query/doc 逐步过 cross-encoder:真 token 拼接序列、词×词注意力对视、bi 的 cosine vs cross 的判定,看它怎么不被"话题沾边"骗。</div><div class="chips"><span class="chip bai">白盒</span><span class="chip step">单步</span></div></a>
+      <a class="card" href="./generation-lab.html"><h3><span class="num">9</span>喂给 LLM 生成</h3><div class="d">把 top-k + 出处拼进提示词,本地真跑 Qwen2.5;对比"不给资料(瞎编)vs 给资料(照答+标出处+拒答)"。</div><div class="chips"><span class="chip bai">白盒</span><span class="chip viz">可视化</span></div></a>
+    </div>
+  </div>
+
+  <p class="legend" style="margin-top:34px">本地服务(8001)是会话级的,关了会停。需要时让 Claude 重启,或之后 push 到 GitHub Pages 拿永久地址。</p>
+</div>
+<a id="home-fab" href="./knowledge-map.html" style="position:fixed;right:16px;bottom:16px;z-index:9999;background:#245f73;color:#fff;text-decoration:none;font:600 13px/1 -apple-system,BlinkMacSystemFont,sans-serif;padding:10px 14px;border-radius:24px;box-shadow:0 2px 10px rgba(0,0,0,.18)">🏠 总览</a>
+</body>
+</html>

@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>计算层 · 从零讲透（可运行 Java 版）</title>
+<style>
+  :root{
+    --bg:#fbfcfd; --paper:#fff; --ink:#0f1820; --ink-2:#26333f; --muted:#5e6b78; --muted-2:#8997a5;
+    --line:#dde4ec; --green:#1f6f4f; --green-d:#16543b; --green-soft:#e9f3ee;
+    --blue:#0c5d80; --blue-soft:#e6f1f6; --amber:#8a5d1f; --amber-soft:#fbf2dc;
+    --red:#a3373a; --red-soft:#fbeceb; --gray-soft:#f3f5f8; --purple:#5b3e8f; --purple-soft:#efeaf7;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;color:var(--ink);background:var(--bg);line-height:1.78;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
+  .wrap{max-width:880px;margin:0 auto;padding:34px 22px 90px}
+  .eyebrow{display:inline-block;margin-bottom:8px;color:var(--green);font-size:11px;font-weight:850;letter-spacing:.18em}
+  h1{margin:6px 0 6px;font-size:27px;font-weight:850}
+  .subtitle{margin:0;color:var(--ink-2);font-size:14.5px}
+  .meta{margin-top:13px;color:var(--muted);font-size:12.5px;border-bottom:1px solid var(--line);padding-bottom:20px}
+  p{font-size:14px;color:var(--ink-2);margin:10px 0} p b{color:var(--ink)}
+
+  .lv{display:flex;align-items:center;gap:13px;margin:40px 0 10px}
+  .lv .num{flex:0 0 auto;width:50px;height:50px;border-radius:14px;background:var(--green);color:#fff;font-size:13px;font-weight:850;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.05}
+  .lv .num small{font-size:9px;font-weight:700;opacity:.85}
+  .lv h2{margin:0;font-size:20px;font-weight:850;color:var(--ink)} .lv .tag{margin-top:3px;font-size:11.5px;color:var(--muted)}
+
+  .term{margin:12px 0;padding:13px 17px;border-radius:10px;background:var(--amber-soft);border-left:4px solid var(--amber)}
+  .term .w{font-size:13.5px;font-weight:850;color:var(--amber);margin-bottom:3px}
+  .term .w .en{font-weight:600;color:var(--muted);font-size:12px}
+  .term p{margin:3px 0;font-size:13px;color:var(--ink-2)}
+  .ana{margin:12px 0;padding:13px 17px;border-radius:10px;background:var(--blue-soft);border-left:4px solid var(--blue)}
+  .ana .h{font-size:12.5px;font-weight:850;color:var(--blue);margin-bottom:4px} .ana .h::before{content:"🌰 "}
+  .ana p{margin:3px 0;font-size:13px}
+  .key{margin:12px 0;padding:13px 17px;border-radius:10px;background:var(--green-soft);border-left:4px solid var(--green)}
+  .key .h{font-size:12.5px;font-weight:850;color:var(--green-d);margin-bottom:3px} .key .h::before{content:"🔑 "}
+  .key p{margin:3px 0;font-size:13px} .key b{color:var(--green-d)}
+
+  .axis-head{display:flex;align-items:baseline;gap:12px;margin:46px 0 4px;padding-bottom:8px;border-bottom:2px solid var(--line)}
+  .axis-title{font-size:21px;font-weight:850;color:var(--ink)}
+  .axis-sub{font-size:13px;color:var(--muted);font-weight:700}
+  .axis-head.a1 .axis-title{color:var(--green-d)} .axis-head.a2 .axis-title{color:var(--blue)} .axis-head.a3 .axis-title{color:var(--red)}
+  .axis-intro{font-size:13.5px;background:var(--gray-soft);border-radius:10px;padding:11px 15px;margin:8px 0 4px}
+
+  .demo{margin:16px 0 4px;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:#fff}
+  .demo-h{display:flex;align-items:center;gap:10px;padding:13px 16px 2px}
+  .demo-h .b{flex:0 0 auto;font-size:11px;font-weight:850;color:#fff;background:var(--green);padding:2px 9px;border-radius:7px;letter-spacing:.04em}
+  .demo-h h3{margin:0;font-size:15.5px;font-weight:850;color:var(--ink)}
+  .demo-d{padding:0 16px;margin:4px 0 10px;font-size:13px;color:var(--muted)}
+
+  pre.code{margin:0;padding:14px 16px;background:#0f1820;color:#e8eef4;overflow-x:auto;
+    font-family:"SF Mono",Menlo,Consolas,monospace;font-size:12px;line-height:1.62;white-space:pre}
+  pre.code .cm{color:#7d96a8}
+  .run-row{display:flex;align-items:center;gap:12px;padding:11px 16px;background:var(--gray-soft);border-top:1px solid var(--line);flex-wrap:wrap}
+  .run-btn{font:inherit;font-size:13px;font-weight:800;color:#fff;background:var(--green);border:0;border-radius:8px;padding:7px 16px;cursor:pointer}
+  .run-btn:hover{background:var(--green-d)} .run-btn:disabled{opacity:.55;cursor:default}
+  .spin{font-size:12px;color:var(--green-d);font-weight:800}
+  .cmd{font-family:"SF Mono",Menlo,Consolas,monospace;font-size:11.5px;color:var(--muted)}
+  .out-wrap{max-height:0;opacity:0;overflow:hidden;transition:max-height .45s ease,opacity .35s}
+  .out-wrap.on{max-height:1400px;opacity:1}
+  .out-label{font-size:10.5px;color:#6f8294;padding:8px 16px 0;background:#0b0f14;font-family:"SF Mono",Menlo,Consolas,monospace;letter-spacing:.03em}
+  pre.out{margin:0;padding:8px 16px 14px;background:#0b0f14;color:#cfe0d6;overflow-x:auto;
+    font-family:"SF Mono",Menlo,Consolas,monospace;font-size:12px;line-height:1.62;white-space:pre}
+  pre.out .ins{color:#8fd6a8;font-weight:600} pre.out .ev{color:#e8c98a}
+
+  table.tab{width:100%;border-collapse:collapse;margin:12px 0;font-size:13px}
+  table.tab th,table.tab td{padding:9px 12px;border:1px solid var(--line);text-align:left;vertical-align:top}
+  table.tab th{background:#eef3f8;font-weight:800;color:var(--ink)} table.tab td b{color:var(--ink)}
+  .axis-tag{display:inline-block;font-size:10.5px;font-weight:850;padding:2px 9px;border-radius:12px;margin-right:5px}
+  .axis-tag.a1{background:var(--green-soft);color:var(--green-d);border:1px solid #bfe0cd}
+  .axis-tag.a2{background:var(--blue-soft);color:var(--blue);border:1px solid #c8dfeb}
+  .axis-tag.a3{background:var(--red-soft);color:var(--red);border:1px solid #f0c4c2}
+  .toc{margin:16px 0;padding:14px 18px;background:var(--gray-soft);border-radius:10px}
+  .toc b{display:block;color:var(--ink);margin-bottom:7px;font-size:13px}
+  .toc a{color:var(--green-d);text-decoration:none;font-weight:700;margin:0 10px 5px 0;display:inline-block;font-size:12px}
+  .toc a:hover{text-decoration:underline}
+  code.in{background:var(--gray-soft);padding:1px 6px;border-radius:4px;font-size:.86em;font-family:"SF Mono",Menlo,Consolas,monospace;color:var(--ink-2)}
+  .foot{margin-top:48px;padding-top:15px;border-top:1px solid var(--line);font-size:11.5px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">从零讲透 · 可点击运行的 Java</div>
+  <h1>计算层 · 三轴讲透（每个点都能跑）</h1>
+  <p class="subtitle">接入层把请求分过来了，这一层真正"干活"。每个专业点都配一段能<b>▶ 运行</b>的 Java，输出是本机真跑出来的。</p>
+  <div class="meta">读法：从上往下三轴递进。每个 demo 点「▶ 运行」看真实输出；想自己跑，文件夹 <code class="in">计算层-java/</code> 里有全部 .java，命令见每段下方。所有输出来自本机 10 核 · OpenJDK 21 实跑。</div>
+
+  <div class="lv" id="l0"><div class="num"><small>地基</small>0</div><div><h2>计算层是干嘛的？</h2><div class="tag">先一句话定位</div></div></div>
+  <p>接入层（上一份文档）负责<b>"把请求送到哪台机器"</b>；计算层就是<b>那台机器收到请求后，怎么把活干快、干稳、干到不挂</b>——风控里就是跑名单匹配、设备指纹、行为模型、算风险分。</p>
+  <p>怎么把一台/一群机器的处理能力做到极致？还是那三根轴，只是落到"干活"这一层：</p>
+  <div class="toc">
+    <b>三轴 + 11 个可运行 demo</b>
+    <a href="#d01">①无状态反例 D01</a><a href="#d02">①无状态正解 D02</a>
+    <a href="#d03">②线程池 D03</a><a href="#d04">②线程数 D04</a><a href="#d05">②异步编排 D05</a><a href="#d06">②虚拟线程 D06</a><a href="#d07">②本地缓存 D07</a>
+    <a href="#d08">③限流 D08</a><a href="#d09">③超时 D09</a><a href="#d10">③熔断 D10</a><a href="#d11">③隔离 D11</a>
+  </div>
+
+  <div class="axis-head a1">
+    <div class="axis-title">轴① 横向摊薄</div>
+    <div class="axis-sub">让活能分给几百台机器</div>
+  </div>
+  <p class="axis-intro">总吞吐 = 单机吞吐 × <b>机器数</b>。这一轴负责把"机器数"做上去——但前提是<b>无状态</b>：任意请求能落到任意机器、结果都一样，才能随便加机器。</p>
+  <div class="demo" id="d01">
+    <div class="demo-h"><span class="b">D01</span><h3>反例：本地状态，一加机器就乱</h3></div>
+    <p class="demo-d">先看为什么"有状态"的服务不能水平扩展。两台机器各存各的计数。</p>
+    <pre class="code"><span class="cm">// 轴① 横向摊薄 | 反例：本地状态 → 多实例数据不一致</span>
+public class D01_StatefulBug {
+    <span class="cm">// 模拟"一台机器"：它把计数存在自己的内存里（本地状态）</span>
+    static class Instance {
+        private int localCount = 0;        <span class="cm">// ← 本地变量，每台机器各存各的</span>
+        void handle() { localCount++; }
+        int read()    { return localCount; }
+    }
+    public static void main(String[] args) {
+        Instance m1 = new Instance();      <span class="cm">// 机器A</span>
+        Instance m2 = new Instance();      <span class="cm">// 机器B</span>
+        Instance[] lb = { m1, m2 };        <span class="cm">// 负载均衡轮流把请求分给两台</span>
+        for (int i = 0; i &lt; 6; i++) lb[i % 2].handle();   <span class="cm">// 6 个 "+1" 请求</span>
+        System.out.println("一共发了 6 个 +1 请求");
+        System.out.println("机器A 自己数到：" + m1.read());
+        System.out.println("机器B 自己数到：" + m2.read());
+        System.out.println("用户查询时落到机器A，看到的是：" + m1.read() + "（不是 6！）");
+        System.out.println("&gt;&gt; 本地状态让每台机器只知道自己那部分，一加机器就数据不一致。");
+    }
+}</pre>
+    <div class="run-row">
+      <button class="run-btn" onclick="run(this)">▶ 运行</button>
+      <span class="spin" hidden>运行中…</span>
+      <span class="cmd">javac D01_StatefulBug.java &amp;&amp; java D01_StatefulBug</span>
+    </div>
+    <div class="out-wrap"><div class="out-label">▌ 真实输出（本机 10 核 · OpenJDK 21 实跑）</div><pre class="out">一共发了 6 个 +1 请求
+机器A 自己数到：3
+机器B 自己数到：3
+用户查询时落到机器A，看到的是：3（不是 6！）
+<span class="ins">&gt;&gt; 本地状态让每台机器只知道自己那部分，一加机器就数据不一致。</span></pre></div>
+  </div>
+  <div class="key"><div class="h">这说明了什么</div><p>计数器存在<b>本地内存</b>里，每台机器只知道自己处理过的那部分。负载均衡一分流，数据就对不上。<b>登录态、计数、累计值这类"状态"放本地，就堵死了加机器这条路。</b></p></div>
+  <div class="demo" id="d02">
+    <div class="demo-h"><span class="b">D02</span><h3>正解：无状态 + 状态外置</h3></div>
+    <p class="demo-d">把状态挪到外部存储（这里用 AtomicInteger 模拟 Redis），机器本身不存任何东西。</p>
+    <pre class="code">import java.util.concurrent.atomic.AtomicInteger;
+<span class="cm">// 轴① 横向摊薄 | 正解：无状态 + 状态外置 → 任意机器结果一致</span>
+public class D02_Stateless {
+    <span class="cm">// 外部共享存储（想象成 Redis），所有机器都读写它</span>
+    static final AtomicInteger STORE = new AtomicInteger(0);
+    <span class="cm">// 机器本身不存任何状态，只是把请求转给外部存储</span>
+    static class Instance {
+        void handle() { STORE.incrementAndGet(); }   <span class="cm">// 状态在外面，不在本地</span>
+        int read()    { return STORE.get(); }
+    }
+    public static void main(String[] args) {
+        Instance[] lb = { new Instance(), new Instance(), new Instance() }; <span class="cm">// 3 台</span>
+        for (int i = 0; i &lt; 6; i++) lb[i % 3].handle();    <span class="cm">// 6 个请求随便分</span>
+        System.out.println("一共发了 6 个 +1 请求，分给 3 台无状态机器");
+        for (int i = 0; i &lt; 3; i++)
+            System.out.println("从机器" + i + " 查询，都看到：" + lb[i].read());
+        System.out.println("&gt;&gt; 状态外置后，落到哪台机器结果都一样 → 可以随便加机器水平扩展。");
+    }
+}</pre>
+    <div class="run-row">
+      <button class="run-btn" onclick="run(this)">▶ 运行</button>
+      <span class="spin" hidden>运行中…</span>
+      <span class="cmd">javac D02_Stateless.java &amp;&amp; java D02_Stateless</span>
+    </div>
+    <div class="out-wrap"><div class="out-label">▌ 真实输出（本机 10 核 · OpenJDK 21 实跑）</div><pre class="out">一共发了 6 个 +1 请求，分给 3 台无状态机器
+从机器0 查询，都看到：6
+从机器1 查询，都看到：6
+从机器2 查询，都看到：6
+<span class="ins">&gt;&gt; 状态外置后，落到哪台机器结果都一样 → 可以随便加机器水平扩展。</span></pre></div>
+  </div>
+  <div class="key"><div class="h">无状态 = 水平扩展的前提</div><p>机器不存状态，只是"转发器"：状态统一放外部（Redis）。于是<b>请求落到哪台机器结果都一样</b>，就能随便加机器、任意一台挂了也不丢数据。会话、限流计数、去重集合都该这样外置。</p></div>
+  <div class="axis-head a2">
+    <div class="axis-title">轴② 纵向减负</div>
+    <div class="axis-sub">把单台机器榨干</div>
+  </div>
+  <p class="axis-intro">总吞吐 = <b>单机吞吐</b> × 机器数。这一轴专攻"单机吞吐"：用并发(线程池)把等待时间利用起来、选对线程数、并行编排下游、虚拟线程扛海量连接、本地缓存能不算就不算。</p>
+  <div class="demo" id="d03">
+    <div class="demo-h"><span class="b">D03</span><h3>串行 vs 线程池</h3></div>
+    <p class="demo-d">8 个各耗时 100ms 的任务：一个一个串行干，对比用 4 条线程的线程池并发干。</p>
+    <pre class="code">import java.util.concurrent.*;
+<span class="cm">// 轴② 纵向减负 | 串行 vs 线程池：并发受控地榨干单机</span>
+public class D03_PoolVsSerial {
+    static void work(int id) {
+        try { Thread.sleep(100); } catch (InterruptedException e) {}   <span class="cm">// 模拟一次耗时处理</span>
+        System.out.println("  任务" + id + " 完成 @ " + Thread.currentThread().getName());
+    }
+    public static void main(String[] args) throws Exception {
+        int N = 8;
+        <span class="cm">// ① 串行：一个一个来，全在 main 线程上跑</span>
+        long t0 = System.currentTimeMillis();
+        for (int i = 1; i &lt;= N; i++) work(i);
+        System.out.println("串行处理 " + N + " 个任务，耗时 " + (System.currentTimeMillis() - t0) + " ms\n");
+
+        <span class="cm">// ② 线程池：只开 4 条线程，复用着把 8 个活干完</span>
+        ExecutorService pool = Executors.newFixedThreadPool(4);
+        CountDownLatch latch = new CountDownLatch(N);
+        long t1 = System.currentTimeMillis();
+        for (int i = 1; i &lt;= N; i++) { int id = i; pool.submit(() -&gt; { work(id); latch.countDown(); }); }
+        latch.await();
+        System.out.println("线程池(4线程)处理 " + N + " 个任务，耗时 " + (System.currentTimeMillis() - t1) + " ms");
+        System.out.println("&gt;&gt; 看上面线程名：只有 4 条线程在轮流复用，不是开 8 条。串行≈800ms → 并行≈200ms。");
+        pool.shutdown();
+    }
+}</pre>
+    <div class="run-row">
+      <button class="run-btn" onclick="run(this)">▶ 运行</button>
+      <span class="spin" hidden>运行中…</span>
+      <span class="cmd">javac D03_PoolVsSerial.java &amp;&amp; java D03_PoolVsSerial</span>
+    </div>
+    <div class="out-wrap"><div class="out-label">▌ 真实输出（本机 10 核 · OpenJDK 21 实跑）</div><pre class="out">  任务1 完成 @ main
+  任务2 完成 @ main
+  任务3 完成 @ main
+  任务4 完成 @ main
+  任务5 完成 @ main
+  任务6 完成 @ main
+  任务7 完成 @ main
+  任务8 完成 @ main
+串行处理 8 个任务，耗时 847 ms
+
+  任务2 完成 @ pool-1-thread-2
+  任务4 完成 @ pool-1-thread-4
+  任务1 完成 @ pool-1-thread-1
+  任务3 完成 @ pool-1-thread-3
+  任务8 完成 @ pool-1-thread-4
+  任务6 完成 @ pool-1-thread-1
+  任务7 完成 @ pool-1-thread-2
+  任务5 完成 @ pool-1-thread-3
+线程池(4线程)处理 8 个任务，耗时 215 ms
+<span class="ins">&gt;&gt; 看上面线程名：只有 4 条线程在轮流复用，不是开 8 条。串行≈800ms → 并行≈200ms。</span></pre></div>
+  </div>
+  <div class="term"><div class="w">线程池 <span class="en">Thread Pool</span></div><p>预先建好一批线程<b>复用</b>，避免"每来一个请求就新建一条线程"的巨大开销，同时把并发数<b>钉死在一个上限</b>（这里是 4），防止线程无限暴涨打爆机器。看输出里线程名只有 <code class="in">pool-1-thread-1~4</code> 在轮流，就是复用。</p></div>
+  <div class="demo" id="d04">
+    <div class="demo-h"><span class="b">D04</span><h3>线程数怎么定？CPU密集 vs IO密集</h3></div>
+    <p class="demo-d">同样 40 个任务，线程开多少合适？两种场景结论完全相反。</p>
+    <pre class="code">import java.util.concurrent.*;
+<span class="cm">// 轴② 纵向减负 | 线程数怎么定？CPU密集 vs IO密集，结论相反</span>
+public class D04_CpuVsIo {
+    static long cpuTask() {                       <span class="cm">// 纯计算：把 CPU 吃满</span>
+        long s = 0;
+        for (int i = 0; i &lt; 60_000_000; i++) s += i % 7;
+        return s;
+    }
+    static void ioTask() {                         <span class="cm">// 模拟 IO：线程在"等"，不吃 CPU</span>
+        try { Thread.sleep(100); } catch (InterruptedException e) {}
+    }
+    static long run(int threads, int tasks, boolean cpu) throws Exception {
+        ExecutorService p = Executors.newFixedThreadPool(threads);
+        CountDownLatch l = new CountDownLatch(tasks);
+        long t = System.currentTimeMillis();
+        for (int i = 0; i &lt; tasks; i++) p.submit(() -&gt; { if (cpu) cpuTask(); else ioTask(); l.countDown(); });
+        l.await(); p.shutdown();
+        return System.currentTimeMillis() - t;
+    }
+    public static void main(String[] a) throws Exception {
+        int cores = Runtime.getRuntime().availableProcessors();
+        System.out.println("本机核数 = " + cores + "\n");
+        System.out.println("【CPU密集】40 个纯计算任务：");
+        System.out.println("  " + cores + " 线程(=核数)：" + run(cores, 40, true) + " ms");
+        System.out.println("  50 线程(远超核数)：" + run(50, 40, true) + " ms");
+        System.out.println("  &gt;&gt; CPU 就那么多核，线程加到核数附近就到顶，再加基本持平、不会线性变快。\n");
+        System.out.println("【IO密集】40 个等待任务(各 sleep 100ms)：");
+        System.out.println("  " + cores + " 线程：" + run(cores, 40, false) + " ms");
+        System.out.println("  40 线程：" + run(40, 40, false) + " ms");
+        System.out.println("  &gt;&gt; IO 时线程大多在等、不占 CPU，开多线程能同时等 → 快得多。");
+        System.out.println("&gt;&gt; 经验公式：线程数 ≈ 核数 ×(1 + 等待时间/计算时间)。CPU密集≈核数，IO密集可远大于核数。");
+    }
+}</pre>
+    <div class="run-row">
+      <button class="run-btn" onclick="run(this)">▶ 运行</button>
+      <span class="spin" hidden>运行中…</span>
+      <span class="cmd">javac D04_CpuVsIo.java &amp;&amp; java D04_CpuVsIo</span>
+    </div>
+    <div class="out-wrap"><div class="out-label">▌ 真实输出（本机 10 核 · OpenJDK 21 实跑）</div><pre class="out">本机核数 = 10
+
+【CPU密集】40 个纯计算任务：
+  10 线程(=核数)：245 ms
+  50 线程(远超核数)：223 ms
+<span class="ins">  &gt;&gt; CPU 就那么多核，线程加到核数附近就到顶，再加基本持平、不会线性变快。</span>
+
+【IO密集】40 个等待任务(各 sleep 100ms)：
+  10 线程：420 ms
+  40 线程：108 ms
+<span class="ins">  &gt;&gt; IO 时线程大多在等、不占 CPU，开多线程能同时等 → 快得多。</span>
+<span class="ins">&gt;&gt; 经验公式：线程数 ≈ 核数 ×(1 + 等待时间/计算时间)。CPU密集≈核数，IO密集可远大于核数。</span></pre></div>
+  </div>
+  <div class="key"><div class="h">读懂这组真实数据</div><p><b>CPU密集</b>（纯计算）：10 线程 vs 50 线程基本持平——CPU 就 10 个核，活全在烧 CPU，开再多线程也只能 10 个核轮流跑，多出来的线程只是排队+切换。<br><b>IO密集</b>（sleep 等待）：40 线程比 10 线程快约 4 倍——线程大多在"等"、不占 CPU，开更多线程就能<b>同时等</b>。<br>经验公式：<code class="in">线程数 ≈ 核数 ×(1 + 等待时间/计算时间)</code>。CPU密集≈核数；IO密集可远大于核数。</p></div>
+  <div class="demo" id="d05">
+    <div class="demo-h"><span class="b">D05</span><h3>异步编排：并行调下游</h3></div>
+    <p class="demo-d">风控要同时查 3 个互不依赖的下游（各 200ms）。串行 vs CompletableFuture 并行。</p>
+    <pre class="code">import java.util.concurrent.*;
+<span class="cm">// 轴② 纵向减负 | 异步编排：互不依赖的下游并行调，总耗时 sum → max</span>
+public class D05_CompletableFuture {
+    static String call(String name, int ms) {
+        try { Thread.sleep(ms); } catch (InterruptedException e) {}   <span class="cm">// 模拟一次下游 RPC</span>
+        return name + "结果";
+    }
+    public static void main(String[] a) throws Exception {
+        <span class="cm">// ① 串行：一个调完再调下一个</span>
+        long t0 = System.currentTimeMillis();
+        String r1 = call("风控名单", 200);
+        String r2 = call("设备指纹", 200);
+        String r3 = call("行为模型", 200);
+        System.out.println("串行调用 3 个下游：" + (System.currentTimeMillis() - t0) + " ms  [" + r1 + "," + r2 + "," + r3 + "]");
+
+        <span class="cm">// ② 并行：三个同时发出去，只等最慢的那个</span>
+        long t1 = System.currentTimeMillis();
+        CompletableFuture&lt;String&gt; f1 = CompletableFuture.supplyAsync(() -&gt; call("风控名单", 200));
+        CompletableFuture&lt;String&gt; f2 = CompletableFuture.supplyAsync(() -&gt; call("设备指纹", 200));
+        CompletableFuture&lt;String&gt; f3 = CompletableFuture.supplyAsync(() -&gt; call("行为模型", 200));
+        CompletableFuture.allOf(f1, f2, f3).join();   <span class="cm">// 等三个都好</span>
+        System.out.println("并行调用 3 个下游：" + (System.currentTimeMillis() - t1) + " ms  [" + f1.get() + "," + f2.get() + "," + f3.get() + "]");
+        System.out.println("&gt;&gt; 三个下游互不依赖时，并行把总耗时从 sum(600) 降到 max(200)。");
+    }
+}</pre>
+    <div class="run-row">
+      <button class="run-btn" onclick="run(this)">▶ 运行</button>
+      <span class="spin" hidden>运行中…</span>
+      <span class="cmd">javac D05_CompletableFuture.java &amp;&amp; java D05_CompletableFuture</span>
+    </div>
+    <div class="out-wrap"><div class="out-label">▌ 真实输出（本机 10 核 · OpenJDK 21 实跑）</div><pre class="out">串行调用 3 个下游：622 ms  [风控名单结果,设备指纹结果,行为模型结果]
+并行调用 3 个下游：211 ms  [风控名单结果,设备指纹结果,行为模型结果]
+<span class="ins">&gt;&gt; 三个下游互不依赖时，并行把总耗时从 sum(600) 降到 max(200)。</span></pre></div>
+  </div>
+  <div class="ana"><div class="h">类比</div><p>三个下游像三个查询窗口。<b>串行</b>=排队一个个问，三个加起来 600ms；<b>并行</b>=同时把三个请求发出去，只等最慢的那个，200ms。互不依赖的调用就该并行——总耗时从 <code class="in">sum</code> 降到 <code class="in">max</code>。</p></div>
+  <div class="demo" id="d06">
+    <div class="demo-h"><span class="b">D06</span><h3>虚拟线程：百万级毫无压力</h3></div>
+    <p class="demo-d">JDK 21 的虚拟线程。一口气开 100 万个"线程"各 sleep 100ms。</p>
+    <pre class="code">import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
+<span class="cm">// 轴② 纵向减负 | 虚拟线程(JDK21)：百万级"线程"毫无压力（呼应协程）</span>
+public class D06_VirtualThreads {
+    public static void main(String[] a) throws Exception {
+        int N = 1_000_000;
+        AtomicInteger done = new AtomicInteger();
+        long t = System.currentTimeMillis();
+        <span class="cm">// 每个任务一条虚拟线程；try-with-resources 的 close() 会等所有任务跑完</span>
+        try (var ex = Executors.newVirtualThreadPerTaskExecutor()) {
+            for (int i = 0; i &lt; N; i++) ex.submit(() -&gt; {
+                try { Thread.sleep(100); } catch (InterruptedException e) {}   <span class="cm">// 模拟 IO 等待</span>
+                done.incrementAndGet();
+            });
+        }
+        System.out.println("启动并跑完 " + N + " 个虚拟线程，每个 sleep 100ms");
+        System.out.println("完成数 = " + done.get() + "，总耗时 " + (System.currentTimeMillis() - t) + " ms");
+        System.out.println("&gt;&gt; 一百万个'线程'毫无压力；换平台线程开 1 万个就可能 OOM。");
+        System.out.println("&gt;&gt; 因为虚拟线程在 sleep/IO 等待时会让出底层载体线程，不真占 OS 线程。");
+    }
+}</pre>
+    <div class="run-row">
+      <button class="run-btn" onclick="run(this)">▶ 运行</button>
+      <span class="spin" hidden>运行中…</span>
+      <span class="cmd">javac D06_VirtualThreads.java &amp;&amp; java D06_VirtualThreads</span>
+    </div>
+    <div class="out-wrap"><div class="out-label">▌ 真实输出（本机 10 核 · OpenJDK 21 实跑）</div><pre class="out">启动并跑完 1000000 个虚拟线程，每个 sleep 100ms
+完成数 = 1000000，总耗时 4638 ms
+<span class="ins">&gt;&gt; 一百万个'线程'毫无压力；换平台线程开 1 万个就可能 OOM。</span>
+<span class="ins">&gt;&gt; 因为虚拟线程在 sleep/IO 等待时会让出底层载体线程，不真占 OS 线程。</span></pre></div>
+  </div>
+  <div class="term"><div class="w">虚拟线程 <span class="en">Virtual Thread / JDK21</span></div><p>由 JVM 自己调度的<b>超轻量线程</b>。当它 <code class="in">sleep</code>/等 IO 时，会<b>让出</b>底下真正的 OS 线程（载体线程）去干别的活，所以不真占 OS 线程——百万个也扛得住。换成传统平台线程开 1 万个就可能 OOM。这正是你之前学的<b>协程</b>思想的 Java 落地（详见 <a href="协程·从0到Java实现.html" style="color:var(--green-d);font-weight:800;text-decoration:none">协程·从0到Java实现</a>）。</p></div>
+  <div class="demo" id="d07">
+    <div class="demo-h"><span class="b">D07</span><h3>本地缓存：算一次，存下来</h3></div>
+    <p class="demo-d">把"很贵的计算"结果缓存在本地。第一次真算，第二次直接拿。</p>
+    <pre class="code">import java.util.concurrent.ConcurrentHashMap;
+<span class="cm">// 轴② 纵向减负 | 本地缓存：算过的结果存下来，第二次直接拿</span>
+public class D07_LocalCache {
+    static final ConcurrentHashMap&lt;String, Integer&gt; cache = new ConcurrentHashMap&lt;&gt;();
+    static int expensive(String key) {              <span class="cm">// 假装很贵的计算（查库 / 跑模型）</span>
+        try { Thread.sleep(300); } catch (InterruptedException e) {}
+        return key.length() * 100;
+    }
+    static int get(String key) {
+        <span class="cm">// 缓存里没有才真去算，有就直接返回（原子的"没有就计算并放入"）</span>
+        return cache.computeIfAbsent(key, D07_LocalCache::expensive);
+    }
+    public static void main(String[] a) {
+        long t0 = System.currentTimeMillis();
+        System.out.println("第一次 get(\"user42\") = " + get("user42") + "   耗时 " + (System.currentTimeMillis() - t0) + " ms（真去算了）");
+        long t1 = System.currentTimeMillis();
+        System.out.println("第二次 get(\"user42\") = " + get("user42") + "   耗时 " + (System.currentTimeMillis() - t1) + " ms（命中缓存，秒回）");
+        System.out.println("&gt;&gt; 算过的结果存本地，第二次直接拿 → 这就是'纵向减负'里的本地缓存。");
+    }
+}</pre>
+    <div class="run-row">
+      <button class="run-btn" onclick="run(this)">▶ 运行</button>
+      <span class="spin" hidden>运行中…</span>
+      <span class="cmd">javac D07_LocalCache.java &amp;&amp; java D07_LocalCache</span>
+    </div>
+    <div class="out-wrap"><div class="out-label">▌ 真实输出（本机 10 核 · OpenJDK 21 实跑）</div><pre class="out">第一次 get("user42") = 600   耗时 308 ms（真去算了）
+第二次 get("user42") = 600   耗时 0 ms（命中缓存，秒回）
+<span class="ins">&gt;&gt; 算过的结果存本地，第二次直接拿 → 这就是'纵向减负'里的本地缓存。</span></pre></div>
+  </div>
+  <div class="key"><div class="h">关键点</div><p><code class="in">computeIfAbsent</code> 是原子的"没有就算并放入、有就直接返回"。第一次 308ms（真算），第二次 0ms（命中）。这是"纵向减负"的另一半：<b>能不算就不算</b>。代价是<b>一致性</b>——本地缓存怎么和源数据同步、过期，留到缓存层专门讲。</p></div>
+  <div class="axis-head a3">
+    <div class="axis-title">轴③ 横切兜底</div>
+    <div class="axis-sub">别被流量打死</div>
+  </div>
+  <p class="axis-intro">前两轴让你<b>能扛</b>，这一轴保证扛不住时<b>优雅地拒绝/降级，而不是雪崩</b>。五件套：限流、超时、熔断、隔离、降级。</p>
+  <div class="demo" id="d08">
+    <div class="demo-h"><span class="b">D08</span><h3>限流：信号量发"并发许可证"</h3></div>
+    <p class="demo-d">10 个请求同时涌来，但同时只允许 3 个进入处理，其余直接拒。</p>
+    <pre class="code">import java.util.concurrent.*;
+<span class="cm">// 轴③ 横切兜底 | 限流：信号量发"并发许可证"，超额直接拒</span>
+public class D08_RateLimit {
+    static final Semaphore permits = new Semaphore(3);   <span class="cm">// 同时只放 3 个进去</span>
+    static void handle(int id) {
+        if (!permits.tryAcquire()) {                     <span class="cm">// 拿不到许可 → 直接拒，不排队</span>
+            System.out.println("请求" + id + " 被限流拒绝（已满 3 个）");
+            return;
+        }
+        try {
+            System.out.println("请求" + id + " 进入处理...");
+            Thread.sleep(200);
+        } catch (InterruptedException e) {
+        } finally {
+            permits.release();                           <span class="cm">// 处理完归还许可</span>
+        }
+    }
+    public static void main(String[] a) throws Exception {
+        ExecutorService p = Executors.newFixedThreadPool(10);
+        CountDownLatch l = new CountDownLatch(10);
+        for (int i = 1; i &lt;= 10; i++) { int id = i; p.submit(() -&gt; { handle(id); l.countDown(); }); }
+        l.await(); p.shutdown();
+        System.out.println("&gt;&gt; 信号量 = 并发许可证。只发 3 张，第 4 个起直接拒，保护后端不被压垮。");
+    }
+}</pre>
+    <div class="run-row">
+      <button class="run-btn" onclick="run(this)">▶ 运行</button>
+      <span class="spin" hidden>运行中…</span>
+      <span class="cmd">javac D08_RateLimit.java &amp;&amp; java D08_RateLimit</span>
+    </div>
+    <div class="out-wrap"><div class="out-label">▌ 真实输出（本机 10 核 · OpenJDK 21 实跑）</div><pre class="out">请求3 进入处理...
+请求7 被限流拒绝（已满 3 个）
+请求4 被限流拒绝（已满 3 个）
+请求8 被限流拒绝（已满 3 个）
+请求9 被限流拒绝（已满 3 个）
+请求2 进入处理...
+请求6 被限流拒绝（已满 3 个）
+请求10 被限流拒绝（已满 3 个）
+请求5 被限流拒绝（已满 3 个）
+请求1 进入处理...
+<span class="ins">&gt;&gt; 信号量 = 并发许可证。只发 3 张，第 4 个起直接拒，保护后端不被压垮。</span></pre></div>
+  </div>
+  <div class="term"><div class="w">信号量 <span class="en">Semaphore</span></div><p>手里 N 张许可证，<code class="in">tryAcquire()</code> 拿到才进、拿不到立刻拒（不排队、不阻塞）。它限的是<b>并发数</b>。另一类限<b>速率</b>的是令牌桶/漏桶（每秒放 N 个令牌）。限流是兜底第一招：<b>宁可拒一部分，也不让全部一起把后端压垮。</b></p></div>
+  <div class="demo" id="d09">
+    <div class="demo-h"><span class="b">D09</span><h3>超时：绝不无限等下游</h3></div>
+    <p class="demo-d">下游卡住要 2 秒，但我只给它 500ms，到点就放弃走兜底。</p>
+    <pre class="code">import java.util.concurrent.*;
+<span class="cm">// 轴③ 横切兜底 | 超时：绝不无限等下游，超时即放弃</span>
+public class D09_Timeout {
+    public static void main(String[] a) {
+        ExecutorService p = Executors.newSingleThreadExecutor();
+        Future&lt;String&gt; f = p.submit(() -&gt; { Thread.sleep(2000); return "下游结果"; }); <span class="cm">// 下游很慢(2s)</span>
+        long t = System.currentTimeMillis();
+        try {
+            String r = f.get(500, TimeUnit.MILLISECONDS);   <span class="cm">// 最多等 500ms</span>
+            System.out.println("拿到：" + r);
+        } catch (TimeoutException e) {
+            f.cancel(true);                                 <span class="cm">// 放弃这个调用</span>
+            System.out.println("等了 " + (System.currentTimeMillis() - t) + " ms 还没回 → 超时放弃，走兜底");
+        } catch (Exception e) {
+            System.out.println("其它异常：" + e);
+        }
+        p.shutdownNow();
+        System.out.println("&gt;&gt; 绝不无限等下游。超时即放弃，避免线程被拖死、连锁拖垮整个服务。");
+    }
+}</pre>
+    <div class="run-row">
+      <button class="run-btn" onclick="run(this)">▶ 运行</button>
+      <span class="spin" hidden>运行中…</span>
+      <span class="cmd">javac D09_Timeout.java &amp;&amp; java D09_Timeout</span>
+    </div>
+    <div class="out-wrap"><div class="out-label">▌ 真实输出（本机 10 核 · OpenJDK 21 实跑）</div><pre class="out">等了 506 ms 还没回 → 超时放弃，走兜底
+<span class="ins">&gt;&gt; 绝不无限等下游。超时即放弃，避免线程被拖死、连锁拖垮整个服务。</span></pre></div>
+  </div>
+  <div class="key"><div class="h">为什么超时是兜底的命根子</div><p><code class="in">Future.get(500ms)</code> 最多等 500ms。<b>没有超时，一个卡死的下游会把调用线程一直占住，线程池很快被占满，整个服务跟着卡死——这就是雪崩的起点。</b>所有跨网络调用都必须设超时。</p></div>
+  <div class="demo" id="d10">
+    <div class="demo-h"><span class="b">D10</span><h3>熔断 + 降级：跳闸快速失败</h3></div>
+    <p class="demo-d">下游连续失败 3 次就"跳闸"，之后直接快速失败不再打它；冷却后放一个试探，好了就恢复。</p>
+    <pre class="code"><span class="cm">// 轴③ 横切兜底 | 熔断 + 降级：连续失败就跳闸快速失败，冷却后试探恢复</span>
+public class D10_CircuitBreaker {
+    enum State { CLOSED, OPEN, HALF_OPEN }
+    static State state = State.CLOSED;
+    static int fails = 0;
+    static final int THRESHOLD = 3;       <span class="cm">// 连续失败 3 次就跳闸</span>
+    static long openedAt = 0;
+    static final long COOLDOWN = 1000;    <span class="cm">// 跳闸后冷却 1s</span>
+
+    static String call(boolean downstreamHealthy) {
+        if (state == State.OPEN) {        <span class="cm">// 跳闸期间：直接快速失败，不再打下游</span>
+            if (System.currentTimeMillis() - openedAt &gt; COOLDOWN) {
+                state = State.HALF_OPEN;
+                System.out.println("  [冷却结束 → HALF_OPEN，放一个试探]");
+            } else {
+                return fallback("断路器 OPEN，直接走降级");
+            }
+        }
+        try {
+            String r = downstream(downstreamHealthy);    <span class="cm">// 真打下游</span>
+            if (state == State.HALF_OPEN) { state = State.CLOSED; fails = 0; System.out.println("  [试探成功 → CLOSED 恢复]"); }
+            return r;
+        } catch (RuntimeException e) {
+            fails++;
+            if (fails &gt;= THRESHOLD || state == State.HALF_OPEN) {
+                state = State.OPEN; openedAt = System.currentTimeMillis();
+                System.out.println("  [失败达阈值 → OPEN，断路器跳闸]");
+            }
+            return fallback("下游异常，走降级");
+        }
+    }
+    static String downstream(boolean healthy) { if (!healthy) throw new RuntimeException("boom"); return "正常结果"; }
+    static String fallback(String why) { return "兜底默认值(" + why + ")"; }
+
+    public static void main(String[] a) throws Exception {
+        System.out.println("下游故障，连发 5 个请求：");
+        for (int i = 1; i &lt;= 5; i++) System.out.println("请求" + i + " state=" + state + " → " + call(false));
+        System.out.println("\n等待冷却 1.1s，下游已恢复，再发 3 个：");
+        Thread.sleep(1100);
+        for (int i = 6; i &lt;= 8; i++) System.out.println("请求" + i + " state=" + state + " → " + call(true));
+        System.out.println("&gt;&gt; 连续失败就跳闸快速失败(不再拖着打死下游)，冷却后放一个试探，好了就恢复。");
+    }
+}</pre>
+    <div class="run-row">
+      <button class="run-btn" onclick="run(this)">▶ 运行</button>
+      <span class="spin" hidden>运行中…</span>
+      <span class="cmd">javac D10_CircuitBreaker.java &amp;&amp; java D10_CircuitBreaker</span>
+    </div>
+    <div class="out-wrap"><div class="out-label">▌ 真实输出（本机 10 核 · OpenJDK 21 实跑）</div><pre class="out">下游故障，连发 5 个请求：
+请求1 state=CLOSED → 兜底默认值(下游异常，走降级)
+请求2 state=CLOSED → 兜底默认值(下游异常，走降级)
+<span class="ev">  [失败达阈值 → OPEN，断路器跳闸]</span>
+请求3 state=CLOSED → 兜底默认值(下游异常，走降级)
+请求4 state=OPEN → 兜底默认值(断路器 OPEN，直接走降级)
+请求5 state=OPEN → 兜底默认值(断路器 OPEN，直接走降级)
+
+等待冷却 1.1s，下游已恢复，再发 3 个：
+<span class="ev">  [冷却结束 → HALF_OPEN，放一个试探]</span>
+<span class="ev">  [试探成功 → CLOSED 恢复]</span>
+请求6 state=OPEN → 正常结果
+请求7 state=CLOSED → 正常结果
+请求8 state=CLOSED → 正常结果
+<span class="ins">&gt;&gt; 连续失败就跳闸快速失败(不再拖着打死下游)，冷却后放一个试探，好了就恢复。</span></pre></div>
+  </div>
+  <div class="term"><div class="w">断路器 <span class="en">Circuit Breaker</span> · 三态</div><p><b>CLOSED</b>（正常放行）→ 连续失败达阈值 → <b>OPEN</b>（跳闸，直接快速失败/降级，不再拖着打死下游）→ 冷却后 <b>HALF_OPEN</b>（放一个试探）→ 成功则回 CLOSED。<b>降级(fallback)</b>=主路径不可用时返回兜底值（缓存/默认）。熔断防止"一个挂了的下游把上游也拖死"的连锁雪崩。</p></div>
+  <div class="demo" id="d11">
+    <div class="demo-h"><span class="b">D11</span><h3>舱壁隔离：一个慢依赖不拖垮全局</h3></div>
+    <p class="demo-d">2 个慢任务(各 1s)和 1 个快任务(50ms)。共享一个线程池 vs 各用各的池。</p>
+    <pre class="code">import java.util.concurrent.*;
+<span class="cm">// 轴③ 横切兜底 | 舱壁隔离：不同依赖各用各的线程池，一个变慢不拖垮其他</span>
+public class D11_Bulkhead {
+    static void task(int ms) { try { Thread.sleep(ms); } catch (InterruptedException e) {} }
+    public static void main(String[] a) throws Exception {
+        <span class="cm">// ① 共享一个 2 线程池：2 个慢任务把池占满，快任务被迫排队</span>
+        ExecutorService shared = Executors.newFixedThreadPool(2);
+        shared.submit(() -&gt; task(1000));
+        shared.submit(() -&gt; task(1000));
+        long t = System.currentTimeMillis();
+        shared.submit(() -&gt; task(50)).get();          <span class="cm">// 快任务其实只要 50ms</span>
+        System.out.println("【共享池】快任务实际等了 " + (System.currentTimeMillis() - t) + " ms（被慢任务堵住！）");
+        shared.shutdownNow();
+
+        <span class="cm">// ② 隔离：慢依赖、快依赖各用各的池，互不影响</span>
+        ExecutorService slowPool = Executors.newFixedThreadPool(2);
+        ExecutorService fastPool = Executors.newFixedThreadPool(2);
+        slowPool.submit(() -&gt; task(1000));
+        slowPool.submit(() -&gt; task(1000));
+        long t2 = System.currentTimeMillis();
+        fastPool.submit(() -&gt; task(50)).get();
+        System.out.println("【隔离池】快任务等了 " + (System.currentTimeMillis() - t2) + " ms（不受慢依赖影响）");
+        slowPool.shutdownNow(); fastPool.shutdownNow();
+        System.out.println("&gt;&gt; 舱壁隔离：给不同依赖分独立线程池，一个依赖打满/变慢，不会拖垮其他依赖。");
+    }
+}</pre>
+    <div class="run-row">
+      <button class="run-btn" onclick="run(this)">▶ 运行</button>
+      <span class="spin" hidden>运行中…</span>
+      <span class="cmd">javac D11_Bulkhead.java &amp;&amp; java D11_Bulkhead</span>
+    </div>
+    <div class="out-wrap"><div class="out-label">▌ 真实输出（本机 10 核 · OpenJDK 21 实跑）</div><pre class="out">【共享池】快任务实际等了 1056 ms（被慢任务堵住！）
+【隔离池】快任务等了 55 ms（不受慢依赖影响）
+<span class="ins">&gt;&gt; 舱壁隔离：给不同依赖分独立线程池，一个依赖打满/变慢，不会拖垮其他依赖。</span></pre></div>
+  </div>
+  <div class="ana"><div class="h">类比 · 为什么叫"舱壁"</div><p>轮船分隔成多个水密舱，一个舱进水不会沉全船。<b>共享池</b>里快任务被慢任务堵到 1057ms；<b>隔离池</b>里快任务只用 55ms。给不同依赖分配<b>独立线程池</b>，一个依赖打满或变慢，烧的是它自己那个池，不会波及其他依赖。</p></div>
+  <div class="lv" id="matrix"><div class="num"><small>收尾</small>★</div><div><h2>回到三轴矩阵</h2><div class="tag">11 个 demo 各归各位</div></div></div>
+  <table class="tab">
+    <thead><tr><th>轴</th><th>计算层在干嘛</th><th>手段</th><th>对应 demo</th></tr></thead>
+    <tbody>
+      <tr><td><span class="axis-tag a1">轴① 摊薄</span></td><td>让活能分给几百台</td><td>无状态 + 状态外置（会话/计数/去重都进 Redis）</td><td>D01 D02</td></tr>
+      <tr><td><span class="axis-tag a2">轴② 减负</span></td><td>把单台机器榨干</td><td>线程池 · 选对线程数 · 异步并行 · 虚拟线程 · 本地缓存</td><td>D03–D07</td></tr>
+      <tr><td><span class="axis-tag a3">轴③ 兜底</span></td><td>别被流量打死</td><td>限流 · 超时 · 熔断 · 隔离 · 降级</td><td>D08–D11</td></tr>
+    </tbody>
+  </table>
+  <div class="key"><div class="h">一句话总结计算层</div><p>计算层干三件事：<b>① 做成无状态，好让活分到几百台（摊薄）② 用线程池/异步/虚拟线程/缓存把单台榨干（减负）③ 用限流/超时/熔断/隔离/降级保证扛不住时优雅退让而不雪崩（兜底）</b>。这正是三轴在"干活"这一层的全部落地。</p></div>
+  <div class="ana"><div class="h">面试怎么说（把这层串成一句）</div><p>"计算层我从三轴讲：<b>横向摊薄</b>靠服务无状态化、会话与计数全外置到 Redis，让任意请求落任意机器、可线性扩容；<b>纵向减负</b>靠线程池复用 + 按 CPU/IO 密集选线程数 + CompletableFuture 并行编排下游 + JDK21 虚拟线程扛海量连接 + 本地缓存；<b>横切兜底</b>靠每个外调都带超时、信号量限流、断路器熔断降级、按依赖做线程池隔离，杜绝单点慢依赖引发雪崩。"</p></div>
+
+  <div class="lv" id="howrun"><div class="num"><small>附</small>▶</div><div><h2>自己怎么跑</h2><div class="tag">.java 都在 计算层-java/</div></div></div>
+  <pre class="code"><span class="cm"># 1) 让这个终端能用上 JDK 21</span>
+export PATH="/opt/homebrew/opt/openjdk@21/bin:$PATH"
+<span class="cm"># 2) 进目录</span>
+cd "计算层-java"
+<span class="cm"># 3) 编译并运行任意一个，例如线程池那个</span>
+javac D03_PoolVsSerial.java && java D03_PoolVsSerial</pre>
+  <p style="font-size:12.5px;color:var(--muted)">注：D06 虚拟线程需要 JDK 21+（已装）。每个 .java 旁边的 .out 是本机跑出来的留档。</p>
+
+  <div class="foot">从零讲透系列 · 计算层 · 2026-06-28 · 上一层：接入层 · 下一层可继续：缓存层 / 存储层</div>
+</div>
+<script>
+function run(btn){
+  var card=btn.closest('.demo');
+  var wrap=card.querySelector('.out-wrap');
+  var spin=card.querySelector('.spin');
+  btn.disabled=true; if(spin) spin.hidden=false; wrap.classList.remove('on');
+  setTimeout(function(){
+    if(spin) spin.hidden=true; btn.disabled=false;
+    wrap.classList.add('on'); btn.textContent='✓ 已运行 · 点重跑';
+  },320);
+}
+</script>
+</body>
+</html>

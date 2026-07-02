@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>pgvector 深度白盒</title><style>
+:root{--bg:#fafaf7;--paper:#fff;--ink:#1a1a1a;--ink2:#4a4a4a;--muted:#8a8a8a;--line:#e8e6df;--accent:#245f73;--good:#1f6f4f;--warn:#b84a36;--gold:#8a5d1f;--font:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;--mono:"SF Mono",ui-monospace,Menlo,monospace}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.7;font-size:15px}
+.page{max-width:980px;margin:0 auto;padding:30px 22px 90px}
+h1{font-size:25px;margin:0 0 4px}.sub{color:var(--muted);margin:0 0 12px}a{color:var(--accent)}
+.stats{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}
+.stat{background:var(--paper);border:1px solid var(--line);border-radius:9px;padding:7px 11px;font-size:12.5px}
+.stat b{display:block;color:var(--muted);font-size:11px;font-weight:700;margin-bottom:2px}
+.seg{margin-top:20px;background:var(--paper);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.seg-h{padding:12px 18px;background:#f6f5ef;border-bottom:1px solid var(--line)}
+.seg-h h2{margin:0;font-size:17px}
+.seg-b{padding:16px 18px}
+p{margin:0 0 10px}
+.diagram{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:#f6f5ef;border-radius:10px;padding:14px;font-size:12.5px;justify-content:center}
+.box{background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:8px 12px;text-align:center;font-weight:600}
+.box .s{display:block;font-size:11px;color:var(--muted);font-weight:400}
+.arrow{color:var(--accent);font-weight:800;font-size:16px}
+.store{background:#1f2328;color:#e6e6df;border-radius:8px;padding:13px 15px;font-family:var(--mono);font-size:12.5px;white-space:pre-wrap;overflow-x:auto;line-height:1.6}
+.store .c{color:#8a8a8a}.store .k{color:#79c0e8}.store .s2{color:#b6d99a}.store .n{color:#e0a849}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media(max-width:680px){.two{grid-template-columns:1fr}}
+.pros,.cons{border-radius:10px;padding:12px 14px;font-size:13.5px}
+.pros{background:#eef6f0;border:1px solid #cfe6d8}.cons{background:#fbeeea;border:1px solid #ecd0c7}
+.pros h3{color:var(--good);margin:0 0 6px;font-size:14px}.cons h3{color:var(--warn);margin:0 0 6px;font-size:14px}
+ul{margin:6px 0;padding-left:20px}li{margin:3px 0}
+.when{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media(max-width:680px){.when{grid-template-columns:1fr}}
+.tldr{background:#eef6f0;border:1px solid #cfe6d8;border-radius:10px;padding:12px 15px;font-size:14px;color:#155;margin-top:18px}
+.note{font-size:12.5px;color:var(--ink2);margin-top:14px;padding:11px 14px;background:#f4f6f7;border:1px solid #e2ebec;border-radius:8px}
+</style></head>
+<body><div class="page">
+  <h1>pgvector · 向量库深度白盒</h1>
+  <p class="sub">给 PostgreSQL 装上「向量」能力的开源扩展,让你的业务数据库直接做语义检索。<a href="./vectordb-lab.html">← 选型对比</a> · <a href="./">导航</a></p>
+
+  <div class="stats">
+    <div class="stat"><b>语言</b>C(PostgreSQL 扩展)</div>
+    <div class="stat"><b>许可</b>PostgreSQL License(BSD 类,宽松)</div>
+    <div class="stat"><b>部署形态</b>装进现有 Postgres / 自托管 / 云托管</div>
+    <div class="stat"><b>适用规模</b>万级~数千万向量(单机为主)</div>
+    <div class="stat"><b>元数据过滤</b>原生支持(就是 SQL WHERE)</div>
+    <div class="stat"><b>混合检索</b>支持(配合 PG 全文检索 + RRF 融合)</div>
+    <div class="stat"><b>托管版</b>无独立托管;随云 PG 提供(Supabase / Neon / AWS RDS·Aurora / 阿里云 / Google Cloud SQL·AlloyDB)</div>
+    <div class="stat"><b>最适合</b>已经在用 Postgres、想就地加语义检索的团队</div>
+  </div>
+
+  <div class="seg"><div class="seg-h"><h2>① 来源:谁、何时、为什么造它</h2></div><div class="seg-b">
+    <p><b>谁做的:</b>由独立开发者 <b>Andrew Kane</b>(GitHub 账号 ankane)发起并主力维护。他还写过一堆机器学习相关的开源库。如今项目在 GitHub 的 <code>pgvector/pgvector</code> 组织下,由社区共同维护,贡献者来自各大云厂商和数据库公司。</p>
+    <p><b>什么时候开源:</b>大约 <b>2021 年</b>首次开源发布(0.1.0)。此后版本稳步迭代,2024 年 10 月发布 0.8.0(引入迭代扫描),到 <b>2026 年初已发布到 0.8.2 版</b>(2026-02 发布,修复了一个并行 HNSW 索引构建的缓冲区溢出安全漏洞 CVE-2026-3172,CVSS 8.1)。</p>
+    <p><b>为什么造它(解决什么痛点):</b>大模型时代,文本/图片都会被「嵌入模型」转成一长串数字(向量)。要做语义搜索、RAG、推荐,就得存这些向量并快速找「最相似的」。在 pgvector 出现前,你往往得<b>另起一个专门的向量数据库</b>,于是数据被切成两半:业务数据在 Postgres,向量在别处,两边要同步、要保证一致、要维护两套系统。pgvector 的思路是:<b>别再搞第二个数据库了</b>——直接给你已经在用的 PostgreSQL 加一个「向量」列类型和相似度搜索能力,向量和业务数据躺在同一张表里,共享同一套事务、备份、权限和 SQL。</p>
+    <p><b>用什么语言写的:</b>核心是 <b>C 语言</b>(因为 Postgres 扩展必须用 C 写,才能深入数据库内核加新类型、新算子、新索引)。</p>
+    <p><b>开源协议:</b><b>PostgreSQL License</b>,这是一种类似 BSD/MIT 的极宽松协议,商用、闭源、再分发基本没限制。</p>
+    <p><b>背后的公司/社区:</b>没有一家公司「拥有」它,它是纯社区开源项目。但它被整个 Postgres 生态当作事实标准,几乎所有云上的托管 Postgres(Supabase、Neon、AWS RDS/Aurora、阿里云、Google Cloud SQL/AlloyDB、Azure 等)都默认带着它。</p>
+  </div></div>
+
+  <div class="seg"><div class="seg-h"><h2>② 原理 + 架构</h2></div><div class="seg-b">
+    <div class="diagram">
+      <div class="box">客户端<span class="s">任意 PG 驱动 / SQL</span></div>
+      <span class="arrow">→</span>
+      <div class="box">PostgreSQL 内核<span class="s">查询解析 / 事务 / WHERE 过滤</span></div>
+      <span class="arrow">→</span>
+      <div class="box">pgvector 扩展<span class="s">vector 类型 + &lt;=&gt; 算子</span></div>
+      <span class="arrow">→</span>
+      <div class="box">ANN 索引<span class="s">HNSW 图 / IVFFlat 倒排</span></div>
+      <span class="arrow">→</span>
+      <div class="box">堆表 + 磁盘<span class="s">8KB 页 / WAL / TOAST</span></div>
+    </div>
+    <p style="margin-top:12px"><b>一句话理解架构:</b>pgvector 不是一个独立的数据库,而是「寄生」在 PostgreSQL 里的一个<b>扩展(extension)</b>。它没有自己的存储引擎、没有自己的网络层,全都借用 Postgres。它只往 Postgres 里加了三样东西:① 一种新的列类型 <code>vector</code>(以及节省空间的 <code>halfvec</code>、稀疏向量 <code>sparsevec</code>、二值 <code>bit</code>);② 几个距离<b>算子</b>(<code>&lt;=&gt;</code> 余弦距离、<code>&lt;-&gt;</code> 欧氏 L2 距离、<code>&lt;#&gt;</code> 负内积);③ 两种专门给向量用的<b>索引访问方法</b>。</p>
+    <p><b>存储层:</b>向量就是表里一个普通的列,跟着行一起存进 Postgres 的 8KB 堆页(heap page)。维度高、体积大的向量会被 Postgres 的 <b>TOAST</b> 机制挪到行外单独存。所有写入都过 <b>WAL(预写日志)</b>,所以你天然就有了崩溃恢复、流复制、时间点恢复(PITR)。</p>
+    <p><b>索引层(底层 ANN):</b>精确搜索(全表算距离)在数据量大时太慢,所以 pgvector 提供两种近似最近邻(ANN)索引:</p>
+    <ul>
+      <li><b>HNSW</b>(分层可导航小世界图):构建一个多层「跳表式」邻居图,查询时从顶层粗略跳、逐层细化。<b>查询又快又准</b>,但建索引慢、占内存多。不需要预先有数据就能建。<b>默认首选。</b></li>
+      <li><b>IVFFlat</b>(倒排文件):先把所有向量聚成若干个「桶(list)」,查询时只看离你最近的几个桶。<b>建得快、省内存</b>,但召回/速度的平衡不如 HNSW,而且需要表里先有数据来训练聚类中心。</li>
+    </ul>
+    <p>注:pgvector 自带 HNSW / IVFFlat,<b>不内置 DiskANN</b>;若想要面向 SSD 的磁盘型索引,要看具体云厂商的增强版(如某些托管平台的扩展)。</p>
+    <p><b>查询怎么走:</b>你写一句普通 SQL,Postgres 解析后发现 <code>ORDER BY embedding &lt;=&gt; $查询向量 LIMIT 5</code>,就会用上面的向量索引快速取回近邻;同一句里的 <code>WHERE category=...</code> 这类<b>元数据过滤</b>由 Postgres 自己处理。新版还加了「迭代扫描(iterative scan)」,避免过滤条件太严时召回不够的「过滤丢结果」问题。</p>
+  </div></div>
+
+  <div class="seg"><div class="seg-h"><h2>③ 存入的数据长什么样(真实代码白盒)</h2></div><div class="seg-b">
+    <div class="store"><span class="c">-- 0) 在这个数据库里启用向量扩展(每库一次)</span>
+<span class="k">CREATE EXTENSION IF NOT EXISTS</span> vector;
+
+<span class="c">-- 1) 建表:向量只是其中一列,和业务字段躺在一起</span>
+<span class="c">--    vector(768) 表示这一列存 768 维的向量(维度要和你的嵌入模型一致)</span>
+<span class="k">CREATE TABLE</span> items (
+  id        <span class="k">bigserial</span> <span class="k">PRIMARY KEY</span>,
+  content   <span class="k">text</span>,                 <span class="c">-- 原始文本</span>
+  category  <span class="k">text</span>,                 <span class="c">-- 业务元数据,后面拿来 WHERE 过滤</span>
+  embedding <span class="k">vector</span>(<span class="n">768</span>)            <span class="c">-- 768 维向量列</span>
+);
+
+<span class="c">-- 2) 插入一行:向量写成 '[x,y,z,...]' 字符串即可(真实里通常是嵌入模型输出)</span>
+<span class="k">INSERT INTO</span> items (content, category, embedding) <span class="k">VALUES</span>
+  (<span class="s2">'退货政策:30天内可无理由退款'</span>, <span class="s2">'faq'</span>, <span class="s2">'[0.012, -0.043, 0.991, ...]'</span>),
+  (<span class="s2">'如何重置登录密码'</span>,           <span class="s2">'faq'</span>, <span class="s2">'[0.220,  0.110, -0.330, ...]'</span>);
+
+<span class="c">-- 3) 建 ANN 索引:用 HNSW + 余弦距离算子类(让相似度查询走索引、变快)</span>
+<span class="k">CREATE INDEX</span> <span class="k">ON</span> items <span class="k">USING</span> hnsw (embedding vector_cosine_ops);
+
+<span class="c">-- 4) 查询:先按 category 过滤(SQL WHERE),再按余弦距离排序取最相似 5 条</span>
+<span class="c">--    <=> 是「余弦距离」算子,值越小 = 越相似;$1=类别,$2=查询向量</span>
+<span class="k">SELECT</span> id, content
+<span class="k">FROM</span>   items
+<span class="k">WHERE</span>  category = $<span class="n">1</span>
+<span class="k">ORDER BY</span> embedding <span class="k">&lt;=&gt;</span> $<span class="n">2</span>
+<span class="k">LIMIT</span>  <span class="n">5</span>;</div>
+    <p style="margin-top:12px"><b>它在磁盘上大概怎么落地:</b>这张 <code>items</code> 表和普通 Postgres 表完全一样——每行连同那 768 维向量(约 4×768+8 ≈ 3KB)写进 8KB 的堆页,超大的向量由 TOAST 拆到行外;写入走 WAL 保证不丢、可复制可恢复;而那条 HNSW 索引则是另一组磁盘页,里面存的是「向量之间的邻居图」结构,查询时数据库沿着这张图跳着找近邻,而不是逐行算距离。整张表/索引都能用 <code>pg_dump</code> 一起备份,享受 Postgres 的事务(ACID)、权限、JOIN 全套能力。</p>
+  </div></div>
+
+  <div class="seg"><div class="seg-h"><h2>④ 优势 / 劣势</h2></div><div class="seg-b"><div class="two">
+    <div class="pros"><h3>✓ 优势</h3><ul>
+      <li><b>零新增系统:</b>已经在用 Postgres 就直接 <code>CREATE EXTENSION</code>,不用部署/运维第二套数据库,也不用做跨库数据同步。</li>
+      <li><b>向量与业务数据同表:</b>能和订单、用户、权限等表直接 <code>JOIN</code>,过滤就是原生 SQL <code>WHERE</code>,表达力极强。</li>
+      <li><b>白送 Postgres 全套能力:</b>事务(ACID)、外键、备份、流复制、时间点恢复、行级权限——向量数据一并享受。</li>
+      <li><b>生态无敌:</b>几乎所有语言的 PG 驱动、ORM、BI 工具都能直接用;所有主流云的托管 Postgres 都内置它。</li>
+      <li><b>协议宽松、完全开源:</b>PostgreSQL License,商用无忧,不存在厂商锁定。</li>
+      <li><b>混合检索可行:</b>配合 Postgres 全文检索 + RRF 融合,关键词与语义检索能在同一库内组合。</li>
+    </ul></div>
+    <div class="cons"><h3>✗ 劣势</h3><ul>
+      <li><b>规模上限不如专用库:</b>本质是单机扩展,到上亿级向量 + 高 QPS 时,纯靠 Postgres 横向扩展和性能会吃力。</li>
+      <li><b>索引内存/构建成本高:</b>HNSW 建索引慢、吃内存;大表重建索引是一笔不小的开销。</li>
+      <li><b>调参靠你自己:</b><code>m</code>、<code>ef_construction</code>、<code>lists</code>、<code>probes</code> 等参数要手动权衡召回与速度,没有「智能默认」。</li>
+      <li><b>功能比专用库窄:</b>不内置 DiskANN、量化压缩、内置重排、多租户隔离等高级特性(部分要靠云厂商增强版)。</li>
+      <li><b>过滤与 ANN 的配合有坑:</b>强过滤 + ANN 可能召回不足,需要靠迭代扫描或精心建索引来缓解。</li>
+      <li><b>共享数据库资源:</b>向量查询吃 CPU/内存,可能和同库的在线业务互相抢资源,需要规划。</li>
+    </ul></div>
+  </div></div></div>
+
+  <div class="seg"><div class="seg-h"><h2>⑤ 什么时候选 / 什么时候别选</h2></div><div class="seg-b"><div class="when">
+    <div class="pros"><h3>✓ 适合</h3><ul>
+      <li><b>已经在用 Postgres</b>,想就地加语义检索/RAG,不想再引入一个新系统。</li>
+      <li>向量量级在<b>万级到数千万</b>,单机够用。</li>
+      <li>需要把<b>向量和业务数据强关联</b>(复杂 WHERE、JOIN、事务一致性)。</li>
+      <li>团队小、想省运维,直接用 <b>Supabase / Neon / RDS</b> 等托管 PG 一把梭。</li>
+      <li>看重<b>开源、无锁定、协议宽松</b>。</li>
+    </ul></div>
+    <div class="cons"><h3>✗ 别用</h3><ul>
+      <li>向量规模奔着<b>上亿甚至更高</b>,且要求极致低延迟 + 高并发——选 Milvus/Qdrant/Vespa 这类专用分布式库。</li>
+      <li>需要<b>开箱即用的高级向量特性</b>(DiskANN、标量量化、内置重排、分片副本管理)。</li>
+      <li>团队<b>完全没有 Postgres</b>,只为做向量检索而单独搭一套 PG 不划算。</li>
+      <li>向量写入/重建索引极其频繁、规模巨大,单机 Postgres 难扛索引构建压力。</li>
+      <li>要求向量检索与在线交易业务<b>严格资源隔离</b>、互不影响。</li>
+    </ul></div>
+  </div></div></div>
+
+  <div class="tldr"><b>一句话:</b>pgvector 把「向量搜索」做成 PostgreSQL 的一个列类型和算子,让你不必另建向量数据库——已经在用 Postgres、规模在千万级以内、又想让向量和业务数据共享 SQL/事务/备份的团队,它几乎是默认最优解;但真要扛上亿向量、追极致性能与高级特性,就该上专用向量库。</div>
+
+  <div class="note">事实核对来源:pgvector 官方 GitHub、PostgreSQL 官网 0.8.x 发布公告、Neon / Supabase / AWS / Google Cloud 文档及第三方技术博客。版本与能力以 2026 年初 0.8.2(2026-02 发布)为准;具体数字随版本演进可能变化,文中规模区间为大致经验值。</div>
+</div><a id="home-fab" href="./knowledge-map.html" style="position:fixed;right:16px;bottom:16px;z-index:9999;background:#245f73;color:#fff;text-decoration:none;font:600 13px/1 -apple-system,BlinkMacSystemFont,sans-serif;padding:10px 14px;border-radius:24px;box-shadow:0 2px 10px rgba(0,0,0,.18)">🏠 总览</a>
+</body></html>

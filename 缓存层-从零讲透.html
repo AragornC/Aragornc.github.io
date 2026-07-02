@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>缓存 / 特征层 · 从零讲透（可运行 Java 版）</title>
+<style>
+  :root{
+    --bg:#fbfcfd; --paper:#fff; --ink:#0f1820; --ink-2:#26333f; --muted:#5e6b78; --muted-2:#8997a5;
+    --line:#dde4ec; --green:#1f6f4f; --green-d:#16543b; --green-soft:#e9f3ee;
+    --blue:#0c5d80; --blue-soft:#e6f1f6; --amber:#8a5d1f; --amber-soft:#fbf2dc;
+    --red:#a3373a; --red-soft:#fbeceb; --gray-soft:#f3f5f8; --purple:#5b3e8f; --purple-soft:#efeaf7;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;color:var(--ink);background:var(--bg);line-height:1.78;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
+  .wrap{max-width:880px;margin:0 auto;padding:34px 22px 90px}
+  .eyebrow{display:inline-block;margin-bottom:8px;color:var(--green);font-size:11px;font-weight:850;letter-spacing:.18em}
+  h1{margin:6px 0 6px;font-size:27px;font-weight:850}
+  .subtitle{margin:0;color:var(--ink-2);font-size:14.5px}
+  .meta{margin-top:13px;color:var(--muted);font-size:12.5px;border-bottom:1px solid var(--line);padding-bottom:20px}
+  p{font-size:14px;color:var(--ink-2);margin:10px 0} p b{color:var(--ink)}
+  .lv{display:flex;align-items:center;gap:13px;margin:40px 0 10px}
+  .lv .num{flex:0 0 auto;width:50px;height:50px;border-radius:14px;background:var(--green);color:#fff;font-size:13px;font-weight:850;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.05}
+  .lv .num small{font-size:9px;font-weight:700;opacity:.85}
+  .lv h2{margin:0;font-size:20px;font-weight:850;color:var(--ink)} .lv .tag{margin-top:3px;font-size:11.5px;color:var(--muted)}
+  .term{margin:12px 0;padding:13px 17px;border-radius:10px;background:var(--amber-soft);border-left:4px solid var(--amber)}
+  .term .w{font-size:13.5px;font-weight:850;color:var(--amber);margin-bottom:3px}
+  .term .w .en{font-weight:600;color:var(--muted);font-size:12px}
+  .term p{margin:3px 0;font-size:13px;color:var(--ink-2)}
+  .ana{margin:12px 0;padding:13px 17px;border-radius:10px;background:var(--blue-soft);border-left:4px solid var(--blue)}
+  .ana .h{font-size:12.5px;font-weight:850;color:var(--blue);margin-bottom:4px} .ana .h::before{content:"🌰 "}
+  .ana p{margin:3px 0;font-size:13px}
+  .key{margin:12px 0;padding:13px 17px;border-radius:10px;background:var(--green-soft);border-left:4px solid var(--green)}
+  .key .h{font-size:12.5px;font-weight:850;color:var(--green-d);margin-bottom:3px} .key .h::before{content:"🔑 "}
+  .key p{margin:3px 0;font-size:13px} .key b{color:var(--green-d)}
+  .axis-head{display:flex;align-items:baseline;gap:12px;margin:46px 0 4px;padding-bottom:8px;border-bottom:2px solid var(--line)}
+  .axis-title{font-size:21px;font-weight:850;color:var(--ink)}
+  .axis-sub{font-size:13px;color:var(--muted);font-weight:700}
+  .axis-head.a1 .axis-title{color:var(--green-d)} .axis-head.a2 .axis-title{color:var(--blue)} .axis-head.a3 .axis-title{color:var(--red)}
+  .axis-intro{font-size:13.5px;background:var(--gray-soft);border-radius:10px;padding:11px 15px;margin:8px 0 4px}
+  .demo{margin:16px 0 4px;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:#fff}
+  .demo-h{display:flex;align-items:center;gap:10px;padding:13px 16px 2px}
+  .demo-h .b{flex:0 0 auto;font-size:11px;font-weight:850;color:#fff;background:var(--green);padding:2px 9px;border-radius:7px;letter-spacing:.04em}
+  .demo-h h3{margin:0;font-size:15.5px;font-weight:850;color:var(--ink)}
+  .demo-d{padding:0 16px;margin:4px 0 10px;font-size:13px;color:var(--muted)}
+  pre.code{margin:0;padding:14px 16px;background:#0f1820;color:#e8eef4;overflow-x:auto;
+    font-family:"SF Mono",Menlo,Consolas,monospace;font-size:12px;line-height:1.62;white-space:pre}
+  pre.code .cm{color:#7d96a8}
+  .run-row{display:flex;align-items:center;gap:12px;padding:11px 16px;background:var(--gray-soft);border-top:1px solid var(--line);flex-wrap:wrap}
+  .run-btn{font:inherit;font-size:13px;font-weight:800;color:#fff;background:var(--green);border:0;border-radius:8px;padding:7px 16px;cursor:pointer}
+  .run-btn:hover{background:var(--green-d)} .run-btn:disabled{opacity:.55;cursor:default}
+  .spin{font-size:12px;color:var(--green-d);font-weight:800}
+  .cmd{font-family:"SF Mono",Menlo,Consolas,monospace;font-size:11.5px;color:var(--muted)}
+  .out-wrap{max-height:0;opacity:0;overflow:hidden;transition:max-height .45s ease,opacity .35s}
+  .out-wrap.on{max-height:1600px;opacity:1}
+  .out-label{font-size:10.5px;color:#6f8294;padding:8px 16px 0;background:#0b0f14;font-family:"SF Mono",Menlo,Consolas,monospace;letter-spacing:.03em}
+  pre.out{margin:0;padding:8px 16px 14px;background:#0b0f14;color:#cfe0d6;overflow-x:auto;
+    font-family:"SF Mono",Menlo,Consolas,monospace;font-size:12px;line-height:1.62;white-space:pre}
+  pre.out .ins{color:#8fd6a8;font-weight:600} pre.out .ev{color:#e8c98a}
+  table.tab{width:100%;border-collapse:collapse;margin:12px 0;font-size:13px}
+  table.tab th,table.tab td{padding:9px 12px;border:1px solid var(--line);text-align:left;vertical-align:top}
+  table.tab th{background:#eef3f8;font-weight:800;color:var(--ink)} table.tab td b{color:var(--ink)}
+  .axis-tag{display:inline-block;font-size:10.5px;font-weight:850;padding:2px 9px;border-radius:12px;margin-right:5px}
+  .axis-tag.a1{background:var(--green-soft);color:var(--green-d);border:1px solid #bfe0cd}
+  .axis-tag.a2{background:var(--blue-soft);color:var(--blue);border:1px solid #c8dfeb}
+  .axis-tag.a3{background:var(--red-soft);color:var(--red);border:1px solid #f0c4c2}
+  .toc{margin:16px 0;padding:14px 18px;background:var(--gray-soft);border-radius:10px}
+  .toc b{display:block;color:var(--ink);margin-bottom:7px;font-size:13px}
+  .toc a{color:var(--green-d);text-decoration:none;font-weight:700;margin:0 10px 5px 0;display:inline-block;font-size:12px}
+  .toc a:hover{text-decoration:underline}
+  code.in{background:var(--gray-soft);padding:1px 6px;border-radius:4px;font-size:.86em;font-family:"SF Mono",Menlo,Consolas,monospace;color:var(--ink-2)}
+  .foot{margin-top:48px;padding-top:15px;border-top:1px solid var(--line);font-size:11.5px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">从零讲透 · 可点击运行的 Java</div>
+  <h1>缓存 / 特征层 · 三轴讲透（每个点都能跑）</h1>
+  <p class="subtitle">计算层把活干快了，可一查数据还是慢。这一层在"计算"和"存储"之间架一层快速记忆，挡住绝大多数查询。每个点配能 <b>▶ 运行</b> 的 Java。</p>
+  <div class="meta">读法：三轴递进——先讲缓存为啥能减负，再讲四大翻车现场怎么兜底，最后讲放不下怎么分片。每个 demo 点「▶ 运行」看真实输出；.java 都在 <code class="in">缓存层-java/</code>。所有输出本机 10 核 · OpenJDK 21 实跑。</div>
+
+  <div class="lv" id="l0"><div class="num"><small>地基</small>0</div><div><h2>缓存 / 特征层是干嘛的？</h2><div class="tag">先一句话定位</div></div></div>
+  <p>接入层把请求分到机器，计算层把活干快——但只要一<b>查数据</b>（用户画像、设备指纹、黑白名单、历史行为），就得去<b>存储层（DB）</b>。DB 慢、也扛不住千万 QPS 直接怼。</p>
+  <p><b>缓存层 = 在计算层和存储层之间架一层"快速记忆"</b>：把热数据放内存，挡住绝大多数查询，只让极少数漏到 DB。风控里这层尤其重（也叫<b>特征层</b>）：一次风控决策要读几十上百个特征，全靠缓存毫秒级返回。怎么把这层做好？还是那三根轴：</p>
+  <div class="toc">
+    <b>三轴 + 9 个可运行 demo</b>
+    <a href="#e01">②为啥缓存 E01</a><a href="#e02">②Cache-Aside E02</a><a href="#e03">②多级缓存 E03</a><a href="#e04">②LRU淘汰 E04</a>
+    <a href="#e05">③穿透 E05</a><a href="#e06">③击穿 E06</a><a href="#e07">③雪崩 E07</a><a href="#e08">③一致性 E08</a>
+    <a href="#e09">①一致性哈希 E09</a>
+  </div>
+
+  <div class="axis-head a2">
+    <div class="axis-title">轴② 纵向减负</div>
+    <div class="axis-sub">缓存存在的本质：给慢存储减负</div>
+  </div>
+  <p class="axis-intro">缓存这一层的存在本身就是"纵向减负"——把热数据从慢的存储（磁盘/DB）搬到快的内存，别每次都去慢的地方查。手段：选对读写模式、多级缓存、淘汰策略。</p>
+  <div class="demo" id="e01">
+    <div class="demo-h"><span class="b">E01</span><h3>为什么要缓存：内存 vs 磁盘</h3></div>
+    <p class="demo-d">同样查 20 次，从"磁盘/远程"查 vs 从"内存缓存"查，看耗时差多少。</p>
+    <pre class="code">import java.util.HashMap;
+<span class="cm">// 缓存层 | 轴② 减负 | 为什么要缓存：内存比"磁盘/远程"快几个数量级</span>
+public class E01_WhyCache {
+    <span class="cm">// 模拟"去数据库/磁盘查"——慢（要走磁盘 IO / 网络）</span>
+    static String fromDisk(String key) {
+        try { Thread.sleep(50); } catch (InterruptedException e) {}   <span class="cm">// 一次磁盘/远程查 ~ 毫秒级</span>
+        return "value_of_" + key;
+    }
+    <span class="cm">// 内存里的缓存——快（纳秒级）</span>
+    static final HashMap&lt;String, String&gt; mem = new HashMap&lt;&gt;();
+    public static void main(String[] a) {
+        mem.put("user42", "value_of_user42");
+        int N = 20;
+        long t0 = System.nanoTime();
+        for (int i = 0; i &lt; N; i++) fromDisk("user42");
+        long diskMs = (System.nanoTime() - t0) / 1_000_000;
+        long t1 = System.nanoTime();
+        for (int i = 0; i &lt; N; i++) mem.get("user42");
+        long memNs = System.nanoTime() - t1;
+        System.out.println("同样查 " + N + " 次：");
+        System.out.println("  从磁盘/远程查：" + diskMs + " ms");
+        System.out.println("  从内存缓存查：" + (memNs / 1000) + " 微秒(us) = " + (memNs / 1_000_000.0) + " ms");
+        System.out.println("  快了约 " + (diskMs * 1_000_000 / Math.max(memNs, 1)) + " 倍");
+        System.out.println("&gt;&gt; 内存比磁盘/远程快成千上万倍。缓存的本质就是'把热数据放内存，别每次都去慢的地方查'。");
+    }
+}</pre>
+    <div class="run-row">
+      <button class="run-btn" onclick="run(this)">▶ 运行</button>
+      <span class="spin" hidden>运行中…</span>
+      <span class="cmd">javac E01_WhyCache.java &amp;&amp; java E01_WhyCache</span>
+    </div>
+    <div class="out-wrap"><div class="out-label">▌ 真实输出（本机 10 核 · OpenJDK 21 实跑）</div><pre class="out">同样查 20 次：
+  从磁盘/远程查：1086 ms
+  从内存缓存查：25 微秒(us) = 0.025458 ms
+  快了约 42658 倍
+<span class="ins">&gt;&gt; 内存比磁盘/远程快成千上万倍。缓存的本质就是'把热数据放内存，别每次都去慢的地方查'。</span></pre></div>
+  </div>
+  <div class="key"><div class="h">这说明了什么</div><p>内存读是<b>纳秒级</b>，磁盘/远程读是<b>毫秒级</b>，差了几万倍。<b>缓存的本质就是：把热数据放内存，别每次都去慢的地方查。</b>风控里一次决策要读几十上百个特征（用户画像、设备指纹、名单），全靠缓存才能毫秒级返回——所以这层也叫"特征层"。</p></div>
+  <div class="demo" id="e02">
+    <div class="demo-h"><span class="b">E02</span><h3>Cache-Aside：最常用的读写模式</h3></div>
+    <p class="demo-d">读：先查缓存，没有再回源 DB 并回填。写：更新 DB，然后删缓存。</p>
+    <pre class="code">import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
+<span class="cm">// 缓存层 | 轴② 减负 | Cache-Aside：最常用的读写模式</span>
+public class E02_CacheAside {
+    static final Map&lt;String, String&gt; cache = new HashMap&lt;&gt;();
+    static final Map&lt;String, String&gt; db = new HashMap&lt;&gt;(Map.of("user42", "余额100"));
+    static final AtomicInteger dbReads = new AtomicInteger();
+
+    static String read(String key) {                 <span class="cm">// 读：先查缓存，没有再回源 DB 并回填</span>
+        String v = cache.get(key);
+        if (v != null) { System.out.println("  读 " + key + " → 命中缓存，直接返回"); return v; }
+        dbReads.incrementAndGet();
+        v = db.get(key);
+        System.out.println("  读 " + key + " → 缓存没有，回源 DB(第" + dbReads.get() + "次)，并回填缓存");
+        cache.put(key, v);
+        return v;
+    }
+    static void write(String key, String val) {      <span class="cm">// 写：更新 DB，然后删缓存（不是改缓存）</span>
+        db.put(key, val);
+        cache.remove(key);
+        System.out.println("  写 " + key + "=" + val + " → 更新 DB + 删缓存");
+    }
+    public static void main(String[] a) {
+        System.out.println("连续读两次同一个 key：");
+        read("user42"); read("user42");
+        System.out.println("更新它：");
+        write("user42", "余额200");
+        System.out.println("再读两次：");
+        read("user42"); read("user42");
+        System.out.println("&gt;&gt; Cache-Aside：读 miss 才回源并回填；写时'删'缓存让下次自然回源最新值。全程回源 DB 仅 " + dbReads.get() + " 次。");
+    }
+}</pre>
+    <div class="run-row">
+      <button class="run-btn" onclick="run(this)">▶ 运行</button>
+      <span class="spin" hidden>运行中…</span>
+      <span class="cmd">javac E02_CacheAside.java &amp;&amp; java E02_CacheAside</span>
+    </div>
+    <div class="out-wrap"><div class="out-label">▌ 真实输出（本机 10 核 · OpenJDK 21 实跑）</div><pre class="out">连续读两次同一个 key：
+  读 user42 → 缓存没有，回源 DB(第1次)，并回填缓存
+  读 user42 → 命中缓存，直接返回
+更新它：
+  写 user42=余额200 → 更新 DB + 删缓存
+再读两次：
+  读 user42 → 缓存没有，回源 DB(第2次)，并回填缓存
+  读 user42 → 命中缓存，直接返回
+<span class="ins">&gt;&gt; Cache-Aside：读 miss 才回源并回填；写时'删'缓存让下次自然回源最新值。全程回源 DB 仅 2 次。</span></pre></div>
+  </div>
+  <div class="term"><div class="w">Cache-Aside <span class="en">旁路缓存</span></div><p>为什么写时是"<b>删</b>缓存"而不是"<b>改</b>缓存"？因为并发下两个写同时"改"缓存，可能把旧值盖在新值上；"删"让下次读自然回源最新值，更安全。另一类模式是 Read/Write-Through（由缓存组件自己回源、应用不直接碰 DB）。<b>90% 的业务用的就是 Cache-Aside。</b></p></div>
+  <div class="demo" id="e03">
+    <div class="demo-h"><span class="b">E03</span><h3>多级缓存：本地 L1 + 分布式 L2</h3></div>
+    <p class="demo-d">先查最快的本地缓存，没有再查共享的 Redis，最后才回源 DB。</p>
+    <pre class="code">import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
+<span class="cm">// 缓存层 | 轴② 减负 | 多级缓存：本地(L1) + 分布式(L2)</span>
+public class E03_MultiLevel {
+    static final Map&lt;String, String&gt; L1 = new HashMap&lt;&gt;();   <span class="cm">// 本地缓存(进程内, 最快, 如 Caffeine)</span>
+    static final Map&lt;String, String&gt; L2 = new HashMap&lt;&gt;();   <span class="cm">// 分布式缓存(跨机器共享, 如 Redis)</span>
+    static final Map&lt;String, String&gt; db = new HashMap&lt;&gt;(Map.of("u", "特征值"));
+    static final AtomicInteger dbHit = new AtomicInteger();
+
+    static String read(String key) {
+        String v = L1.get(key);
+        if (v != null) { System.out.println("  " + key + " → L1 本地命中(最快)"); return v; }
+        v = L2.get(key);
+        if (v != null) { L1.put(key, v); System.out.println("  " + key + " → L1 没有, L2 命中, 回填 L1"); return v; }
+        dbHit.incrementAndGet(); v = db.get(key); L2.put(key, v); L1.put(key, v);
+        System.out.println("  " + key + " → L1/L2 都没有, 回源 DB, 回填 L2+L1");
+        return v;
+    }
+    public static void main(String[] a) {
+        read("u");                                           <span class="cm">// 全 miss → DB</span>
+        read("u");                                           <span class="cm">// L1 命中</span>
+        L1.clear();
+        System.out.println("(假设本地缓存过期 / 请求换到了另一台机器, L1 清空)");
+        read("u");                                           <span class="cm">// L1 miss, L2 命中</span>
+        System.out.println("&gt;&gt; 多级缓存：先查最快的本地 L1, 没有再查共享的 L2(Redis), 都没有才回源 DB。全程回源 DB 仅 " + dbHit.get() + " 次。");
+    }
+}</pre>
+    <div class="run-row">
+      <button class="run-btn" onclick="run(this)">▶ 运行</button>
+      <span class="spin" hidden>运行中…</span>
+      <span class="cmd">javac E03_MultiLevel.java &amp;&amp; java E03_MultiLevel</span>
+    </div>
+    <div class="out-wrap"><div class="out-label">▌ 真实输出（本机 10 核 · OpenJDK 21 实跑）</div><pre class="out">  u → L1/L2 都没有, 回源 DB, 回填 L2+L1
+  u → L1 本地命中(最快)
+(假设本地缓存过期 / 请求换到了另一台机器, L1 清空)
+  u → L1 没有, L2 命中, 回填 L1
+<span class="ins">&gt;&gt; 多级缓存：先查最快的本地 L1, 没有再查共享的 L2(Redis), 都没有才回源 DB。全程回源 DB 仅 1 次。</span></pre></div>
+  </div>
+  <div class="term"><div class="w">多级缓存 <span class="en">L1 / L2</span></div><p><b>L1 本地缓存</b>（Caffeine，进程内，纳秒级，但每台机器各存一份、有一致性问题）+ <b>L2 分布式缓存</b>（Redis，跨机器共享，微秒级）。风控决策机把热名单放本地 L1，绝大多数查询本地就挡住了，连 Redis 都不用打。代价是 L1 的更新延迟——通常给 L1 设很短的 TTL 容忍短暂不一致。</p></div>
+  <div class="demo" id="e04">
+    <div class="demo-h"><span class="b">E04</span><h3>LRU 淘汰：内存满了删谁</h3></div>
+    <p class="demo-d">缓存容量有限，满了必须淘汰。LRU = 删"最久没被访问"的那个。</p>
+    <pre class="code">import java.util.*;
+<span class="cm">// 缓存层 | 轴② 减负 | LRU 淘汰：内存满了, 删"最久没用"的</span>
+public class E04_LRU {
+    <span class="cm">// LinkedHashMap accessOrder=true：每次访问把元素挪到末尾；超容量就删最前面那个(最久没用)</span>
+    static class LRU&lt;K, V&gt; extends LinkedHashMap&lt;K, V&gt; {
+        final int cap;
+        LRU(int cap) { super(16, 0.75f, true); this.cap = cap; }
+        protected boolean removeEldestEntry(Map.Entry&lt;K, V&gt; e) {
+            boolean full = size() &gt; cap;
+            if (full) System.out.println("    容量满(" + cap + "), 淘汰最久没用的: " + e.getKey());
+            return full;
+        }
+    }
+    public static void main(String[] a) {
+        LRU&lt;String, Integer&gt; cache = new LRU&lt;&gt;(3);
+        System.out.println("容量=3, 依次放入 A B C：");
+        cache.put("A", 1); cache.put("B", 2); cache.put("C", 3);
+        System.out.println("  现在缓存: " + cache.keySet());
+        System.out.println("访问一下 A（A 变成最近用过的）：");
+        cache.get("A");
+        System.out.println("  现在顺序: " + cache.keySet() + "   (B 成了最久没用的)");
+        System.out.println("放入 D（超容量, 触发淘汰）：");
+        cache.put("D", 4);
+        System.out.println("  现在缓存: " + cache.keySet() + "   (B 被淘汰, 因为它最久没被访问)");
+        System.out.println("&gt;&gt; LRU = Least Recently Used，内存满时优先淘汰最久没访问的。Redis、Caffeine 都支持。");
+    }
+}</pre>
+    <div class="run-row">
+      <button class="run-btn" onclick="run(this)">▶ 运行</button>
+      <span class="spin" hidden>运行中…</span>
+      <span class="cmd">javac E04_LRU.java &amp;&amp; java E04_LRU</span>
+    </div>
+    <div class="out-wrap"><div class="out-label">▌ 真实输出（本机 10 核 · OpenJDK 21 实跑）</div><pre class="out">容量=3, 依次放入 A B C：
+  现在缓存: [A, B, C]
+访问一下 A（A 变成最近用过的）：
+  现在顺序: [B, C, A]   (B 成了最久没用的)
+放入 D（超容量, 触发淘汰）：
+    容量满(3), 淘汰最久没用的: B
+  现在缓存: [C, A, D]   (B 被淘汰, 因为它最久没被访问)
+<span class="ins">&gt;&gt; LRU = Least Recently Used，内存满时优先淘汰最久没访问的。Redis、Caffeine 都支持。</span></pre></div>
+  </div>
+  <div class="key"><div class="h">关键点</div><p><code class="in">LinkedHashMap</code> 构造时传 <code class="in">accessOrder=true</code> + 重写 <code class="in">removeEldestEntry</code>，就是手写 LRU 的标准技巧（<b>面试高频手写题</b>）。除 LRU 外还有 <b>LFU</b>（按访问频率）、<b>TTL</b>（按过期时间）、<b>FIFO</b>。Redis 的 <code class="in">maxmemory-policy</code> 可配这些策略。</p></div>
+  <div class="axis-head a3">
+    <div class="axis-title">轴③ 横切兜底</div>
+    <div class="axis-sub">缓存的四大翻车现场</div>
+  </div>
+  <p class="axis-intro">缓存一旦没扛住，压力就直接砸到后面的 DB。这一轴专治缓存的四个经典翻车点：<b>穿透</b>（查不存在的）、<b>击穿</b>（一个热点 key 过期）、<b>雪崩</b>（一大片 key 同时过期/集群挂）、<b>一致性</b>（缓存和 DB 对不上）。</p>
+  <div class="demo" id="e05">
+    <div class="demo-h"><span class="b">E05</span><h3>缓存穿透 + 缓存空值</h3></div>
+    <p class="demo-d">狂查一个"根本不存在"的 key，缓存永远 miss，每次都直击 DB。</p>
+    <pre class="code">import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
+<span class="cm">// 缓存层 | 轴③ 兜底 | 缓存穿透：狂查"根本不存在的 key", 每次都 miss 直击 DB</span>
+public class E05_Penetration {
+    static final Map&lt;String, String&gt; db = new HashMap&lt;&gt;();        <span class="cm">// DB 里根本没有 'ghost' 这个 key</span>
+
+    <span class="cm">// ① 无防护：null 不回填 → 每次都得查 DB</span>
+    static final Map&lt;String, String&gt; cache = new HashMap&lt;&gt;();
+    static final AtomicInteger dbReads = new AtomicInteger();
+    static String readNaive(String key) {
+        String v = cache.get(key);
+        if (v != null) return v;
+        dbReads.incrementAndGet();
+        v = db.get(key);                                          <span class="cm">// null! DB 里没有</span>
+        if (v != null) cache.put(key, v);                        <span class="cm">// null 不回填 → 下次还得查 DB</span>
+        return v;
+    }
+
+    <span class="cm">// ② 缓存空值：即使不存在也缓存一个"空"，挡住后续请求</span>
+    static final Map&lt;String, String&gt; cache2 = new HashMap&lt;&gt;();
+    static final AtomicInteger dbReads2 = new AtomicInteger();
+    static String readGuarded(String key) {
+        if (cache2.containsKey(key)) return cache2.get(key);     <span class="cm">// 即使值是空, 也算命中</span>
+        dbReads2.incrementAndGet();
+        String v = db.get(key);
+        cache2.put(key, v == null ? "" : v);                     <span class="cm">// 不存在也缓存一个空值(可设短TTL)</span>
+        return v;
+    }
+    public static void main(String[] a) {
+        System.out.println("狂查一个不存在的 key 'ghost' 共 5 次：");
+        for (int i = 0; i &lt; 5; i++) readNaive("ghost");
+        System.out.println("  【无防护】  打到 DB 次数: " + dbReads.get() + "   (5 次全穿透到 DB!)");
+        for (int i = 0; i &lt; 5; i++) readGuarded("ghost");
+        System.out.println("  【缓存空值】打到 DB 次数: " + dbReads2.get() + "   (第 1 次后就被空值挡住)");
+        System.out.println("&gt;&gt; 穿透 = 查不存在的数据, 绕过缓存直击 DB。解法: 缓存空值(简单) 或 布隆过滤器(省内存)。");
+    }
+}</pre>
+    <div class="run-row">
+      <button class="run-btn" onclick="run(this)">▶ 运行</button>
+      <span class="spin" hidden>运行中…</span>
+      <span class="cmd">javac E05_Penetration.java &amp;&amp; java E05_Penetration</span>
+    </div>
+    <div class="out-wrap"><div class="out-label">▌ 真实输出（本机 10 核 · OpenJDK 21 实跑）</div><pre class="out">狂查一个不存在的 key 'ghost' 共 5 次：
+<span class="ev">  【无防护】  打到 DB 次数: 5   (5 次全穿透到 DB!)</span>
+<span class="ev">  【缓存空值】打到 DB 次数: 1   (第 1 次后就被空值挡住)</span>
+<span class="ins">&gt;&gt; 穿透 = 查不存在的数据, 绕过缓存直击 DB。解法: 缓存空值(简单) 或 布隆过滤器(省内存)。</span></pre></div>
+  </div>
+  <div class="term"><div class="w">缓存穿透 <span class="en">Penetration</span></div><p>查的是 <b>DB 里也没有</b>的数据（常见于恶意攻击：拿一堆不存在的 ID 狂打），缓存永远命不中，每次都穿到 DB。解法：① <b>缓存空值</b>（把"不存在"也缓存起来，简单，但占内存、要设短 TTL）② <b>布隆过滤器</b>（用极小内存 O(1) 判断"这个 key 一定不存在"，存在则放行，省内存）。</p></div>
+  <div class="demo" id="e06">
+    <div class="demo-h"><span class="b">E06</span><h3>缓存击穿 + 互斥锁</h3></div>
+    <p class="demo-d">单个热点 key 过期的一瞬间，100 个并发请求同时 miss、一起回源打爆 DB。</p>
+    <pre class="code">import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
+<span class="cm">// 缓存层 | 轴③ 兜底 | 缓存击穿：单个热点 key 过期瞬间, 大量请求同时回源打爆 DB</span>
+public class E06_Breakdown {
+    static String loadFromDB(AtomicInteger counter) {
+        counter.incrementAndGet();
+        try { Thread.sleep(100); } catch (InterruptedException e) {}   <span class="cm">// 回源耗时 100ms</span>
+        return "hot_value";
+    }
+
+    <span class="cm">// ① 无锁：谁发现 null 谁就回源 → 100 个线程同时进来都回源</span>
+    static volatile String cache = null;
+    static final AtomicInteger dbReads = new AtomicInteger();
+    static String readNaive() {
+        if (cache != null) return cache;
+        cache = loadFromDB(dbReads);
+        return cache;
+    }
+
+    <span class="cm">// ② 互斥锁：只放一个线程回源, 其余等它回填(双重检查)</span>
+    static volatile String cache2 = null;
+    static final AtomicInteger dbReads2 = new AtomicInteger();
+    static final Semaphore lock = new Semaphore(1);
+    static String readLocked() {
+        if (cache2 != null) return cache2;
+        lock.acquireUninterruptibly();
+        try {
+            if (cache2 != null) return cache2;                   <span class="cm">// 拿到锁再看一眼, 可能别人已回填</span>
+            cache2 = loadFromDB(dbReads2);
+            return cache2;
+        } finally { lock.release(); }
+    }
+
+    static void blast(Runnable r) throws Exception {
+        ExecutorService p = Executors.newFixedThreadPool(100);
+        CountDownLatch l = new CountDownLatch(100);
+        for (int i = 0; i &lt; 100; i++) p.submit(() -&gt; { r.run(); l.countDown(); });
+        l.await(); p.shutdown();
+    }
+    public static void main(String[] a) throws Exception {
+        System.out.println("热点 key 刚过期(缓存为空), 100 个请求同时涌入：");
+        blast(E06_Breakdown::readNaive);
+        System.out.println("  【无锁】    回源 DB 次数: " + dbReads.get() + "   (一大批全打到 DB!)");
+        blast(E06_Breakdown::readLocked);
+        System.out.println("  【互斥锁】  回源 DB 次数: " + dbReads2.get() + "   (只有 1 个回源, 其余等回填)");
+        System.out.println("&gt;&gt; 击穿 = 单个热点 key 过期瞬间被并发击穿。解法: 互斥锁只放一个回源, 或'逻辑过期'不真删。");
+    }
+}</pre>
+    <div class="run-row">
+      <button class="run-btn" onclick="run(this)">▶ 运行</button>
+      <span class="spin" hidden>运行中…</span>
+      <span class="cmd">javac E06_Breakdown.java &amp;&amp; java E06_Breakdown</span>
+    </div>
+    <div class="out-wrap"><div class="out-label">▌ 真实输出（本机 10 核 · OpenJDK 21 实跑）</div><pre class="out">热点 key 刚过期(缓存为空), 100 个请求同时涌入：
+<span class="ev">  【无锁】    回源 DB 次数: 100   (一大批全打到 DB!)</span>
+<span class="ev">  【互斥锁】  回源 DB 次数: 1   (只有 1 个回源, 其余等回填)</span>
+<span class="ins">&gt;&gt; 击穿 = 单个热点 key 过期瞬间被并发击穿。解法: 互斥锁只放一个回源, 或'逻辑过期'不真删。</span></pre></div>
+  </div>
+  <div class="term"><div class="w">缓存击穿 <span class="en">Breakdown</span></div><p>某个<b>热点 key</b>（首页、爆款商品）过期的<b>一刹那</b>，海量并发同时发现缓存空了、一起回源，DB 瞬间被打爆。<b>和"穿透"区分</b>：击穿的 key 本来有、只是刚过期；穿透的 key 根本不存在。解法：<b>互斥锁</b>（只放一个线程回源、其余等回填，见输出 100→1）或<b>逻辑过期</b>（不真删，后台异步刷新）。</p></div>
+  <div class="demo" id="e07">
+    <div class="demo-h"><span class="b">E07</span><h3>缓存雪崩 + TTL 打散</h3></div>
+    <p class="demo-d">大量 key 设了相同 TTL → 同一时刻一起过期 → 瞬时回源洪峰打爆 DB。</p>
+    <pre class="code">import java.util.*;
+<span class="cm">// 缓存层 | 轴③ 兜底 | 缓存雪崩：大量 key 同一时刻过期, 瞬间全部回源打爆 DB</span>
+public class E07_Avalanche {
+    public static void main(String[] a) {
+        int N = 1000;
+        Random r = new Random(42);
+
+        <span class="cm">// ① 所有 key 设同样的 TTL → 同一时刻一起过期</span>
+        <span class="cm">//    =&gt; 1000 个 key 全落在同一个 100ms 窗口, 瞬时回源 QPS = 1000/0.1s = 10000</span>
+        int sameWindowPeak = N;
+
+        <span class="cm">// ② TTL 加随机抖动: base + rand(0..1000ms) → 散到 1 秒内的 10 个窗口</span>
+        int[] bucket = new int[10];                        <span class="cm">// 每格 = 100ms 窗口内过期的 key 数</span>
+        for (int i = 0; i &lt; N; i++) {
+            int b = (int) (r.nextDouble() * 10);           <span class="cm">// 落在 0..9 号窗口</span>
+            bucket[b]++;
+        }
+        int jitterPeak = Arrays.stream(bucket).max().getAsInt();
+
+        System.out.println("1000 个 key 的过期时间分布（每格 = 一个 100ms 窗口内过期的 key 数）：");
+        System.out.println("  【同一 TTL】   [" + sameWindowPeak + ", 0, 0, 0, 0, 0, 0, 0, 0, 0]");
+        System.out.println("                 → 同一瞬间 " + N + " 个全过期, 峰值回源 QPS ≈ " + (sameWindowPeak * 10) + ", DB 被打爆");
+        System.out.println("  【加随机抖动】 " + Arrays.toString(bucket));
+        System.out.println("                 → 摊到 1 秒内, 单窗口最多 " + jitterPeak + " 个, 峰值回源 QPS ≈ " + (jitterPeak * 10) + "（降了约 " + (sameWindowPeak / jitterPeak) + " 倍）");
+        System.out.println("&gt;&gt; 雪崩 = 大量 key 同时过期(或缓存集群整挂)。解法: TTL 加随机抖动打散 + 缓存高可用 + 限流降级。");
+    }
+}</pre>
+    <div class="run-row">
+      <button class="run-btn" onclick="run(this)">▶ 运行</button>
+      <span class="spin" hidden>运行中…</span>
+      <span class="cmd">javac E07_Avalanche.java &amp;&amp; java E07_Avalanche</span>
+    </div>
+    <div class="out-wrap"><div class="out-label">▌ 真实输出（本机 10 核 · OpenJDK 21 实跑）</div><pre class="out">1000 个 key 的过期时间分布（每格 = 一个 100ms 窗口内过期的 key 数）：
+<span class="ev">  【同一 TTL】   [1000, 0, 0, 0, 0, 0, 0, 0, 0, 0]</span>
+                 → 同一瞬间 1000 个全过期, 峰值回源 QPS ≈ 10000, DB 被打爆
+<span class="ev">  【加随机抖动】 [74, 96, 88, 113, 94, 110, 120, 100, 114, 91]</span>
+                 → 摊到 1 秒内, 单窗口最多 120 个, 峰值回源 QPS ≈ 1200（降了约 8 倍）
+<span class="ins">&gt;&gt; 雪崩 = 大量 key 同时过期(或缓存集群整挂)。解法: TTL 加随机抖动打散 + 缓存高可用 + 限流降级。</span></pre></div>
+  </div>
+  <div class="key"><div class="h">两种雪崩，两种解法</div><p>① <b>大量 key 同时过期</b>：给 TTL <b>加随机抖动</b>打散（见输出，峰值 QPS 降了约 8 倍）。② <b>整个缓存集群挂了</b>：靠 Redis 高可用 + 本地缓存兜底 + 限流降级（fail-open）。<b>和"击穿"区分</b>：击穿是"一个"热点 key，雪崩是"一大片"key 同时出事。</p></div>
+  <div class="demo" id="e08">
+    <div class="demo-h"><span class="b">E08</span><h3>缓存一致性 + 延迟双删</h3></div>
+    <p class="demo-d">并发下，读线程的"旧值回填"会和写线程抢顺序，导致缓存存了旧值。看真实 race。</p>
+    <pre class="code">import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+<span class="cm">// 缓存层 | 轴③ 兜底 | 缓存一致性：并发下缓存可能存到旧值 + 延迟双删</span>
+public class E08_Consistency {
+    static Map&lt;String, String&gt; cache = new ConcurrentHashMap&lt;&gt;();
+    static Map&lt;String, String&gt; db = new ConcurrentHashMap&lt;&gt;();
+    static void sleep(long ms) { try { Thread.sleep(ms); } catch (InterruptedException e) {} }
+
+    <span class="cm">// 问题：缓存已失效。读线程回源拿到旧值, 还没回填时, 写线程更新了 DB 并删了缓存,</span>
+    <span class="cm">//       读线程随后把"旧值"写回缓存 → 缓存脏了。</span>
+    static void demoRace() throws Exception {
+        cache.clear(); db.put("k", "OLD");
+        System.out.println("初始: DB=OLD, 缓存空");
+        Thread reader = new Thread(() -&gt; {
+            String v = db.get("k");                       <span class="cm">// t≈0  回源读到旧值 OLD</span>
+            System.out.println("  [读线程] 回源读到: " + v);
+            sleep(100);                                   <span class="cm">// 读线程慢了一下</span>
+            cache.put("k", v);                            <span class="cm">// t≈100 把 OLD 写回缓存</span>
+            System.out.println("  [读线程] 回填缓存: " + v);
+        });
+        Thread writer = new Thread(() -&gt; {
+            sleep(50);                                    <span class="cm">// t≈50 写线程介入</span>
+            db.put("k", "NEW");                           <span class="cm">// 更新 DB</span>
+            cache.remove("k");                            <span class="cm">// 删缓存</span>
+            System.out.println("  [写线程] 更新 DB=NEW, 删缓存");
+        });
+        reader.start(); writer.start(); reader.join(); writer.join();
+        String c = cache.get("k");
+        System.out.println("结果: DB=" + db.get("k") + ", 缓存=" + c + "  → " + ("NEW".equals(c) ? "一致" : "不一致! 缓存是旧值 OLD") + "\n");
+    }
+
+    <span class="cm">// 解法：延迟双删 —— 写时先删缓存 → 更新 DB → 等一会儿(超过读线程回填耗时) → 再删一次</span>
+    static void demoDoubleDelete() throws Exception {
+        cache.clear(); db.put("k", "OLD");
+        System.out.println("初始: DB=OLD, 缓存空 (延迟双删版)");
+        Thread reader = new Thread(() -&gt; {
+            String v = db.get("k");
+            System.out.println("  [读线程] 回源读到: " + v);
+            sleep(100); cache.put("k", v);
+            System.out.println("  [读线程] 回填缓存: " + v);
+        });
+        Thread writer = new Thread(() -&gt; {
+            sleep(50);
+            cache.remove("k");                            <span class="cm">// 删 1</span>
+            db.put("k", "NEW");                           <span class="cm">// 更新 DB</span>
+            System.out.println("  [写线程] 删缓存 + 更新 DB=NEW, 安排延迟再删");
+            sleep(200);                                   <span class="cm">// 等超过读线程的回填(100ms)</span>
+            cache.remove("k");                            <span class="cm">// 删 2: 把读线程刚回填的旧值再清掉</span>
+            System.out.println("  [写线程] 延迟再删缓存(清掉可能被回填的旧值)");
+        });
+        reader.start(); writer.start(); reader.join(); writer.join();
+        String c = cache.get("k");
+        System.out.println("结果: DB=" + db.get("k") + ", 缓存=" + (c == null ? "空(下次读自然回源 NEW)" : c) + "  → 一致");
+    }
+    public static void main(String[] a) throws Exception {
+        System.out.println("=== 问题: 普通'更DB+删缓存'在并发下出脏数据 ===");
+        demoRace();
+        System.out.println("=== 解法: 延迟双删 ===");
+        demoDoubleDelete();
+        System.out.println("&gt;&gt; 一致性核心是'写操作'怎么和'读回填'抢顺序。延迟双删 = 删→更DB→延迟再删, 兜住读线程的旧回填。");
+    }
+}</pre>
+    <div class="run-row">
+      <button class="run-btn" onclick="run(this)">▶ 运行</button>
+      <span class="spin" hidden>运行中…</span>
+      <span class="cmd">javac E08_Consistency.java &amp;&amp; java E08_Consistency</span>
+    </div>
+    <div class="out-wrap"><div class="out-label">▌ 真实输出（本机 10 核 · OpenJDK 21 实跑）</div><pre class="out"><span class="ev">=== 问题: 普通'更DB+删缓存'在并发下出脏数据 ===</span>
+初始: DB=OLD, 缓存空
+<span class="ev">  [读线程] 回源读到: OLD</span>
+<span class="ev">  [写线程] 更新 DB=NEW, 删缓存</span>
+<span class="ev">  [读线程] 回填缓存: OLD</span>
+结果: DB=NEW, 缓存=OLD  → 不一致! 缓存是旧值 OLD
+
+<span class="ev">=== 解法: 延迟双删 ===</span>
+初始: DB=OLD, 缓存空 (延迟双删版)
+<span class="ev">  [读线程] 回源读到: OLD</span>
+<span class="ev">  [写线程] 删缓存 + 更新 DB=NEW, 安排延迟再删</span>
+<span class="ev">  [读线程] 回填缓存: OLD</span>
+<span class="ev">  [写线程] 延迟再删缓存(清掉可能被回填的旧值)</span>
+结果: DB=NEW, 缓存=空(下次读自然回源 NEW)  → 一致
+<span class="ins">&gt;&gt; 一致性核心是'写操作'怎么和'读回填'抢顺序。延迟双删 = 删→更DB→延迟再删, 兜住读线程的旧回填。</span></pre></div>
+  </div>
+  <div class="term"><div class="w">缓存一致性 <span class="en">Consistency</span></div><p>这是经典难题。即使用 Cache-Aside 的"更 DB + 删缓存"，并发下读线程仍可能把旧值回填进去（本 demo 真实复现）。缓解：<b>延迟双删</b>（删→更DB→延迟再删一次，兜住读线程的旧回填）、<b>给缓存设 TTL 兜底</b>（最终一致）、<b>订阅 binlog</b>（canal 监听 DB 变更异步删缓存）。<b>强一致几乎做不到，工程上普遍接受"最终一致"。</b></p></div>
+  <div class="axis-head a1">
+    <div class="axis-title">轴① 横向摊薄</div>
+    <div class="axis-sub">单机放不下就分片</div>
+  </div>
+  <p class="axis-intro">单机内存有限，热数据放不下，就把缓存分片到多台（缓存集群）。难点是扩容/缩容时怎么不让 key 大规模迁移、引发雪崩。</p>
+  <div class="demo" id="e09">
+    <div class="demo-h"><span class="b">E09</span><h3>一致性哈希分片</h3></div>
+    <p class="demo-d">单机内存放不下，把缓存分片到多台。加节点时，怎么只迁移少量 key？</p>
+    <pre class="code">import java.util.*;
+<span class="cm">// 缓存层 | 轴① 摊薄 | 一致性哈希分片：加节点只迁移少量 key（呼应接入层 L5）</span>
+public class E09_ConsistentHash {
+    static TreeMap&lt;Integer, String&gt; ring = new TreeMap&lt;&gt;();
+    static final int VNODES = 100;                          <span class="cm">// 每个物理节点放 100 个虚拟节点, 让分布均匀</span>
+    <span class="cm">// 哈希函数：String.hashCode() 对相似输入会聚成一团, 这里加 murmur 雪崩混淆打散到整个范围</span>
+    static int hash(String s) {
+        int h = s.hashCode();
+        h ^= (h &gt;&gt;&gt; 16); h *= 0x85ebca6b; h ^= (h &gt;&gt;&gt; 13); h *= 0xc2b2ae35; h ^= (h &gt;&gt;&gt; 16);
+        return h &amp; 0x7fffffff;
+    }
+    static void addNode(String node) {
+        for (int i = 0; i &lt; VNODES; i++) ring.put(hash(node + "#" + i), node);
+    }
+    static String locate(String key) {                      <span class="cm">// 顺时针找环上第一个节点</span>
+        Map.Entry&lt;Integer, String&gt; e = ring.ceilingEntry(hash(key));
+        if (e == null) e = ring.firstEntry();               <span class="cm">// 环形: 超过最大就回到第一个</span>
+        return e.getValue();
+    }
+    public static void main(String[] a) {
+        for (String n : List.of("缓存A", "缓存B", "缓存C")) addNode(n);
+        int N = 10000;
+        Map&lt;String, String&gt; before = new HashMap&lt;&gt;();
+        for (int i = 0; i &lt; N; i++) { String k = "key" + i; before.put(k, locate(k)); }
+        Map&lt;String, Long&gt; dist = new TreeMap&lt;&gt;();
+        before.forEach((k, v) -&gt; dist.merge(v, 1L, Long::sum));
+        System.out.println("3 个缓存节点, " + N + " 个 key 的分布: " + dist);
+
+        addNode("缓存D");                                    <span class="cm">// 加第 4 个节点</span>
+        int moved = 0;
+        for (int i = 0; i &lt; N; i++) { String k = "key" + i; if (!locate(k).equals(before.get(k))) moved++; }
+        System.out.println("加入第 4 个节点 '缓存D' 后:");
+        System.out.println("  迁移的 key 数: " + moved + "/" + N + " (" + (moved * 100 / N) + "%)");
+        System.out.println("  对比: 若用'取模 hash%N'分片, 从 3 台变 4 台几乎所有 key 都要迁移(约 " + (100 - 100 / 4) + "%)");
+        System.out.println("&gt;&gt; 一致性哈希: 加/减节点只影响环上相邻的一小段 key, 大部分 key 不动 → 扩容不雪崩。");
+    }
+}</pre>
+    <div class="run-row">
+      <button class="run-btn" onclick="run(this)">▶ 运行</button>
+      <span class="spin" hidden>运行中…</span>
+      <span class="cmd">javac E09_ConsistentHash.java &amp;&amp; java E09_ConsistentHash</span>
+    </div>
+    <div class="out-wrap"><div class="out-label">▌ 真实输出（本机 10 核 · OpenJDK 21 实跑）</div><pre class="out">3 个缓存节点, 10000 个 key 的分布: {缓存A=2942, 缓存B=3347, 缓存C=3711}
+加入第 4 个节点 '缓存D' 后:
+  迁移的 key 数: 2677/10000 (26%)
+  对比: 若用'取模 hash%N'分片, 从 3 台变 4 台几乎所有 key 都要迁移(约 75%)
+<span class="ins">&gt;&gt; 一致性哈希: 加/减节点只影响环上相邻的一小段 key, 大部分 key 不动 → 扩容不雪崩。</span></pre></div>
+  </div>
+  <div class="key"><div class="h">一致性哈希 vs 取模分片</div><p>取模 <code class="in">hash % N</code> 分片，从 3 台扩到 4 台要迁移约 <b>75%</b> 的 key（迁移即大面积 miss → 雪崩）；一致性哈希加节点只动环上相邻一小段，<b>只迁移约 26%</b>（≈ 1/新节点数）。<b>虚拟节点</b>（每个物理节点放 100 个）解决分布不均。这正是接入层 L5 讲过的"同用户同机器"那个一致性哈希；Redis Cluster 用的是 16384 个哈希槽，思想一致。</p></div>
+  <div class="key" style="margin-top:26px"><div class="h">补一个高频考点：热点 key（热 key）</div><p>一致性哈希解决了"整体分布均匀"，但挡不住<b>单个超热 key</b>（如明星塌房、爆款秒杀）把流量集中砸到<b>某一个分片</b>，那个分片单点过载。解法：① 给热 key 加随机后缀拆成多份（<code class="in">key#1</code>…<code class="in">key#N</code>）<b>多副本打散</b>到不同分片；② 在计算层用<b>本地缓存</b>把热 key 兜在进程内，根本不打到缓存集群。</p></div>
+
+  <div class="lv" id="matrix"><div class="num"><small>收尾</small>★</div><div><h2>回到三轴矩阵</h2><div class="tag">9 个 demo 各归各位</div></div></div>
+  <table class="tab">
+    <thead><tr><th>轴</th><th>缓存层在干嘛</th><th>手段</th><th>对应 demo</th></tr></thead>
+    <tbody>
+      <tr><td><span class="axis-tag a1">轴① 摊薄</span></td><td>单机放不下就分片到多台</td><td>一致性哈希分片 · 虚拟节点 · 热 key 打散</td><td>E09</td></tr>
+      <tr><td><span class="axis-tag a2">轴② 减负</span></td><td>把热数据放内存, 给存储减负</td><td>Cache-Aside · 多级缓存 · LRU 淘汰</td><td>E01–E04</td></tr>
+      <tr><td><span class="axis-tag a3">轴③ 兜底</span></td><td>缓存翻车时别把 DB 拖垮</td><td>缓存空值/布隆 · 互斥锁 · TTL打散 · 延迟双删</td><td>E05–E08</td></tr>
+    </tbody>
+  </table>
+  <div class="key"><div class="h">一句话总结缓存层</div><p>缓存层干三件事：<b>① 把热数据放内存挡住绝大多数查询（减负）② 防住穿透/击穿/雪崩/不一致这四个翻车点，别让压力砸穿到 DB（兜底）③ 放不下就用一致性哈希分片、热 key 打散（摊薄）</b>。</p></div>
+  <div class="ana"><div class="h">面试怎么说（把这层串成一句）</div><p>"缓存层我从三轴讲：<b>纵向减负</b>是它的本质，用 Cache-Aside + 本地 L1/分布式 L2 多级缓存 + LRU 淘汰，把热特征和名单挡在内存；<b>横切兜底</b>专治四大翻车——穿透用缓存空值/布隆过滤器、击穿用互斥锁只放一个回源、雪崩用 TTL 随机打散 + 集群高可用、一致性用延迟双删 + TTL 兜底做最终一致；<b>横向摊薄</b>用一致性哈希分片让扩容只迁移少量 key，再对热 key 做多副本打散。"</p></div>
+
+  <div class="lv" id="howrun"><div class="num"><small>附</small>▶</div><div><h2>自己怎么跑</h2><div class="tag">.java 都在 缓存层-java/</div></div></div>
+  <pre class="code"><span class="cm"># 1) 让终端用上 JDK 21</span>
+export PATH="/opt/homebrew/opt/openjdk@21/bin:$PATH"
+<span class="cm"># 2) 进目录</span>
+cd "缓存层-java"
+<span class="cm"># 3) 编译并运行任意一个，例如缓存击穿那个</span>
+javac E06_Breakdown.java && java E06_Breakdown</pre>
+  <p style="font-size:12.5px;color:var(--muted)">每个 .java 旁边的 .out 是本机跑出来的留档。E06 击穿用了 100 并发，E08 一致性用线程时序复现 race。</p>
+
+  <div class="foot">从零讲透系列 · 缓存/特征层 · 2026-06-28 · 上一层：计算层 · 下一层可继续：存储层 / 异步消息层</div>
+</div>
+<script>
+function run(btn){
+  var card=btn.closest('.demo');
+  var wrap=card.querySelector('.out-wrap');
+  var spin=card.querySelector('.spin');
+  btn.disabled=true; if(spin) spin.hidden=false; wrap.classList.remove('on');
+  setTimeout(function(){
+    if(spin) spin.hidden=true; btn.disabled=false;
+    wrap.classList.add('on'); btn.textContent='✓ 已运行 · 点重跑';
+  },320);
+}
+</script>
+</body>
+</html>

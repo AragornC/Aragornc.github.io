@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Qdrant 深度白盒</title><style>
+:root{--bg:#fafaf7;--paper:#fff;--ink:#1a1a1a;--ink2:#4a4a4a;--muted:#8a8a8a;--line:#e8e6df;--accent:#245f73;--good:#1f6f4f;--warn:#b84a36;--gold:#8a5d1f;--font:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;--mono:"SF Mono",ui-monospace,Menlo,monospace}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.7;font-size:15px}
+.page{max-width:980px;margin:0 auto;padding:30px 22px 90px}
+h1{font-size:25px;margin:0 0 4px}.sub{color:var(--muted);margin:0 0 12px}a{color:var(--accent)}
+.stats{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}
+.stat{background:var(--paper);border:1px solid var(--line);border-radius:9px;padding:7px 11px;font-size:12.5px}
+.stat b{display:block;color:var(--muted);font-size:11px;font-weight:700;margin-bottom:2px}
+.seg{margin-top:20px;background:var(--paper);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.seg-h{padding:12px 18px;background:#f6f5ef;border-bottom:1px solid var(--line)}
+.seg-h h2{margin:0;font-size:17px}
+.seg-b{padding:16px 18px}
+p{margin:0 0 10px}
+.diagram{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:#f6f5ef;border-radius:10px;padding:14px;font-size:12.5px;justify-content:center}
+.box{background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:8px 12px;text-align:center;font-weight:600}
+.box .s{display:block;font-size:11px;color:var(--muted);font-weight:400}
+.arrow{color:var(--accent);font-weight:800;font-size:16px}
+.store{background:#1f2328;color:#e6e6df;border-radius:8px;padding:13px 15px;font-family:var(--mono);font-size:12.5px;white-space:pre-wrap;overflow-x:auto;line-height:1.6}
+.store .c{color:#8a8a8a}.store .k{color:#79c0e8}.store .s2{color:#b6d99a}.store .n{color:#e0a849}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media(max-width:680px){.two{grid-template-columns:1fr}}
+.pros,.cons{border-radius:10px;padding:12px 14px;font-size:13.5px}
+.pros{background:#eef6f0;border:1px solid #cfe6d8}.cons{background:#fbeeea;border:1px solid #ecd0c7}
+.pros h3{color:var(--good);margin:0 0 6px;font-size:14px}.cons h3{color:var(--warn);margin:0 0 6px;font-size:14px}
+ul{margin:6px 0;padding-left:20px}li{margin:3px 0}
+.when{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media(max-width:680px){.when{grid-template-columns:1fr}}
+.tldr{background:#eef6f0;border:1px solid #cfe6d8;border-radius:10px;padding:12px 15px;font-size:14px;color:#155;margin-top:18px}
+.note{font-size:12.5px;color:var(--ink2);margin-top:14px;padding:11px 14px;background:#f4f6f7;border:1px solid #e2ebec;border-radius:8px}
+</style></head>
+<body><div class="page">
+  <h1>Qdrant · 向量库深度白盒</h1>
+  <p class="sub">用 Rust 写的开源向量数据库,主打"带元数据强过滤"的高性能向量检索。<a href="./vectordb-lab.html">← 选型对比</a> · <a href="./">导航</a></p>
+
+  <div class="stats">
+    <div class="stat"><b>语言</b>Rust</div>
+    <div class="stat"><b>许可</b>Apache 2.0(开源)</div>
+    <div class="stat"><b>部署形态</b>单机 Docker / 自建分布式集群 / 托管云</div>
+    <div class="stat"><b>适用规模</b>百万 ~ 数十亿向量</div>
+    <div class="stat"><b>元数据过滤</b>强(可过滤 HNSW,过滤+向量一起算)</div>
+    <div class="stat"><b>混合检索</b>支持(稠密+稀疏/BM25,Query API 服务端融合)</div>
+    <div class="stat"><b>托管版</b>有,Qdrant Cloud(AWS/GCP/Azure)</div>
+    <div class="stat"><b>最适合</b>RAG / 语义搜索 / 推荐,且需要按标签强过滤</div>
+  </div>
+
+  <div class="seg"><div class="seg-h"><h2>① 来源:谁、何时、为什么造它</h2></div><div class="seg-b">
+    <p><b>谁做的:</b>Qdrant(读作 "quadrant",象限)由 <b>Andrey Vasnetsov(CTO)</b> 和 <b>André Zayarni(CEO)</b> 联合创办。背后是一家同名公司 Qdrant Solutions,总部在<b>德国柏林</b>(并设有美国办公室)。它不是某个大厂的副产品,而是一家专门做向量检索的独立创业公司。</p>
+    <p><b>什么时候开源:</b>项目大约在 <b>2021 年</b>开源,代码托管在 GitHub(qdrant/qdrant),如今是 GitHub 上 star 数最高的向量数据库之一。</p>
+    <p><b>为什么造它(解决什么痛点):</b>作者一开始想做向量搜索,试过 FAISS 这类"算法库"。但库只是"一个会算最近邻的函数",它不帮你存数据、不帮你做增删改、不能边过滤边搜、也不能扩展成集群。把这些生产功能自己补全非常痛苦。于是作者决定<b>从零写一个"生产可用"的向量数据库</b>——不只是算向量相似度,还要原生支持 <b>payload(每条向量附带的元数据)+ 强过滤</b>,这正是 RAG / 电商推荐里最缺的能力。</p>
+    <p><b>用什么语言:</b>整个引擎用 <b>Rust</b> 写。Rust 没有 GC(垃圾回收停顿),内存安全又接近 C 的性能,很适合做这种又快又要稳的底层系统。</p>
+    <p><b>开源协议:</b><b>Apache License 2.0</b>,非常宽松,可商用、可改、可闭源分发。</p>
+    <p><b>背后的公司/社区:</b>公司持续融资,2024 年 A 轮约 2800 万美元,2026 年 B 轮再融 <b>5000 万美元</b>(总融资约 8800 万美元,投资方含 Spark Capital、Bosch Ventures 等)。商业化主要靠托管服务 <b>Qdrant Cloud</b>,核心引擎保持完全开源。</p>
+  </div></div>
+
+  <div class="seg"><div class="seg-h"><h2>② 原理 + 架构</h2></div><div class="seg-b">
+    <div class="diagram">
+      <div class="box">客户端<span class="s">Python / REST / gRPC</span></div>
+      <span class="arrow">→</span>
+      <div class="box">Collection<span class="s">一个"表",定 size+距离</span></div>
+      <span class="arrow">→</span>
+      <div class="box">Segments<span class="s">数据切成多段并行</span></div>
+      <span class="arrow">→</span>
+      <div class="box">向量存储 + HNSW 图<span class="s">近邻搜索</span></div>
+      <span class="arrow">+</span>
+      <div class="box">Payload 存储 + 字段索引<span class="s">元数据过滤</span></div>
+      <span class="arrow">→</span>
+      <div class="box">合并打分<span class="s">Top-K 结果</span></div>
+    </div>
+    <p style="margin-top:12px"><b>一句话理解架构:</b>一个 <b>Collection</b>(集合,相当于一张表)里的数据会被切成很多 <b>Segment(段)</b>。每个段都是"自给自足"的:它自己存一份向量、自己存一份 payload(元数据)、自己建自己的索引。查询时所有段<b>并行</b>各自找 Top-K,最后汇总。这样设计便于并发、便于增量写入、也便于水平扩展。</p>
+    <p><b>底层用什么 ANN:</b>核心是 <b>HNSW</b>(分层可导航小世界图)。它不是把你的查询向量和库里每条都比一遍(那叫暴力搜索,太慢),而是把向量组织成一张"多层的邻居关系图",像坐地铁一样先坐"快线"跳到大致区域,再换"慢线"逼近最相似的点——用一点点精度换巨大的速度。Qdrant 不内置 IVF;对超大规模"放不进内存"的场景,它支持把向量和 HNSW 图放到磁盘(mmap / on-disk),再配合<b>量化</b>(把每个数压成 int8 甚至 1 bit)把内存占用压下来。</p>
+    <p><b>它最大的特色——可过滤的 HNSW(filterable HNSW):</b>普通做法是"先搜后过滤"(搜出 100 个再丢掉不符合标签的,可能剩没几个)或"先过滤后搜"(标签筛完图断了,搜不准)。Qdrant 把<b>过滤条件直接塞进图的遍历过程</b>,边走图边判断 payload 是否满足条件,并额外加边保证图在强过滤下仍然连通。结果是:即使过滤掉 90% 的数据,召回率依然很高。</p>
+    <p><b>查询怎么走:</b>请求进来 → 路由到 Collection 的各个 Segment → 每段在 HNSW 图上做带过滤的近邻搜索,同时查 payload 索引 → 各段返回局部 Top-K → 汇总、(可选)用原始向量重打分 → 返回最终结果。混合检索(稠密向量 + 稀疏向量/BM25)通过 <b>Query API</b> 在服务端用 RRF 等方式融合排名。</p>
+  </div></div>
+
+  <div class="seg"><div class="seg-h"><h2>③ 存入的数据长什么样(真实代码白盒)</h2></div><div class="seg-b">
+    <div class="store"><span class="c"># 用官方 Python 客户端: pip install qdrant-client</span>
+<span class="k">from</span> qdrant_client <span class="k">import</span> QdrantClient
+<span class="k">from</span> qdrant_client.models <span class="k">import</span> (
+    VectorParams, Distance, PointStruct,
+    Filter, FieldCondition, MatchValue, PayloadSchemaType,
+)
+
+client = QdrantClient(url=<span class="s2">"http://localhost:6333"</span>)  <span class="c"># 本机 Docker 起的实例</span>
+
+<span class="c"># ① 建集合(相当于建表):向量维度 768,用余弦距离</span>
+client.create_collection(
+    collection_name=<span class="s2">"articles"</span>,
+    vectors_config=VectorParams(size=<span class="n">768</span>, distance=Distance.COSINE),
+)
+
+<span class="c"># ② 给元数据字段建 payload 索引 —— 这样按 category 过滤才快</span>
+client.create_payload_index(
+    collection_name=<span class="s2">"articles"</span>,
+    field_name=<span class="s2">"category"</span>,
+    field_schema=PayloadSchemaType.KEYWORD,
+)
+
+<span class="c"># ③ 插入一个 point:id + 向量 + payload(元数据)。upsert = 有则更新无则插入</span>
+client.upsert(
+    collection_name=<span class="s2">"articles"</span>,
+    points=[
+        PointStruct(
+            id=<span class="n">1</span>,
+            vector=[<span class="n">0.12</span>, <span class="n">0.94</span>, <span class="n">0.03</span>],  <span class="c"># 实际应是 768 维,这里省略</span>
+            payload={
+                <span class="s2">"category"</span>: <span class="s2">"tech"</span>,
+                <span class="s2">"title"</span>: <span class="s2">"什么是向量数据库"</span>,
+                <span class="s2">"ts"</span>: <span class="n">1719446400</span>,        <span class="c"># 时间戳,可用于范围过滤</span>
+                <span class="s2">"lang"</span>: <span class="s2">"zh"</span>,
+            },
+        ),
+    ],
+)
+
+<span class="c"># ④ 查询:给一个查询向量,只在 category=tech 里找最相似的 5 条(强过滤 + 向量搜索一起算)</span>
+hits = client.query_points(
+    collection_name=<span class="s2">"articles"</span>,
+    query=[<span class="n">0.10</span>, <span class="n">0.90</span>, <span class="n">0.05</span>],     <span class="c"># 查询向量(768 维)</span>
+    query_filter=Filter(
+        must=[FieldCondition(key=<span class="s2">"category"</span>, match=MatchValue(value=<span class="s2">"tech"</span>))]
+    ),
+    limit=<span class="n">5</span>,
+    with_payload=<span class="k">True</span>,
+).points
+
+<span class="k">for</span> h <span class="k">in</span> hits:
+    <span class="k">print</span>(h.id, h.score, h.payload[<span class="s2">"title"</span>])</div>
+    <p style="margin-top:12px"><b>它在磁盘/内存里大概怎么落地:</b>每个 Collection 落在 <code>storage/</code> 下,数据切成多个 <b>Segment</b>;每段把<b>向量</b>、<b>payload(元数据,可理解为每条向量挂的一个 JSON)</b>、<b>HNSW 图</b>和<b>payload 字段索引</b>分开存(可全放内存,也可 mmap 落盘)。热数据(量化向量 + 图)留内存保证快,原始全精度向量按需从磁盘读出来重打分;写入靠 WAL(预写日志)保证宕机不丢数据。</p>
+  </div></div>
+
+  <div class="seg"><div class="seg-h"><h2>④ 优势 / 劣势</h2></div><div class="seg-b"><div class="two">
+    <div class="pros"><h3>✓ 优势</h3><ul>
+      <li><b>过滤是它的杀手锏:</b>可过滤 HNSW 把元数据条件融进图遍历,强过滤下仍保持高召回——这是很多向量库的痛点。</li>
+      <li><b>Rust 实现,性能稳:</b>无 GC 停顿,延迟可预测;在多家公开 benchmark 里吞吐/延迟名列前茅。</li>
+      <li><b>payload 表达力强:</b>支持 keyword / 整数 / 浮点 / 布尔 / 地理坐标 / 文本全文等多种字段索引,过滤条件可 must/should/must_not 任意组合。</li>
+      <li><b>省内存的工程能力:</b>标量/二值量化 + on-disk 存储,可在 64GB 机器上服务上亿向量。</li>
+      <li><b>原生混合检索:</b>稠密 + 稀疏(BM25)向量同库存放,Query API 服务端融合,不必再外接关键词引擎。</li>
+      <li><b>部署门槛低:</b>一条 Docker 命令就能起单机;自带轻量 Web UI,上手快。</li>
+    </ul></div>
+    <div class="cons"><h3>✗ 劣势</h3><ul>
+      <li><b>生态比老牌数据库年轻:</b>问题/最佳实践沉淀不如 Elasticsearch、PostgreSQL 那样海量。</li>
+      <li><b>不是通用数据库:</b>没有 SQL、没有 JOIN、不做事务,只能当"向量+元数据"检索层,通常还要配一个主库。</li>
+      <li><b>自建分布式集群有运维成本:</b>分片、副本、扩缩容要自己规划;省心就得上 Qdrant Cloud(付费)。</li>
+      <li><b>内存敏感:</b>想要极致低延迟,HNSW 图最好驻内存,大规模时 RAM 成本不低(可用量化/落盘缓解但有取舍)。</li>
+      <li><b>HNSW 单一路线:</b>不内置 IVF 等其它索引,极端规模下的索引策略选择面相对窄。</li>
+      <li><b>批量重建索引偏慢:</b>大规模灌数据 + 建图是计算密集型,初次导入需要时间和调参。</li>
+    </ul></div>
+  </div></div></div>
+
+  <div class="seg"><div class="seg-h"><h2>⑤ 什么时候选 / 什么时候别选</h2></div><div class="seg-b"><div class="when">
+    <div class="pros"><h3>✓ 适合</h3><ul>
+      <li>做 <b>RAG / 语义搜索 / 推荐</b>,且检索时要按用户、租户、分类、时间等元数据<b>强过滤</b>。</li>
+      <li>数据量在<b>百万到数十亿向量</b>,在意查询延迟和召回质量。</li>
+      <li>想要一套<b>稠密+稀疏(关键词)混合检索</b>而不想再单独维护一个全文引擎。</li>
+      <li>团队喜欢<b>自托管开源</b>、又希望未来能平滑迁到托管云(Qdrant Cloud)。</li>
+      <li>需要<b>多租户隔离</b>(用 payload 字段做租户过滤是常见且高效的玩法)。</li>
+    </ul></div>
+    <div class="cons"><h3>✗ 别用</h3><ul>
+      <li>数据只有<b>几万条</b>:直接用 pgvector / SQLite + 向量插件甚至内存里算就够,别引入新组件。</li>
+      <li>你要的是<b>通用数据库</b>(事务、SQL、复杂关联查询)——那是 PostgreSQL/MySQL 的活。</li>
+      <li>已经重度使用 <b>Elasticsearch</b> 且关键词检索为主,加个向量字段比整套迁移更划算。</li>
+      <li>完全不想运维、也不想引入新服务:优先考虑 PostgreSQL 的 <b>pgvector</b> 扩展。</li>
+      <li>团队只接受全托管 SaaS 且不在意厂商锁定:Pinecone 这类纯托管可能更省心。</li>
+    </ul></div>
+  </div></div></div>
+
+  <div class="tldr"><b>一句话:</b>Qdrant 是用 Rust 写的开源向量数据库,最大亮点是"可过滤的 HNSW"——能边搜向量边按元数据强过滤还保持高召回;如果你在做需要按标签/租户/时间精确过滤的 RAG 或语义搜索,它几乎是首选,但它不是通用数据库,通常要和主库搭配使用。</div>
+
+  <div class="note">说明:本页关键事实(创建者、2021 年开源、Apache 2.0、Rust、Qdrant Cloud、2026 年 B 轮约 5000 万美元)依据 Qdrant 官方文档、GitHub 及公开新闻整理。具体版本号、benchmark 数值会随时间变化,文中规模/性能描述为"大致量级",请以官方最新文档为准。</div>
+</div><a id="home-fab" href="./knowledge-map.html" style="position:fixed;right:16px;bottom:16px;z-index:9999;background:#245f73;color:#fff;text-decoration:none;font:600 13px/1 -apple-system,BlinkMacSystemFont,sans-serif;padding:10px 14px;border-radius:24px;box-shadow:0 2px 10px rgba(0,0,0,.18)">🏠 总览</a>
+</body></html>

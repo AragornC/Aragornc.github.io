@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>JVM 运行时内存结构 · 单步白盒</title>
+<style>
+  :root{--bg:#fafaf7;--paper:#fff;--ink:#1a1a1a;--ink2:#4a4a4a;--muted:#8a8a8a;--line:#e8e6df;
+    --accent:#245f73;--good:#1f6f4f;--warn:#b84a36;--gold:#8a5d1f;
+    --priv:#245f73;   /* 线程私有 */
+    --share:#b07b24;  /* 线程共享 */
+    --font:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    --mono:"SF Mono",ui-monospace,Menlo,monospace;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.7;font-size:15px}
+  .page{max-width:1040px;margin:0 auto;padding:30px 20px 90px}
+  h1{font-size:23px;margin:0 0 4px}.sub{color:var(--muted);margin:0 0 10px}a{color:var(--accent)}
+  .reassure{background:#eef6f0;border:1px solid #cfe6d8;border-radius:10px;padding:11px 15px;font-size:13.5px;color:#155;margin:12px 0}
+  .reassure b{color:#0a4}
+  .step{margin-top:18px;background:var(--paper);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .step-h{padding:12px 16px;background:#f6f5ef;border-bottom:1px solid var(--line)}
+  .step-h h2{margin:0;font-size:16px}.step-h .q{margin-top:2px;font-size:12.5px;color:var(--ink2)}
+  .step-b{padding:15px 16px}
+  /* 区卡片 */
+  .regions{display:grid;grid-template-columns:1fr 1fr;gap:11px}@media(max-width:720px){.regions{grid-template-columns:1fr}}
+  .reg{border:1px solid var(--line);border-radius:10px;padding:11px 13px;background:#fff;border-left-width:4px}
+  .reg.share{border-left-color:var(--share)}.reg.priv{border-left-color:var(--priv)}
+  .reg .rn{font-weight:800;font-size:14.5px}
+  .reg .badge{font-size:10.5px;font-weight:800;border-radius:4px;padding:1px 7px;margin-left:6px;color:#fff}
+  .badge.share{background:var(--share)}.badge.priv{background:var(--priv)}
+  .reg .store{font-size:12.5px;color:var(--ink2);margin-top:4px}
+  .reg .anal{font-size:12px;color:var(--gold);background:#fbf7ee;border-radius:6px;padding:5px 8px;margin-top:6px}
+  /* stepper */
+  .runwrap{display:grid;grid-template-columns:0.85fr 1.15fr;gap:14px}@media(max-width:820px){.runwrap{grid-template-columns:1fr}}
+  .code{background:#1f2328;border-radius:9px;padding:12px 10px;font-family:var(--mono);font-size:12.5px;line-height:1.8;color:#cfd6dd;overflow:auto}
+  .code .ln{display:flex;gap:10px;padding:1px 6px;border-radius:5px}
+  .code .ln .num{color:#5a6470;min-width:18px;text-align:right;user-select:none}
+  .code .ln.cur{background:#34404a}
+  .code .kw{color:#e0a849}.code .ty{color:#79c0e8}.code .st{color:#b6d99a}.code .cm{color:#6b7681}
+  .mem{display:flex;flex-direction:column;gap:9px}
+  .panel{border:1px solid var(--line);border-radius:9px;overflow:hidden}
+  .panel-h{font-size:12px;font-weight:800;padding:5px 10px;color:#fff;display:flex;align-items:center;gap:6px}
+  .panel.priv .panel-h{background:var(--priv)}.panel.share .panel-h{background:var(--share)}
+  .panel-h .tg{font-size:10px;background:rgba(255,255,255,.25);border-radius:4px;padding:0 6px}
+  .panel-b{padding:8px 10px;min-height:30px;font-family:var(--mono);font-size:12px}
+  .frame{border:1px solid #cdd7da;border-radius:7px;margin:4px 0;background:#eef4f5}
+  .frame.top{border-color:var(--priv);box-shadow:0 0 0 2px rgba(36,95,115,.15)}
+  .frame .fh{font-weight:800;font-size:11.5px;color:var(--priv);padding:3px 8px;border-bottom:1px solid #d6e2e5}
+  .frame .lv{padding:2px 8px;font-size:11.5px;display:flex;justify-content:space-between;gap:8px}
+  .frame .lv .rf{color:var(--warn);font-weight:700}
+  .obj{border:1px solid #e2c68e;border-radius:7px;margin:4px 0;background:#fbf3e3;padding:4px 8px;font-size:11.5px}
+  .obj .oh{font-weight:800;color:var(--gold)}
+  .pc{font-family:var(--mono);font-weight:800;color:var(--priv)}
+  .mareg{font-size:11.5px;color:var(--ink2)}
+  .ctl{display:flex;gap:8px;align-items:center;margin:12px 0 6px;flex-wrap:wrap}
+  button{font:inherit;font-weight:700;padding:7px 13px;border:1px solid var(--accent);border-radius:8px;background:var(--accent);color:#fff;cursor:pointer}
+  button:disabled{opacity:.4}button.ghost{background:#fff;color:var(--accent)}
+  .stepno{font-size:12.5px;color:var(--muted)}
+  .explain{font-size:13.5px;color:var(--ink);background:#f4f6f7;border:1px solid #e2ebec;border-radius:9px;padding:11px 14px;margin-top:8px;line-height:1.65}
+  .explain b{color:var(--accent)}.explain .hl{background:#fff4d6;border-radius:3px;padding:0 3px}
+  .mt{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px}@media(max-width:680px){.mt{grid-template-columns:1fr}}
+  .tcol{border:1px solid var(--priv);border-radius:9px;padding:8px 11px;background:#eef4f5}
+  .tcol h4{margin:0 0 4px;font-size:12.5px;color:var(--priv)}
+  .shared-box{border:1px dashed var(--share);border-radius:9px;padding:8px 11px;background:#fbf3e3;margin-top:8px}
+  .shared-box h4{margin:0 0 4px;font-size:12.5px;color:var(--gold)}
+  .note{font-size:12.5px;color:var(--ink2);margin-top:14px;padding:11px 14px;background:#fbf7ee;border:1px solid #ecdfc7;border-radius:8px}
+  .note b{color:#5e3f12}
+  .jargon{font-size:12px;color:var(--ink2);background:#f6f5ef;border-radius:7px;padding:8px 11px;margin-top:8px}
+  .jargon b{color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>JVM 运行时内存结构 · 单步白盒</h1>
+  <p class="sub">JVM 跑你的程序时,在内存里划出的几块"地盘",各存什么、谁共享谁私有。<a href="./knowledge-map.html">← 知识地图</a> · Java › 内存模型与运行机制</p>
+
+  <div class="reassure">😌 <b>零基础口径,每个名词都拆。</b> 先记一句话:<b>JVM = Java 虚拟机</b>,就是真正"跑"你 Java 程序的那个引擎(你写的代码先编译成它能懂的指令,再由它执行)。它执行时要用内存,就把内存切成下面几块,各管各的。</div>
+
+  <!-- ① 先认地图 -->
+  <div class="step"><div class="step-h"><h2>① 先认地图:5 块内存区,各存什么</h2>
+    <div class="q">两个大色:🟫 金边=线程<b>共享</b>(大家一起用) · 🟦 蓝边=线程<b>私有</b>(每条流水线各有一份)。</div></div>
+    <div class="step-b">
+      <div class="jargon"><b>线程</b>是啥?= 程序里一条独立执行的"流水线"。一个程序可以同时跑好几条线程(比如一边下载一边显示)。先记到这,细节留到「并发」模块。<b>共享</b>=所有线程看同一份;<b>私有</b>=每条线程各有各的、互不干扰。</div>
+      <div class="regions">
+        <div class="reg share"><div><span class="rn">堆 Heap</span><span class="badge share">线程共享</span></div>
+          <div class="store">存所有 <b>new 出来的对象</b>和数组。是最大的一块,也是<b>垃圾回收(GC)主要打扫的地方</b>(GC 是下个模块)。</div>
+          <div class="anal">类比:一个<b>大仓库</b>,谁(哪条线程)都能往里放货、取货。</div></div>
+        <div class="reg share"><div><span class="rn">方法区 / 元空间</span><span class="badge share">线程共享</span></div>
+          <div class="store">存<b>"类长什么样"的信息</b>:类的结构、方法的代码(字节码)、常量、<b>静态变量(static)</b>。Java 8 起这块叫<b>元空间(Metaspace)</b>,放在堆外的本地内存里。</div>
+          <div class="anal">类比:<b>图纸库</b>,存每一种"产品(类)"的设计图;造对象时照图纸来。</div></div>
+        <div class="reg priv"><div><span class="rn">虚拟机栈 JVM Stack</span><span class="badge priv">线程私有</span></div>
+          <div class="store">每条线程一个。<b>每调用一个方法,就压一个"栈帧"进去</b>,栈帧里放这个方法的<b>局部变量</b>和对象<b>引用</b>。方法返回就弹出。</div>
+          <div class="anal">类比:你<b>个人的草稿本</b>,一页算一个方法的演算;算完一页(方法返回)就撕掉。</div></div>
+        <div class="reg priv"><div><span class="rn">程序计数器 PC</span><span class="badge priv">线程私有</span></div>
+          <div class="store">每条线程一个、很小。只记一件事:<b>这条线程当前执行到哪条指令了</b>。线程切来切去,靠它记住"我刚才走到哪"。</div>
+          <div class="anal">类比:看书时的<b>书签</b>,夹住"我读到第几行"。</div></div>
+        <div class="reg priv"><div><span class="rn">本地方法栈</span><span class="badge priv">线程私有</span></div>
+          <div class="store">跟虚拟机栈几乎一样,但专门给 <b>native 方法</b>用——就是底层用 C/C++ 写的、不是纯 Java 的方法。平时少碰,知道有这块即可。</div>
+          <div class="anal">类比:草稿本的<b>"外语版"</b>,给非 Java 的方法记账。</div></div>
+      </div>
+      <div class="jargon"><b>对象</b>=用 <b>new</b> 造出来的实例(比如 new 一个"用户")。<b>引用</b>=一个指向对象的"门牌号/地址",<b>不是对象本身</b>。<b>基本类型</b>=数字、true/false 这种最朴素的值(int、boolean…),不是对象。这三个词下面会反复用到。</div>
+    </div></div>
+
+  <!-- ② 跟代码走一遍 -->
+  <div class="step"><div class="step-h"><h2>② 跟着代码走一遍:每行执行,东西落进哪块内存</h2>
+    <div class="q">点"下一步",看左边代码执行到哪行、右边内存四块怎么变(栈帧压入/弹出、对象进堆、引用指向对象)。</div></div>
+    <div class="step-b">
+      <div class="ctl">
+        <button id="prev" class="ghost">← 上一步</button>
+        <button id="next">下一步 →</button>
+        <button id="reset" class="ghost">重置</button>
+        <span class="stepno" id="stepno"></span>
+      </div>
+      <div class="runwrap">
+        <div class="code" id="code"></div>
+        <div class="mem">
+          <div class="panel priv"><div class="panel-h">📍 程序计数器 PC <span class="tg">私有</span></div><div class="panel-b"><span class="pc" id="pc">—</span></div></div>
+          <div class="panel priv"><div class="panel-h">📚 虚拟机栈(栈帧叠放,顶上的最新)<span class="tg">私有</span></div><div class="panel-b" id="stack"></div></div>
+          <div class="panel share"><div class="panel-h">📦 堆 Heap(对象住这)<span class="tg">共享</span></div><div class="panel-b" id="heap"></div></div>
+          <div class="panel share"><div class="panel-h">📐 方法区/元空间(类的图纸)<span class="tg">共享</span></div><div class="panel-b mareg" id="marea"></div></div>
+        </div>
+      </div>
+      <div class="explain" id="explain"></div>
+    </div></div>
+
+  <!-- ③ 多线程 -->
+  <div class="step"><div class="step-h"><h2>③ 多线程时:谁各有一份、谁共用一份</h2></div>
+    <div class="step-b">
+      <p style="margin:0 0 8px;font-size:13.5px;color:var(--ink2)">同一个程序跑两条线程时,内存是这样分的——<b>栈和 PC 每条线程各一份(私有)</b>,<b>堆和方法区两条线程共用(共享)</b>:</p>
+      <div class="mt">
+        <div class="tcol"><h4>🧵 线程 A 的私有</h4><div style="font-size:12px;color:var(--ink2)">· A 自己的虚拟机栈(它的栈帧)<br>· A 自己的程序计数器 PC<br>· A 自己的本地方法栈</div></div>
+        <div class="tcol"><h4>🧵 线程 B 的私有</h4><div style="font-size:12px;color:var(--ink2)">· B 自己的虚拟机栈(它的栈帧)<br>· B 自己的程序计数器 PC<br>· B 自己的本地方法栈</div></div>
+      </div>
+      <div class="shared-box"><h4>📦📐 A、B 共享(同一份)</h4><div style="font-size:12px;color:var(--ink2)">· 堆 Heap(两条线程 new 的对象都放这个大仓库,所以它们能访问到同一个对象——这也正是「并发」问题的根源,留到那个模块)<br>· 方法区/元空间(类的图纸只有一份,大家照同一份)</div></div>
+      <div class="note">💡 记忆口诀:<b>"栈和计数器,人手一份;堆和方法区,大家共享。"</b> 私有的随线程生灭,共享的活得久(尤其堆里的对象,要等 GC 来清)。</div>
+    </div></div>
+
+  <div class="note" style="background:#f4f6f7;border-color:#e2ebec;color:var(--ink2)">下一步预告:你在上面看到 main 结束后,堆里那个 User 对象<b>还赖着不走</b>(没人引用它了却还占着内存)——谁来清它?那就是下一个白盒 <b>「垃圾回收 GC」</b>的活。而"类的图纸怎么进的方法区",是 <b>「类加载」</b>的活。这俩接着做。</div>
+</div>
+
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+// 演示代码(带轻量高亮标记)
+const CODE=[
+  {n:1, html:'<span class="kw">public static void</span> main() {'},
+  {n:2, html:'  <span class="ty">int</span> count = <span class="st">3</span>;'},
+  {n:3, html:'  <span class="ty">User</span> u = <span class="kw">new</span> User(<span class="st">"小明"</span>);'},
+  {n:4, html:'  greet(u);'},
+  {n:5, html:'}'},
+  {n:6, html:'<span class="kw">static void</span> greet(<span class="ty">User</span> user) {'},
+  {n:7, html:'  <span class="ty">String</span> name = user.name;'},
+  {n:8, html:'}  <span class="cm">// greet 返回</span>'},
+];
+const MAREA='Demo 类 · User 类 · String 类<br><span style="color:#999">(它们的"图纸"已由类加载装好,放在这,后面学类加载)</span>';
+
+// 每一步的内存快照
+const STEPS=[
+  { line:1, pc:'main() 第 1 行',
+    stack:[{m:'main()', top:true, locals:[]}], heap:[],
+    ex:'程序从 <b>main</b> 开始跑。JVM 给 main 方法开一个 <span class="hl">栈帧</span>,压进<b>虚拟机栈</b>(这是当前线程私有的)。此刻 Demo、User、String 这些类的"图纸"已经被装进了<b>方法区</b>(看右下角)。堆还空着——还没 new 任何东西。' },
+  { line:2, pc:'main() 第 2 行',
+    stack:[{m:'main()', top:true, locals:[{n:'count', t:'int', v:'3'}]}], heap:[],
+    ex:'<code>int count = 3;</code> —— count 是 <span class="hl">基本类型</span>(就是数字 3 本身,不是对象)。它<b>直接存在 main 栈帧的局部变量表里</b>,值 3 就放在<b>栈</b>上。基本类型不进堆。' },
+  { line:3, pc:'main() 第 3 行',
+    stack:[{m:'main()', top:true, locals:[{n:'count', t:'int', v:'3'}]}],
+    heap:[{id:1, t:'User', fields:[{n:'name', v:'→ #2'}]},{id:2, t:'String', fields:[{n:'值', v:'"小明"'}]}],
+    ex:'<code>new User("小明")</code> —— <span class="hl">new</span> 在<b>堆</b>里造出一个 User 对象(编号 #1),它的字段 name 指向堆里的字符串对象 #2("小明")。<b>对象一律住堆,堆是所有线程共享的大仓库。</b> 注意:<b>对象造好了,但还没跟变量 u 挂上钩</b>(看栈里还没有 u)。' },
+  { line:3, pc:'main() 第 3 行',
+    stack:[{m:'main()', top:true, locals:[{n:'count', t:'int', v:'3'},{n:'u', t:'User 引用', ref:true, v:'→ #1'}]}],
+    heap:[{id:1, t:'User', fields:[{n:'name', v:'→ #2'}]},{id:2, t:'String', fields:[{n:'值', v:'"小明"'}]}],
+    ex:'<code>User u = ...</code> —— 变量 u 进了 main 栈帧。<b>最关键的一点</b>:u 里存的<b>不是那个对象</b>,而是一个 <span class="hl">引用</span>(指向堆里 #1 的"门牌号")。所以 u 的值写成 <b>→ #1</b>。<br>👉 一句话总规律:<b>基本类型的值待在栈里;对象待在堆里;栈里只放"指向对象的引用"。</b>' },
+  { line:6, pc:'greet() 第 6 行',
+    stack:[{m:'main()', locals:[{n:'count', t:'int', v:'3'},{n:'u', t:'User 引用', ref:true, v:'→ #1'}]},{m:'greet()', top:true, locals:[{n:'user', t:'User 引用', ref:true, v:'→ #1'}]}],
+    heap:[{id:1, t:'User', fields:[{n:'name', v:'→ #2'}]},{id:2, t:'String', fields:[{n:'值', v:'"小明"'}]}],
+    ex:'<code>greet(u)</code> —— 调用方法 = <b>再压一个栈帧(greet 的)到栈顶</b>。栈帧像叠盘子,<b>后调用的在上面</b>。参数 user 也是个引用,指向堆里<b>同一个</b> User #1 —— 现在 u 和 user <span class="hl">两个引用指向同一个对象</span>(都 → #1)。' },
+  { line:7, pc:'greet() 第 7 行',
+    stack:[{m:'main()', locals:[{n:'count', t:'int', v:'3'},{n:'u', t:'User 引用', ref:true, v:'→ #1'}]},{m:'greet()', top:true, locals:[{n:'user', t:'User 引用', ref:true, v:'→ #1'},{n:'name', t:'String 引用', ref:true, v:'→ #2'}]}],
+    heap:[{id:1, t:'User', fields:[{n:'name', v:'→ #2'}]},{id:2, t:'String', fields:[{n:'值', v:'"小明"'}]}],
+    ex:'<code>String name = user.name;</code> —— 顺着 user 这个引用,<b>走到堆里找到 User #1,取它的 name 字段</b>(又是个引用 → #2)。读对象的数据,就是这样"<b>从栈里的引用,顺藤摸瓜到堆里的对象</b>"。' },
+  { line:8, pc:'回到 main() 第 4 行',
+    stack:[{m:'main()', top:true, locals:[{n:'count', t:'int', v:'3'},{n:'u', t:'User 引用', ref:true, v:'→ #1'}]}],
+    heap:[{id:1, t:'User', fields:[{n:'name', v:'→ #2'}]},{id:2, t:'String', fields:[{n:'值', v:'"小明"'}]}],
+    ex:'greet 执行完返回 —— 它的栈帧<span class="hl">出栈(弹走)</span>,里面的局部变量(user、name)<b>随之消失</b>。回到 main。这就是栈的铁律:<b>调用就压入、返回就弹出</b>,所以局部变量的"寿命"只在方法这一趟。堆里的对象不受影响,还在。' },
+  { line:5, pc:'main() 结束',
+    stack:[], heap:[{id:1, t:'User', fields:[{n:'name', v:'→ #2'}], dead:true},{id:2, t:'String', fields:[{n:'值', v:'"小明"'}], dead:true}],
+    ex:'main 也返回,它的栈帧弹出,<b>这条线程的栈空了</b>。但看堆:User #1 和 String #2 <b>还赖在那</b>!——已经没有任何引用指向它们了(u 没了),它们成了<span class="hl">垃圾</span>,却还占着内存。<b>谁来清?这就是下一个模块「垃圾回收 GC」的活。</b>' },
+];
+
+let cur=0;
+function render(){
+  const s=STEPS[cur];
+  // 代码高亮
+  $('#code').innerHTML=CODE.map(c=>`<div class="ln ${c.n===s.line?'cur':''}"><span class="num">${c.n}</span><span>${c.html}</span></div>`).join('');
+  // PC
+  $('#pc').textContent=s.pc;
+  // 栈(顶在上:倒序渲染,数组最后一个是栈顶)
+  $('#stack').innerHTML = s.stack.length ? s.stack.slice().reverse().map(f=>
+    `<div class="frame ${f.top?'top':''}"><div class="fh">栈帧:${esc(f.m)} ${f.top?'　←栈顶(当前执行)':''}</div>${
+      f.locals.length? f.locals.map(l=>`<div class="lv"><span>${esc(l.n)} <span style="color:#999">(${esc(l.t)})</span></span><span class="${l.ref?'rf':''}">${esc(l.v)}</span></div>`).join('') : '<div class="lv" style="color:#aaa">(暂无局部变量)</div>'
+    }</div>`).join('') : '<span style="color:#aaa">(栈空了)</span>';
+  // 堆
+  $('#heap').innerHTML = s.heap.length ? s.heap.map(o=>
+    `<div class="obj" style="${o.dead?'opacity:.55;border-style:dashed':''}"><span class="oh">对象 #${o.id} : ${esc(o.t)}</span>${o.dead?' <span style="color:#b84a36;font-weight:700">← 没人引用了(垃圾)</span>':''}${
+      o.fields.map(fd=>`<div style="padding-left:6px">${esc(fd.n)} = <span style="color:#b84a36">${esc(fd.v)}</span></div>`).join('')
+    }</div>`).join('') : '<span style="color:#aaa">(堆空,还没 new 对象)</span>';
+  // 方法区
+  $('#marea').innerHTML=MAREA;
+  // 解说
+  $('#explain').innerHTML=`<b>第 ${cur+1}/${STEPS.length} 步:</b> ${s.ex}`;
+  $('#stepno').textContent=`第 ${cur+1} / ${STEPS.length} 步`;
+  $('#prev').disabled=cur===0;$('#next').disabled=cur===STEPS.length-1;
+}
+$('#next').onclick=()=>{if(cur<STEPS.length-1){cur++;render();}};
+$('#prev').onclick=()=>{if(cur>0){cur--;render();}};
+$('#reset').onclick=()=>{cur=0;render();};
+render();
+</script>
+<a id="home-fab" href="./knowledge-map.html" style="position:fixed;right:16px;bottom:16px;z-index:9999;background:#245f73;color:#fff;text-decoration:none;font:600 13px/1 -apple-system,BlinkMacSystemFont,sans-serif;padding:10px 14px;border-radius:24px;box-shadow:0 2px 10px rgba(0,0,0,.18)">🏠 总览</a>
+</body>
+</html>

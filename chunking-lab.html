@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>切块实验台 · 四种 Chunking 策略可视化</title>
+<style>
+  :root{
+    --bg:#fafaf7;--paper:#fff;--ink:#1a1a1a;--ink2:#4a4a4a;--muted:#8a8a8a;
+    --line:#e8e6df;--accent:#245f73;--accent2:#1f6f4f;--warn:#b84a36;
+    --font:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    --mono:"SF Mono",ui-monospace,Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.7;font-size:15px}
+  .page{max-width:1120px;margin:0 auto;padding:34px 22px 90px}
+  h1{font-size:27px;margin:0 0 4px}
+  .sub{color:var(--muted);margin:0 0 22px}
+  .controls{display:grid;gap:14px;padding:18px;background:var(--paper);border:1px solid var(--line);border-radius:10px;margin-bottom:14px}
+  textarea{width:100%;min-height:150px;padding:12px;border:1px solid var(--line);border-radius:8px;
+    font-family:var(--mono);font-size:13px;line-height:1.7;resize:vertical;background:#fffdf8}
+  .row{display:flex;flex-wrap:wrap;gap:22px;align-items:center}
+  .ctl{display:flex;flex-direction:column;gap:2px;font-size:13px;color:var(--ink2);min-width:190px}
+  .ctl b{color:var(--accent)}
+  input[type=range]{width:180px}
+  button{font:inherit;font-weight:700;padding:9px 16px;border:1px solid var(--accent);border-radius:8px;
+    background:var(--accent);color:#fff;cursor:pointer}
+  button.ghost{background:#fff;color:var(--accent)}
+  button:disabled{opacity:.5;cursor:default}
+  .seg{margin-top:26px;background:var(--paper);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .seg-head{padding:16px 20px;border-bottom:1px solid var(--line);background:#f6f5ef}
+  .seg-head h2{margin:0;font-size:19px}
+  .seg-head .algo{margin-top:4px;color:var(--ink2);font-size:13.5px}
+  .seg-body{padding:18px 20px}
+  .stat{display:inline-flex;gap:6px;align-items:center;margin:0 14px 8px 0;font-size:13px;color:var(--ink2)}
+  .stat b{color:var(--ink);font-size:15px}
+  .proc{margin:6px 0 16px;padding:12px 14px;background:#f4f6f7;border:1px solid #e2ebec;border-radius:8px;font-size:13px;color:var(--ink2)}
+  .proc .ptitle{font-weight:800;color:var(--accent);margin-bottom:6px}
+  .proc code{font-family:var(--mono);background:#fff;padding:0 5px;border-radius:4px;border:1px solid var(--line)}
+  .chunks{display:flex;flex-direction:column;gap:10px}
+  .chunk{border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:14px;position:relative}
+  .chunk .ch-head{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:6px;font-weight:700}
+  .chunk .ch-head .badge{background:#eef4f5;color:var(--accent);padding:1px 7px;border-radius:999px}
+  .chunk .ch-text{white-space:pre-wrap;word-break:break-word}
+  .ov{background:#ffe9c7;border-radius:3px;padding:0 1px;box-shadow:inset 0 -1px 0 #e0a849}
+  .simbar{display:flex;align-items:flex-end;gap:2px;height:90px;margin:6px 0 4px;padding:6px;background:#fbfbf8;border:1px solid var(--line);border-radius:8px;overflow-x:auto}
+  .simcol{flex:0 0 auto;width:26px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;font-size:9px;color:var(--muted)}
+  .simcol .bar{width:14px;border-radius:3px 3px 0 0;background:var(--accent2)}
+  .simcol.cut .bar{background:var(--warn)}
+  .simcol .cutmark{color:var(--warn);font-weight:800}
+  .hint{font-size:12.5px;color:var(--muted);margin-top:6px}
+  .err{color:var(--warn);font-weight:700}
+  .htag{display:inline-block;background:var(--accent2);color:#fff;font-size:11px;font-weight:800;padding:1px 7px;border-radius:4px;margin-bottom:4px}
+  .legend{font-size:12px;color:var(--muted);margin-top:4px}
+  .storeform{margin:8px 0 0;padding:9px 11px;background:#1f2328;color:#e6e6df;border-radius:6px;
+    font-family:var(--mono);font-size:11.5px;line-height:1.55;white-space:pre-wrap;word-break:break-word;overflow-x:auto}
+  .storeform .k{color:#79c0e8}.storeform .s{color:#b6d99a}.storeform .n{color:#e0a849}
+  .toggle{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--ink2);font-weight:700}
+  a{color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>切块实验台 · 四种 Chunking 策略</h1>
+  <p class="sub">同一段文档，四种切法并排跑给你看：每个块多长、边界切在哪、重叠区在哪、语义切分依据什么相似度断点。改下面的参数会实时重切。<a href="./rag-pipeline.html">← 回流程总表</a></p>
+
+  <div class="controls">
+    <div>
+      <div style="font-size:13px;color:var(--ink2);margin-bottom:4px;font-weight:700">输入文档（可随便改，下面四种策略会同步重切）</div>
+      <textarea id="doc"></textarea>
+    </div>
+    <div class="row">
+      <label class="ctl">目标块大小：<b><span id="sizeV">160</span> 字</b>
+        <input type="range" id="size" min="40" max="400" step="10" value="160"></label>
+      <label class="ctl">重叠 overlap：<b><span id="ovV">15</span>%</b>
+        <input type="range" id="ov" min="0" max="40" step="5" value="15"></label>
+      <label class="ctl">语义切分阈值：<b><span id="thV">0.55</span></b>
+        <input type="range" id="th" min="0.30" max="0.85" step="0.01" value="0.55"></label>
+      <label class="ctl">最小块（过短合并）：<b><span id="minV">20</span> 字</b>
+        <input type="range" id="min" min="0" max="60" step="5" value="20"></label>
+      <button class="ghost" id="reset">重置示例文档</button>
+      <button id="loadSem">加载语义模型并切分 ④</button>
+      <label class="toggle"><input type="checkbox" id="store"> 显示存储形态（每块入库的元数据 JSON）</label>
+    </div>
+  </div>
+
+  <!-- ① 固定窗口 -->
+  <div class="seg" id="seg-fixed">
+    <div class="seg-head"><h2>① 固定窗口 + overlap</h2>
+      <div class="algo">不管内容，每隔「块大小−重叠」个字硬切一刀，相邻块共享一段 overlap。<span class="legend">　黄底 = 与上一块重叠的字</span></div></div>
+    <div class="seg-body"><div class="stats" id="st-fixed"></div><div class="proc" id="pr-fixed"></div><div class="chunks" id="ch-fixed"></div></div>
+  </div>
+
+  <!-- ② 递归切分 -->
+  <div class="seg" id="seg-rec">
+    <div class="seg-head"><h2>② 递归切分（按段落→句子→…）</h2>
+      <div class="algo">优先按大边界切（空行/段落）；某段还超长，就用更细的边界（句号、逗号）继续切，再把碎片合并到接近目标大小。</div></div>
+    <div class="seg-body"><div class="stats" id="st-rec"></div><div class="proc" id="pr-rec"></div><div class="chunks" id="ch-rec"></div></div>
+  </div>
+
+  <!-- ③ 结构切分 -->
+  <div class="seg" id="seg-struct">
+    <div class="seg-head"><h2>③ 结构切分（按标题/层级）</h2>
+      <div class="algo">顺着文档天然结构切：每个标题（# 一、 1. 等）下的内容自成一块；块过长再在块内细切。</div></div>
+    <div class="seg-body"><div class="stats" id="st-struct"></div><div class="proc" id="pr-struct"></div><div class="chunks" id="ch-struct"></div></div>
+  </div>
+
+  <!-- ④ 语义切分 -->
+  <div class="seg" id="seg-sem">
+    <div class="seg-head"><h2>④ 语义切分（按"意思"边界）</h2>
+      <div class="algo">把文档拆成句子，用 bge 中文模型算<b>相邻句子的相似度</b>；相似度<span class="err">骤降</span>处（低于阈值）说明话题变了，就在那里切一刀。</div></div>
+    <div class="seg-body">
+      <div id="sem-status" class="hint">点上方「加载语义模型并切分 ④」按钮运行（首次本地加载模型约几秒）。</div>
+      <div class="stats" id="st-sem"></div>
+      <div id="sem-simwrap" style="display:none">
+        <div class="proc" style="margin-bottom:8px"><div class="ptitle">相邻句子相似度（越矮越可能是切点）</div>
+          <div class="simbar" id="simbar"></div>
+          <div class="legend">绿=相似(同话题继续)　红=低于阈值(话题变了→切)。竖条上的数字是第几句之间。</div></div>
+        <div class="proc"><div class="ptitle">buffer 分组对比 · 每条「缝」的距离(1−余弦，越高越像切点)</div>
+          <div style="font-size:12px;color:var(--ink2);margin-bottom:2px">buffer=0（单句比，锯齿多）</div>
+          <div class="simbar" id="buf0"></div>
+          <div style="font-size:12px;color:var(--ink2);margin:8px 0 2px">buffer=1（成组比，更平滑，真边界峰更突出）</div>
+          <div class="simbar" id="buf1"></div>
+          <div class="legend">忠实做法：buffer=1 把相邻句拼成文本重新 embed。每行各自归一化高度（比「形状/锯齿」，不比绝对值）。buffer=1 行更平滑、真话题边界处的峰更集中。</div></div>
+      </div>
+      <div class="chunks" id="ch-sem"></div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+const SAMPLE = `# 内容安全风控简介
+风控的目标是在不误伤正常用户的前提下，识别并拦截违规行为。常见违规包括导流、诈骗、虚假宣传等。早期风控主要依赖规则和人工审核。
+
+## 导流风险
+导流指诱导用户脱离平台到站外交易。例如主播在直播间反复让粉丝添加微信，或在短视频评论区留下二维码。黑产还会用谐音绕过检测，比如把"微信"写成"薇信"。
+
+## 诈骗风险
+诈骗手法不断翻新。常见的有虚假中奖要求先交保证金，冒充客服索要验证码，以及刷单返佣要求垫付本金。这类内容往往伪装成正常营销话术。
+
+## 检测手段的演进
+1. 关键词匹配：维护敏感词库，命中即拦截，简单但容易被改写绕过。
+2. 向量语义检索：把文本变成向量，按语义相似度召回，能抓改写但漏精确词。
+3. 图关系挖掘：顺着账号、设备、资金的关系链扩展，能发现伪装但需要构图。
+
+### 向量检索的局限
+向量检索擅长语义，却会漏掉精确的关键词，比如具体的账号编号或错误码。所以生产里常和关键词检索混合使用。`;
+
+const $=s=>document.querySelector(s);
+const doc=$('#doc'), sizeEl=$('#size'), ovEl=$('#ov'), thEl=$('#th');
+doc.value=SAMPLE;
+
+const PALETTE=['#eef4f5','#f1f8f3','#fbf3e3','#f4eef7','#eef1f6','#f7eeee','#eef6f0','#f6f2ea'];
+const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const bg=i=>PALETTE[i%PALETTE.length];
+
+function stat(label,val){return `<span class="stat">${label} <b>${val}</b></span>`;}
+function renderStats(el,chunks){
+  const lens=chunks.map(c=>(c.text!==undefined?c.text:c).length);
+  const avg=lens.length?Math.round(lens.reduce((a,b)=>a+b,0)/lens.length):0;
+  $(el).innerHTML=stat('块数',chunks.length)+stat('平均字数',avg)+stat('最长',Math.max(0,...lens))+stat('最短',lens.length?Math.min(...lens):0);
+}
+const showStore=()=>$('#store')&&$('#store').checked;
+function storeJSON(c,i,opts){
+  const text=(c.text!==undefined?c.text:c);
+  const meta={source:opts.source||'风控手册.md', strategy:opts.strategy||'-', chunk_index:i+1, char_len:text.length};
+  if(c.path&&c.path.length){meta.section=c.leaf||c.path[c.path.length-1];meta.section_path=c.path.join(' › ');}
+  else if(c.heading) meta.section=c.heading.replace(/^#+\s*/,'');
+  if(c.badge) meta.split_by=String(c.badge).replace(/^按/,'');
+  if(opts.overlap&&i>0&&opts.ovLen>0) meta.overlap_chars=opts.ovLen;
+  if(c.via){meta.via=c.via;}
+  const obj={text:text.length>46?text.slice(0,46)+'…':text, metadata:meta};
+  // 轻量着色
+  let j=JSON.stringify(obj,null,2);
+  j=esc(j)
+    .replace(/"(text|metadata|source|strategy|chunk_index|char_len|section_path|section|split_by|overlap_chars|via)":/g,'"<span class="k">$1</span>":')
+    .replace(/: (".*?")/g,': <span class="s">$1</span>')
+    .replace(/: (\d+)/g,': <span class="n">$1</span>');
+  return `<pre class="storeform">${j}</pre>`;
+}
+function renderChunks(el,chunks,opts={}){
+  $(el).innerHTML=chunks.map((c,i)=>{
+    let body=esc(c.text!==undefined?c.text:c);
+    if(opts.overlap&&i>0&&opts.ovLen>0){
+      const o=Math.min(opts.ovLen,(c.text||c).length);
+      body=`<span class="ov">${esc((c.text||c).slice(0,o))}</span>`+esc((c.text||c).slice(o));
+    }
+    const len=(c.text!==undefined?c.text:c).length;
+    const badge=c.badge?`<span class="badge">${c.badge}</span>`:'';
+    const head=c.heading?`<div class="htag">${esc(c.heading)}</div>`:'';
+    const store=showStore()?storeJSON(c,i,opts):'';
+    return `<div class="chunk" style="background:${bg(i)}">
+      <div class="ch-head"><span>块 #${i+1} ${badge}</span><span>${len} 字</span></div>
+      ${head}<div class="ch-text">${body}</div>${store}</div>`;
+  }).join('');
+}
+
+/* ① 固定窗口 + overlap（按字符） */
+function chunkFixed(text,size,ovPct){
+  const ov=Math.round(size*ovPct/100), step=Math.max(1,size-ov);
+  const chunks=[];
+  for(let i=0;i<text.length;i+=step){chunks.push(text.slice(i,i+size)); if(i+size>=text.length)break;}
+  return {chunks,ov,step};
+}
+function runFixed(){
+  const size=+sizeEl.value, ovPct=+ovEl.value;
+  const {chunks,ov,step}=chunkFixed(doc.value,size,ovPct);
+  renderStats('#st-fixed',chunks);
+  $('#pr-fixed').innerHTML=`<div class="ptitle">过程</div>窗口每次前进 <code>step = 块大小(${size}) − 重叠(${ov}) = ${step}</code> 个字；从第 ${ov} 个字起，每块开头都和上一块结尾<b>重叠 ${ov} 字</b>（黄底），目的是防止把一句话从中间切断后两边都丢上下文。`;
+  renderChunks('#ch-fixed',chunks,{overlap:true,ovLen:ov,strategy:'固定窗口'});
+}
+
+/* ② 递归切分 */
+const SEPS=[{s:'\n\n',n:'空行/段落'},{s:'\n',n:'换行'},{s:'。',n:'句号',keep:1},{s:'！',n:'叹号',keep:1},{s:'？',n:'问号',keep:1},{s:'；',n:'分号',keep:1},{s:'，',n:'逗号',keep:1},{s:'',n:'硬切字符'}];
+function splitRec(text,size,idx,trace){
+  if(text.length<=size)return [{t:text,lvl:idx>0?SEPS[idx-1]?.n:'整体'}];
+  let i=idx;
+  while(i<SEPS.length&&SEPS[i].s!==''&&!text.includes(SEPS[i].s))i++;
+  const sp=SEPS[i]||SEPS[SEPS.length-1];
+  if(sp.s===''){const out=[];for(let k=0;k<text.length;k+=size)out.push({t:text.slice(k,k+size),lvl:'硬切字符'});trace.push(`长度${text.length}→无更细边界，按字硬切`);return out;}
+  trace.push(`长度 ${text.length} 超标 → 用「${sp.n}」切`);
+  const raw=text.split(sp.s);
+  const parts=raw.map((p,k)=> (sp.keep&&k<raw.length-1)?p+sp.s:p).filter(p=>p.length);
+  const out=[];
+  for(const p of parts){ if(p.length<=size)out.push({t:p,lvl:sp.n}); else out.push(...splitRec(p,size,i+1,trace)); }
+  return out;
+}
+function mergeRec(parts,size){
+  const chunks=[];let cur='',lvl='';
+  for(const p of parts){
+    if((cur+p.t).length<=size){cur+=p.t;lvl=p.lvl;}
+    else{ if(cur)chunks.push({text:cur,badge:'按'+lvl}); cur=p.t;lvl=p.lvl; }
+  }
+  if(cur)chunks.push({text:cur,badge:'按'+lvl});
+  return chunks;
+}
+function runRec(){
+  const size=+sizeEl.value;const trace=[];
+  const parts=splitRec(doc.value,size,0,trace);
+  const chunks=mergeRec(parts,size);
+  renderStats('#st-rec',chunks);
+  $('#pr-rec').innerHTML=`<div class="ptitle">过程（递归切分轨迹）</div>${trace.length?trace.map(t=>'· '+t).join('<br>'):'· 文档每段都没超过目标大小，直接按段落成块'}<br><span class="hint">每块右上角标注了它最终是「按哪种边界」切出来的。</span>`;
+  renderChunks('#ch-rec',chunks,{strategy:'递归切分'});
+}
+
+/* ③ 结构切分 */
+function parseHead(line){
+  const t=line.trim();
+  const m=t.match(/^(#{1,6})\s+(.+)$/);
+  if(m)return{level:m[1].length,title:m[2].trim()};
+  if(/^第[一二三四五六七八九十\d]+章/.test(t))return{level:1,title:t};
+  if(/^第[一二三四五六七八九十\d]+节/.test(t))return{level:2,title:t};
+  if(/^[一二三四五六七八九十]+、/.test(t)&&t.length<30)return{level:2,title:t};
+  return null;
+}
+function chunkStructTree(text,size){
+  const lines=text.split('\n');const blocks=[];let stack=[],body=[],curPath=[];
+  const flush=()=>{const b=body.join('\n').trim();if(b||curPath.length)blocks.push({path:[...curPath],body:b});body=[];};
+  for(const ln of lines){
+    const h=parseHead(ln);
+    if(h){flush();stack=stack.slice(0,h.level-1);stack[h.level-1]=h.title;stack.length=h.level;curPath=stack.filter(x=>x!=null);}
+    else body.push(ln);
+  }
+  flush();
+  const chunks=[];
+  for(const b of blocks){
+    const leaf=b.path[b.path.length-1]||'（开头·无标题）';
+    const crumb=b.path.join(' › ')||'（开头）';
+    if(!b.body){chunks.push({text:'(仅标题)',heading:crumb,path:b.path,leaf});continue;}
+    if(b.body.length<=size)chunks.push({text:b.body,heading:crumb,path:b.path,leaf});
+    else{const tr=[];const sub=mergeRec(splitRec(b.body,size,0,tr),size);sub.forEach((s,k)=>chunks.push({text:s.text,heading:crumb+(sub.length>1?` · 续${k+1}`:''),path:b.path,leaf,badge:s.badge}));}
+  }
+  return {chunks,blocks};
+}
+function buildTree(blocks){
+  const seen=new Set();let html='';
+  for(const b of blocks){b.path.forEach((h,lvl)=>{const key=b.path.slice(0,lvl+1).join('/');if(!seen.has(key)){seen.add(key);html+='　'.repeat(lvl)+(lvl?'└ ':'')+`<b style="color:var(--accent2)">${esc(h)}</b>`+'<br>';}});}
+  return html||'（无标题结构）';
+}
+function runStruct(){
+  const size=+sizeEl.value;
+  const {chunks,blocks}=chunkStructTree(doc.value,size);
+  renderStats('#st-struct',chunks);
+  $('#pr-struct').innerHTML=`<div class="ptitle">过程 · 标题树（层级感知）</div>`+buildTree(blocks)
+    +`<span class="hint">每块带从根到叶的<b>完整路径</b>（面包屑），不只记最近标题；超 ${size} 字的块在块内递归细切（标签带「续」）。打开「显示存储形态」可看到 <code>section_path</code>。</span>`;
+  renderChunks('#ch-struct',chunks,{strategy:'结构切分'});
+}
+
+/* ④ 语义切分 */
+function splitSentences(text){
+  return text.split(/\n+/).flatMap(line=>line.split(/(?<=[。！？])/)).map(s=>s.trim()).filter(s=>s.length>1);
+}
+function cos(a,b){let d=0,na=0,nb=0;const n=Math.min(a.length,b.length);for(let i=0;i<n;i++){d+=a[i]*b[i];na+=a[i]*a[i];nb+=b[i]*b[i];}return (na&&nb)?d/(Math.sqrt(na)*Math.sqrt(nb)):0;}
+function meanVec(idxs,vecs){const d=vecs[0].length,out=new Float32Array(d);for(const k of idxs)for(let j=0;j<d;j++)out[j]+=vecs[k][j];for(let j=0;j<d;j++)out[j]/=idxs.length;return out;}
+// 过短合并：把 < minSize 的块并进「余弦更相似」的邻居，记录并入过程
+function mergeShort(chunks,vecs,minSize){
+  const log=[];let arr=chunks.map(c=>({...c,vec:meanVec(c.sentIdxs,vecs),merged:0}));
+  let changed=true,guard=0;
+  while(changed&&guard++<200){
+    changed=false;
+    for(let i=0;i<arr.length;i++){
+      if(arr[i].text.length>=minSize||arr.length<=1)continue;
+      const L=i>0?cos(arr[i].vec,arr[i-1].vec):-2;
+      const R=i<arr.length-1?cos(arr[i].vec,arr[i+1].vec):-2;
+      const into=(R>L)?i+1:i-1;
+      const lo=Math.min(i,into),hi=Math.max(i,into);
+      const idxs=[...arr[lo].sentIdxs,...arr[hi].sentIdxs];
+      log.push(`块 ${i+1}（${arr[i].text.length}字）并入${into<i?'左':'右'}邻（余弦 ${Math.max(L,R).toFixed(2)} > ${Math.min(L,R)<-1?'—':Math.min(L,R).toFixed(2)}）`);
+      arr.splice(lo,2,{text:arr[lo].text+arr[hi].text,sentIdxs:idxs,vec:meanVec(idxs,vecs),merged:arr[lo].merged+arr[hi].merged+1});
+      changed=true;break;
+    }
+  }
+  return {arr,log};
+}
+async function runSemantic(){
+  const status=$('#sem-status');const btn=$('#loadSem');
+  btn.disabled=true;status.textContent='加载本地 bge 中文模型…';
+  let m;
+  try{ m=await import('./src/dense.js?v=2'); await m.loadModel(e=>{ if(e&&e.status) status.textContent='模型加载：'+(e.file||e.status); }); }
+  catch(e){ status.innerHTML='<span class="err">模型加载失败：'+esc(String(e.message||e))+'</span>'; btn.disabled=false; return; }
+  const sents=splitSentences(doc.value);
+  status.textContent=`计算 ${sents.length} 个句子的向量…`;
+  const vecs=[];for(const s of sents){vecs.push(await m.embed(s));}
+  const th=+thEl.value;
+  const sims=[];for(let i=0;i<sents.length-1;i++)sims.push(cos(vecs[i],vecs[i+1]));
+  // 切点：相邻相似度 < 阈值处
+  const cuts=new Set();sims.forEach((v,i)=>{if(v<th)cuts.add(i);});
+  // 成块
+  const size=+sizeEl.value;let chunks=[];let cur='',curIdx=[];
+  for(let i=0;i<sents.length;i++){
+    cur+=sents[i];curIdx.push(i);
+    const cutHere=cuts.has(i)||cur.length>=size;
+    if(cutHere||i===sents.length-1){chunks.push({text:cur,sentIdxs:curIdx});cur='';curIdx=[];}
+  }
+  const rawN=chunks.length;
+  // 过短合并（min-size 保护）
+  const minSize=+($('#min').value);let mergeLog=[];
+  if(minSize>0){const r=mergeShort(chunks,vecs,minSize);chunks=r.arr;mergeLog=r.log; chunks.forEach(c=>{if(c.merged)c.badge=`含并入碎片×${c.merged}`;});}
+  const doneMsg=`完成：${sents.length} 句 → 语义断点 ${cuts.size} 个（+超长保护）切出 ${rawN} 块；过短合并(min ${minSize}字)后剩 <b>${chunks.length}</b> 块。`
+    +(mergeLog.length?`<div class="proc" style="margin-top:8px"><div class="ptitle">过短合并轨迹</div>${mergeLog.map(x=>'· '+x).join('<br>')}</div>`:'');
+  status.innerHTML=doneMsg;
+  // 相似度条
+  $('#sem-simwrap').style.display='block';
+  $('#simbar').innerHTML=sims.map((v,i)=>{
+    const h=Math.max(4,Math.round(v*80));const isCut=v<th;
+    return `<div class="simcol ${isCut?'cut':''}" title="句${i+1}↔句${i+2}: ${v.toFixed(2)}"><span>${v.toFixed(2)}</span><div class="bar" style="height:${h}px"></div><span class="${isCut?'cutmark':''}">${isCut?'✂'+(i+1):(i+1)}</span></div>`;
+  }).join('');
+  // buffer 对比：忠实做法——窗口=相邻句子文本拼起来重新 embed，再算相邻缝的距离(1-cos)
+  status.textContent='计算 buffer 对比曲线…';
+  const winText=async(i,b)=>{const lo=Math.max(0,i-b),hi=Math.min(sents.length-1,i+b);let t='';for(let k=lo;k<=hi;k++)t+=sents[k];return await m.embed(t);};
+  const distCurve=async b=>{const wv=[];for(let i=0;i<sents.length;i++)wv.push(b===0?vecs[i]:await winText(i,b));const out=[];for(let i=0;i<wv.length-1;i++)out.push(1-cos(wv[i],wv[i+1]));return out;};
+  const d0=await distCurve(0),d1=await distCurve(1);
+  // 每行各自按自身最大值归一化高度，看「形状/锯齿」而非绝对值
+  const renderDist=(el,ds)=>{const mx=Math.max(0.001,...ds);$(el).innerHTML=ds.map((v,i)=>{const h=Math.max(3,Math.round(v/mx*80));return `<div class="simcol" title="句${i+1}↔句${i+2}: 距离${v.toFixed(3)}"><span>${v.toFixed(2)}</span><div class="bar" style="height:${h}px;background:#6450a8"></div><span>${i+1}</span></div>`;}).join('');};
+  renderDist('#buf0',d0);renderDist('#buf1',d1);
+  status.innerHTML=doneMsg;
+  renderStats('#st-sem',chunks);
+  window.__lastSem=chunks;
+  renderChunks('#ch-sem',chunks,{strategy:'语义切分'});
+  btn.disabled=false;
+}
+
+function runAll(){runFixed();runRec();runStruct();}
+$('#sizeV').textContent=sizeEl.value;$('#ovV').textContent=ovEl.value;$('#thV').textContent=thEl.value;$('#minV').textContent=$('#min').value;
+$('#min').oninput=()=>{$('#minV').textContent=$('#min').value;};
+sizeEl.oninput=()=>{$('#sizeV').textContent=sizeEl.value;runAll();};
+ovEl.oninput=()=>{$('#ovV').textContent=ovEl.value;runFixed();};
+thEl.oninput=()=>{$('#thV').textContent=thEl.value;};
+doc.oninput=runAll;
+$('#reset').onclick=()=>{doc.value=SAMPLE;runAll();};
+$('#loadSem').onclick=runSemantic;
+$('#store').onchange=()=>{runAll(); if(window.__lastSem)renderChunks('#ch-sem',window.__lastSem,{strategy:'语义切分'});};
+runAll();
+</script>
+<a id="home-fab" href="./knowledge-map.html" style="position:fixed;right:16px;bottom:16px;z-index:9999;background:#245f73;color:#fff;text-decoration:none;font:600 13px/1 -apple-system,BlinkMacSystemFont,sans-serif;padding:10px 14px;border-radius:24px;box-shadow:0 2px 10px rgba(0,0,0,.18)">🏠 总览</a>
+</body>
+</html>

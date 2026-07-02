@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>向量化实验台 · 文字 → 向量</title>
+<style>
+  :root{
+    --bg:#fafaf7;--paper:#fff;--ink:#1a1a1a;--ink2:#4a4a4a;--muted:#8a8a8a;
+    --line:#e8e6df;--accent:#245f73;--accent2:#1f6f4f;--warn:#b84a36;
+    --font:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    --mono:"SF Mono",ui-monospace,Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.7;font-size:15px}
+  .page{max-width:1080px;margin:0 auto;padding:34px 22px 90px}
+  h1{font-size:27px;margin:0 0 4px}
+  .sub{color:var(--muted);margin:0 0 20px}
+  a{color:var(--accent)}
+  .bar-top{display:flex;gap:12px;align-items:center;margin-bottom:18px;flex-wrap:wrap}
+  button{font:inherit;font-weight:700;padding:9px 16px;border:1px solid var(--accent);border-radius:8px;background:var(--accent);color:#fff;cursor:pointer}
+  button.ghost{background:#fff;color:var(--accent)}
+  button:disabled{opacity:.5;cursor:default}
+  .status{font-size:13px;color:var(--ink2)}
+  .seg{margin-top:24px;background:var(--paper);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .seg-head{padding:15px 20px;border-bottom:1px solid var(--line);background:#f6f5ef}
+  .seg-head h2{margin:0;font-size:18px}
+  .seg-head .algo{margin-top:3px;color:var(--ink2);font-size:13px}
+  .seg-body{padding:18px 20px}
+  input[type=text]{font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:7px;background:#fffdf8;width:100%}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .tok{display:inline-block;margin:2px;padding:2px 7px;border-radius:6px;background:#eef4f5;color:var(--accent);font-family:var(--mono);font-size:12.5px}
+  .tok small{color:var(--muted)}
+  .heat{display:flex;flex-wrap:wrap;gap:1px;margin-top:8px;max-width:100%;line-height:0}
+  .cell{width:10px;height:10px;border-radius:1px}
+  .statline{margin-top:8px;font-size:13px;color:var(--ink2)}
+  .statline b{color:var(--ink)}
+  table{border-collapse:collapse;font-size:13px;margin-top:6px}
+  td,th{border:1px solid var(--line);padding:6px 9px;text-align:center}
+  th{background:#f3f2ec;font-weight:700}
+  .rowlabel{text-align:left;background:#faf9f4;font-weight:700;max-width:160px}
+  canvas{background:#fbfbf8;border:1px solid var(--line);border-radius:8px;max-width:100%}
+  .legend{font-size:12.5px;color:var(--muted);margin-top:8px}
+  .chip{display:inline-block;margin:2px 8px 2px 0;font-size:12.5px}
+  .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:middle}
+  .hint{font-size:12.5px;color:var(--muted);margin-top:8px}
+  .err{color:var(--warn);font-weight:700}
+  .num{font-family:var(--mono)}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>向量化实验台 · 把文字变成 512 个数字</h1>
+  <p class="sub">用本地 bge 中文模型,真跑给你看:一句话怎么变成向量、两句话怎么比相似度、十几个短语在"语义空间"里怎么聚成团。<a href="./rag-pipeline.html">← 回流程总表</a> · <a href="./chunking-lab.html">切块实验台</a></p>
+
+  <div class="bar-top">
+    <button id="load">加载本地 bge 模型</button>
+    <span class="status" id="status">点左边按钮加载模型（本地托管，约几秒）。加载后三个区块都会算。</span>
+  </div>
+
+  <!-- A 单文本解剖 -->
+  <div class="seg">
+    <div class="seg-head"><h2>§A 一句话 → 一个向量</h2>
+      <div class="algo">分词 → BERT 编码 → mean 池化 → 归一化。下面把最终的 512 维向量画成热力图(红正蓝负)。</div></div>
+    <div class="seg-body">
+      <div class="row"><input type="text" id="inA" value="主播诱导粉丝添加微信私下交易" style="flex:1;min-width:260px"><button class="ghost" id="goA">算它的向量</button></div>
+      <div id="tokA" style="margin-top:10px"></div>
+      <div class="heat" id="heatA"></div>
+      <div class="statline" id="statA"></div>
+    </div>
+  </div>
+
+  <!-- B 两两相似度 -->
+  <div class="seg">
+    <div class="seg-head"><h2>§B 两两相似度矩阵</h2>
+      <div class="algo">给几句话各算向量,两两算余弦(0~1,越大越像)。看同义的高、无关的低。</div></div>
+    <div class="seg-body">
+      <div id="inputsB"></div>
+      <button class="ghost" id="goB" style="margin-top:8px">算两两相似度</button>
+      <div id="matB" style="margin-top:12px"></div>
+      <div class="legend">绿色越深 = 余弦越高(越相似)。对角线是自己跟自己=1.00。</div>
+    </div>
+  </div>
+
+  <!-- C 语义地图 -->
+  <div class="seg">
+    <div class="seg-head"><h2>§C 语义地图（PCA 把 512 维压到 2D）</h2>
+      <div class="algo">十几个风控短语各变成 512 维向量,再用 PCA 投影到平面。<b>意思相近的会自动聚成一团</b>——这就是"向量化"最直观的效果。</div></div>
+    <div class="seg-body">
+      <button class="ghost" id="goC">生成语义地图</button>
+      <div id="legendC" style="margin-top:10px"></div>
+      <canvas id="mapC" width="1000" height="560" style="margin-top:8px;width:100%"></canvas>
+      <div class="hint">PCA = 主成分分析:在 512 维里找"差异最大的两个方向"当 X/Y 轴,把高维点摊到平面上看分布。距离近≈意思近。</div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+const $=s=>document.querySelector(s);
+const status=$('#status');
+let M=null;
+
+async function ensure(){
+  if(M)return M;
+  $('#load').disabled=true;status.textContent='加载本地 bge 模型…';
+  try{ M=await import('./src/dense.js?v=2'); await M.loadModel(e=>{if(e&&e.status)status.textContent='加载：'+(e.file||e.status);}); status.textContent='模型已就绪 ✓ 三个区块都可点了。'; }
+  catch(e){ status.innerHTML='<span class="err">加载失败：'+String(e.message||e)+'</span>'; $('#load').disabled=false; throw e; }
+  return M;
+}
+$('#load').onclick=()=>ensure();
+
+// 值 → 颜色(红正蓝负)
+function color(v){ const a=Math.min(1,Math.abs(v)*6); return v>=0?`rgba(184,74,54,${a})`:`rgba(36,95,115,${a})`; }
+
+// §A
+async function runA(){
+  const m=await ensure();const text=$('#inA').value.trim();if(!text)return;
+  status.textContent='分词 + 编码…';
+  const ex=await m.loadModel();
+  // tokens
+  try{
+    const t=await import('https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2');
+    t.env.allowLocalModels=true;t.env.localModelPath='/assets/models/';t.env.allowRemoteModels=true;
+    const tok=await t.AutoTokenizer.from_pretrained('Xenova/bge-small-zh-v1.5');
+    const ids=Array.from(tok(text).input_ids.data).map(Number);
+    $('#tokA').innerHTML='<b style="font-size:13px">token：</b> '+ids.map(id=>`<span class="tok">${tok.decode([id])}<small> ${id}</small></span>`).join('');
+  }catch(e){ $('#tokA').textContent='(token 展示不可用)'; }
+  const v=await m.embed(text);
+  $('#heatA').innerHTML=[...v].map(x=>`<div class="cell" style="background:${color(x)}" title="${x.toFixed(3)}"></div>`).join('');
+  const norm=Math.sqrt([...v].reduce((s,x)=>s+x*x,0));
+  $('#statA').innerHTML=`维度 <b>${v.length}</b> · 向量长度(归一化后) <b>${norm.toFixed(4)}</b> ≈ 1 · 前5维 <span class="num">[${[...v.slice(0,5)].map(x=>x.toFixed(3)).join(', ')}]</span>`;
+  status.textContent='模型已就绪 ✓';
+}
+$('#goA').onclick=runA;
+
+// §B
+const DEFB=['主播诱导粉丝加微信','引导用户去站外私下交易','发布虚假中奖要交保证金','今天天气真不错适合爬山'];
+function buildBInputs(){ $('#inputsB').innerHTML=DEFB.map((t,i)=>`<div class="row" style="margin-bottom:6px"><span style="width:18px;color:var(--muted)">${i+1}</span><input type="text" class="bIn" value="${t}" style="flex:1;min-width:240px"></div>`).join(''); }
+buildBInputs();
+async function runB(){
+  const m=await ensure();const texts=[...document.querySelectorAll('.bIn')].map(e=>e.value.trim()).filter(Boolean);
+  status.textContent='计算向量…';
+  const vs=[];for(const t of texts)vs.push(await m.embed(t));
+  let html='<table><tr><th></th>'+texts.map((t,i)=>`<th>${i+1}</th>`).join('')+'</tr>';
+  for(let i=0;i<texts.length;i++){
+    html+=`<tr><td class="rowlabel">${i+1}. ${texts[i]}</td>`;
+    for(let j=0;j<texts.length;j++){ const c=m.cosine(vs[i],vs[j]); const a=Math.max(0,(c-0.3)/0.7); html+=`<td style="background:rgba(31,111,79,${a.toFixed(2)})">${c.toFixed(2)}</td>`; }
+    html+='</tr>';
+  }
+  $('#matB').innerHTML=html+'</table>';
+  status.textContent='模型已就绪 ✓';
+}
+$('#goB').onclick=runB;
+
+// §C 语义地图
+const PHRASES=[
+  {t:'诱导粉丝添加微信',c:'导流'},{t:'引流到私域群聊',c:'导流'},{t:'评论区留二维码跳转外部',c:'导流'},
+  {t:'虚假中奖要先交保证金',c:'诈骗'},{t:'冒充客服索要验证码',c:'诈骗'},{t:'刷单返佣要求垫付本金',c:'诈骗'},
+  {t:'曝光他人手机号和住址',c:'隐私'},{t:'人肉搜索披露身份证',c:'隐私'},
+  {t:'使用外挂脚本提升排名',c:'作弊'},{t:'自动抢券工具规避风控',c:'作弊'},
+  {t:'今天天气真好适合出游',c:'闲聊'},{t:'推荐一家好吃的火锅店',c:'闲聊'},
+];
+const CATCOLORS={导流:'#b94d2d',诈骗:'#6450a8',隐私:'#207864',作弊:'#b07b24',闲聊:'#9aa0a6'};
+function pca2(vectors){
+  const n=vectors.length,d=vectors[0].length;
+  const mean=new Float64Array(d);for(const v of vectors)for(let j=0;j<d;j++)mean[j]+=v[j];for(let j=0;j<d;j++)mean[j]/=n;
+  const X=vectors.map(v=>{const r=new Float64Array(d);for(let j=0;j<d;j++)r[j]=v[j]-mean[j];return r;});
+  const topDir=(X)=>{let v=new Float64Array(d).fill(1/Math.sqrt(d));
+    for(let it=0;it<80;it++){const u=new Float64Array(n);for(let i=0;i<n;i++){let s=0;const xi=X[i];for(let j=0;j<d;j++)s+=xi[j]*v[j];u[i]=s;}
+      const w=new Float64Array(d);for(let i=0;i<n;i++){const ui=u[i],xi=X[i];for(let j=0;j<d;j++)w[j]+=xi[j]*ui;}
+      let nrm=0;for(let j=0;j<d;j++)nrm+=w[j]*w[j];nrm=Math.sqrt(nrm)||1;for(let j=0;j<d;j++)w[j]/=nrm;v=w;}
+    return v;};
+  const pc1=topDir(X);
+  for(let i=0;i<n;i++){let p=0;for(let j=0;j<d;j++)p+=X[i][j]*pc1[j];for(let j=0;j<d;j++)X[i][j]-=p*pc1[j];}
+  const pc2=topDir(X);
+  return vectors.map(v=>{let x=0,y=0;for(let j=0;j<d;j++){const c=v[j]-mean[j];x+=c*pc1[j];y+=c*pc2[j];}return [x,y];});
+}
+async function runC(){
+  const m=await ensure();status.textContent=`计算 ${PHRASES.length} 个短语的向量…`;
+  const vs=[];for(const p of PHRASES)vs.push(await m.embed(p.t));
+  const pts=pca2(vs);
+  const xs=pts.map(p=>p[0]),ys=pts.map(p=>p[1]);
+  const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
+  const cv=$('#mapC'),ctx=cv.getContext('2d');const W=cv.width,H=cv.height,pad=70;
+  ctx.clearRect(0,0,W,H);
+  const sx=x=>pad+(x-minX)/(maxX-minX||1)*(W-2*pad);
+  const sy=y=>H-pad-(y-minY)/(maxY-minY||1)*(H-2*pad);
+  ctx.font='14px -apple-system,sans-serif';
+  PHRASES.forEach((p,i)=>{const x=sx(pts[i][0]),y=sy(pts[i][1]);
+    ctx.beginPath();ctx.arc(x,y,7,0,7);ctx.fillStyle=CATCOLORS[p.c];ctx.fill();
+    ctx.fillStyle='#1a1a1a';ctx.fillText(p.t,x+10,y+4);});
+  $('#legendC').innerHTML=Object.entries(CATCOLORS).map(([k,v])=>`<span class="chip"><span class="dot" style="background:${v}"></span>${k}</span>`).join('');
+  status.textContent='模型已就绪 ✓ 看：同色点(同类风险)聚在一起，闲聊远离。';
+}
+$('#goC').onclick=runC;
+</script>
+<a id="home-fab" href="./knowledge-map.html" style="position:fixed;right:16px;bottom:16px;z-index:9999;background:#245f73;color:#fff;text-decoration:none;font:600 13px/1 -apple-system,BlinkMacSystemFont,sans-serif;padding:10px 14px;border-radius:24px;box-shadow:0 2px 10px rgba(0,0,0,.18)">🏠 总览</a>
+</body>
+</html>

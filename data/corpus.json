@@ -1,0 +1,264 @@
+[
+  {
+    "id": "d001",
+    "text": "用户在直播间诱导观众添加站外微信进行私下交易",
+    "schema": { "risk_type": "导流", "channel": "直播", "entities": ["微信", "站外交易"], "severity": "中" },
+    "relations": [{ "rel": "变体", "target": "d014" }, { "rel": "同链路", "target": "d030" }],
+    "trap": "synonym"
+  },
+  {
+    "id": "d002",
+    "text": "商家在短视频评论区留下二维码引导用户到外部平台付款",
+    "schema": { "risk_type": "导流", "channel": "短视频", "entities": ["二维码", "外部平台付款"], "severity": "高" },
+    "relations": [{ "rel": "同风险", "target": "d001" }, { "rel": "变体", "target": "d015" }],
+    "trap": "synonym"
+  },
+  {
+    "id": "d003",
+    "text": "账号发布虚假中奖信息要求先支付保证金才能领奖",
+    "schema": { "risk_type": "诈骗", "channel": "私信", "entities": ["中奖", "保证金"], "severity": "高" },
+    "relations": [{ "rel": "变体", "target": "d016" }, { "rel": "同链路", "target": "d031" }],
+    "trap": "synonym"
+  },
+  {
+    "id": "d004",
+    "text": "客服冒充平台人员索要短信验证码用于解冻账户",
+    "schema": { "risk_type": "诈骗", "channel": "客服会话", "entities": ["验证码", "冒充客服"], "severity": "高" },
+    "relations": [{ "rel": "结构相关", "target": "d022" }],
+    "trap": "structural"
+  },
+  {
+    "id": "d005",
+    "text": "卖家承诺刷单返佣并要求用户垫付本金",
+    "schema": { "risk_type": "诈骗", "channel": "群聊", "entities": ["刷单", "返佣", "垫付"], "severity": "高" },
+    "relations": [{ "rel": "变体", "target": "d017" }],
+    "trap": "synonym"
+  },
+  {
+    "id": "d006",
+    "text": "评论区集中出现侮辱性词汇攻击未成年人",
+    "schema": { "risk_type": "辱骂", "channel": "评论", "entities": ["未成年人", "侮辱"], "severity": "中" },
+    "relations": [{ "rel": "同风险", "target": "d018" }],
+    "trap": "synonym"
+  },
+  {
+    "id": "d007",
+    "text": "用户发布人肉搜索请求并暴露他人手机号和住址",
+    "schema": { "risk_type": "隐私泄露", "channel": "帖子", "entities": ["手机号", "住址", "人肉搜索"], "severity": "高" },
+    "relations": [{ "rel": "结构相关", "target": "d019" }],
+    "trap": "structural"
+  },
+  {
+    "id": "d008",
+    "text": "视频展示未授权剪辑的院线电影完整片段",
+    "schema": { "risk_type": "侵权", "channel": "短视频", "entities": ["电影片段", "未授权"], "severity": "中" },
+    "relations": [{ "rel": "同风险", "target": "d020" }]
+  },
+  {
+    "id": "d009",
+    "text": "直播标题夸大药品疗效声称三天治愈慢性病",
+    "schema": { "risk_type": "虚假宣传", "channel": "直播", "entities": ["药品", "疗效"], "severity": "高" },
+    "relations": [{ "rel": "变体", "target": "d021" }],
+    "trap": "synonym"
+  },
+  {
+    "id": "d010",
+    "text": "主播暗示使用外挂脚本可以稳定提升游戏排名",
+    "schema": { "risk_type": "作弊工具", "channel": "直播", "entities": ["外挂", "脚本"], "severity": "中" },
+    "relations": [{ "rel": "结构相关", "target": "d026" }],
+    "trap": "structural"
+  },
+  {
+    "id": "d011",
+    "text": "帖子教唆用户绕过实名审核购买批量账号",
+    "schema": { "risk_type": "账号黑产", "channel": "帖子", "entities": ["实名审核", "批量账号"], "severity": "高" },
+    "relations": [{ "rel": "结构相关", "target": "d027" }],
+    "trap": "structural"
+  },
+  {
+    "id": "d012",
+    "text": "用户在群聊组织低价代充并承诺到账后再确认收货",
+    "schema": { "risk_type": "交易风险", "channel": "群聊", "entities": ["代充", "确认收货"], "severity": "中" },
+    "relations": [{ "rel": "同链路", "target": "d028" }]
+  },
+  {
+    "id": "d013",
+    "text": "账号发布含有自残方法和工具清单的长帖",
+    "schema": { "risk_type": "自伤", "channel": "帖子", "entities": ["自残方法", "工具清单"], "severity": "高" },
+    "relations": [{ "rel": "同风险", "target": "d029" }]
+  },
+  {
+    "id": "d014",
+    "text": "主播反复让粉丝加私人号进私域群聊完成下单",
+    "schema": { "risk_type": "导流", "channel": "直播", "entities": ["私人号", "私域群聊", "下单"], "severity": "中" },
+    "relations": [{ "rel": "变体", "target": "d001" }, { "rel": "同链路", "target": "d030" }],
+    "trap": "synonym"
+  },
+  {
+    "id": "d015",
+    "text": "短视频口播提示截图保存联系方式并跳转第三方商城",
+    "schema": { "risk_type": "导流", "channel": "短视频", "entities": ["联系方式", "第三方商城"], "severity": "中" },
+    "relations": [{ "rel": "变体", "target": "d002" }],
+    "trap": "synonym"
+  },
+  {
+    "id": "d016",
+    "text": "私信通知领取福利红包但要求先转手续费",
+    "schema": { "risk_type": "诈骗", "channel": "私信", "entities": ["福利红包", "手续费"], "severity": "高" },
+    "relations": [{ "rel": "变体", "target": "d003" }],
+    "trap": "synonym"
+  },
+  {
+    "id": "d017",
+    "text": "群主宣传做任务返钱需要先拍指定商品",
+    "schema": { "risk_type": "诈骗", "channel": "群聊", "entities": ["做任务", "返钱", "指定商品"], "severity": "高" },
+    "relations": [{ "rel": "变体", "target": "d005" }],
+    "trap": "synonym"
+  },
+  {
+    "id": "d018",
+    "text": "弹幕持续使用歧视称呼围攻某个创作者",
+    "schema": { "risk_type": "辱骂", "channel": "弹幕", "entities": ["歧视称呼", "围攻"], "severity": "中" },
+    "relations": [{ "rel": "同风险", "target": "d006" }],
+    "trap": "synonym"
+  },
+  {
+    "id": "d019",
+    "text": "评论披露他人身份证照片并要求网友一起查工作单位",
+    "schema": { "risk_type": "隐私泄露", "channel": "评论", "entities": ["身份证照片", "工作单位"], "severity": "高" },
+    "relations": [{ "rel": "结构相关", "target": "d007" }],
+    "trap": "structural"
+  },
+  {
+    "id": "d020",
+    "text": "账号搬运付费课程录屏并公开下载链接",
+    "schema": { "risk_type": "侵权", "channel": "帖子", "entities": ["付费课程", "录屏", "下载链接"], "severity": "中" },
+    "relations": [{ "rel": "同风险", "target": "d008" }]
+  },
+  {
+    "id": "d021",
+    "text": "商品页宣称普通食品可以替代处方药治疗糖尿病",
+    "schema": { "risk_type": "虚假宣传", "channel": "商品页", "entities": ["普通食品", "处方药", "糖尿病"], "severity": "高" },
+    "relations": [{ "rel": "变体", "target": "d009" }],
+    "trap": "synonym"
+  },
+  {
+    "id": "d022",
+    "text": "用户以安全校验为由让对方提供一次性登录码",
+    "schema": { "risk_type": "诈骗", "channel": "私信", "entities": ["安全校验", "一次性登录码"], "severity": "高" },
+    "relations": [{ "rel": "结构相关", "target": "d004" }],
+    "trap": "structural"
+  },
+  {
+    "id": "d023",
+    "text": "发布偷拍视频展示他人更衣室画面",
+    "schema": { "risk_type": "隐私泄露", "channel": "短视频", "entities": ["偷拍视频", "更衣室"], "severity": "高" },
+    "relations": [{ "rel": "同风险", "target": "d007" }]
+  },
+  {
+    "id": "d024",
+    "text": "评论诱导未成年人加入高额返利投资群",
+    "schema": { "risk_type": "诈骗", "channel": "评论", "entities": ["未成年人", "返利", "投资群"], "severity": "高" },
+    "relations": [{ "rel": "同风险", "target": "d003" }]
+  },
+  {
+    "id": "d025",
+    "text": "直播售卖所谓内部渠道低价机票要求线下转账",
+    "schema": { "risk_type": "交易风险", "channel": "直播", "entities": ["低价机票", "线下转账"], "severity": "高" },
+    "relations": [{ "rel": "同链路", "target": "d012" }]
+  },
+  {
+    "id": "d026",
+    "text": "帖子提供自动抢券工具下载并规避平台风控检测",
+    "schema": { "risk_type": "作弊工具", "channel": "帖子", "entities": ["自动抢券", "风控检测"], "severity": "中" },
+    "relations": [{ "rel": "结构相关", "target": "d010" }],
+    "trap": "structural"
+  },
+  {
+    "id": "d027",
+    "text": "群内出售接码服务用于绕开新用户注册限制",
+    "schema": { "risk_type": "账号黑产", "channel": "群聊", "entities": ["接码服务", "注册限制"], "severity": "高" },
+    "relations": [{ "rel": "结构相关", "target": "d011" }],
+    "trap": "structural"
+  },
+  {
+    "id": "d028",
+    "text": "买家要求脱离平台担保直接打款完成交易",
+    "schema": { "risk_type": "交易风险", "channel": "私信", "entities": ["脱离平台", "直接打款"], "severity": "高" },
+    "relations": [{ "rel": "同链路", "target": "d012" }]
+  },
+  {
+    "id": "d029",
+    "text": "群聊传播极端节食挑战并记录每日惩罚规则",
+    "schema": { "risk_type": "自伤", "channel": "群聊", "entities": ["极端节食", "惩罚规则"], "severity": "高" },
+    "relations": [{ "rel": "同风险", "target": "d013" }]
+  },
+  {
+    "id": "d030",
+    "text": "笔记用谐音提示薇信号并让用户去小号看价目表",
+    "schema": { "risk_type": "导流", "channel": "笔记", "entities": ["谐音", "薇信号", "价目表"], "severity": "中" },
+    "relations": [{ "rel": "同链路", "target": "d001" }, { "rel": "同链路", "target": "d014" }],
+    "trap": "structural"
+  },
+  {
+    "id": "d031",
+    "text": "对方承诺解封账户但先收取风险核验费",
+    "schema": { "risk_type": "诈骗", "channel": "私信", "entities": ["解封账户", "核验费"], "severity": "高" },
+    "relations": [{ "rel": "同链路", "target": "d003" }],
+    "trap": "structural"
+  },
+  {
+    "id": "d032",
+    "text": "商家在商品详情页隐藏外部联系方式要求扫码咨询",
+    "schema": { "risk_type": "导流", "channel": "商品页", "entities": ["外部联系方式", "扫码咨询"], "severity": "中" },
+    "relations": [{ "rel": "同风险", "target": "d002" }]
+  },
+  {
+    "id": "d033",
+    "text": "账号展示银行卡收款码并要求粉丝备注暗号购买资料",
+    "schema": { "risk_type": "交易风险", "channel": "短视频", "entities": ["银行卡收款码", "暗号"], "severity": "高" },
+    "relations": [{ "rel": "同链路", "target": "d028" }]
+  },
+  {
+    "id": "d034",
+    "text": "帖子集中发布辱骂性表情包针对同一用户",
+    "schema": { "risk_type": "辱骂", "channel": "帖子", "entities": ["表情包", "同一用户"], "severity": "中" },
+    "relations": [{ "rel": "同风险", "target": "d006" }]
+  },
+  {
+    "id": "d035",
+    "text": "直播间宣称抽奖内定名额需要私聊管理员登记",
+    "schema": { "risk_type": "诈骗", "channel": "直播", "entities": ["抽奖", "内定名额", "管理员"], "severity": "中" },
+    "relations": [{ "rel": "同风险", "target": "d003" }]
+  },
+  {
+    "id": "d036",
+    "text": "短视频推广成人灰产教程并标注网盘提取码",
+    "schema": { "risk_type": "违法服务", "channel": "短视频", "entities": ["灰产教程", "网盘提取码"], "severity": "高" },
+    "relations": [{ "rel": "结构相关", "target": "d011" }]
+  },
+  {
+    "id": "d037",
+    "text": "评论区发布他人车牌和小区门牌号请求围堵",
+    "schema": { "risk_type": "隐私泄露", "channel": "评论", "entities": ["车牌", "门牌号", "围堵"], "severity": "高" },
+    "relations": [{ "rel": "同风险", "target": "d019" }]
+  },
+  {
+    "id": "d038",
+    "text": "笔记把医疗器械包装成祖传偏方并承诺包治",
+    "schema": { "risk_type": "虚假宣传", "channel": "笔记", "entities": ["医疗器械", "祖传偏方", "包治"], "severity": "高" },
+    "relations": [{ "rel": "同风险", "target": "d021" }]
+  },
+  {
+    "id": "d039",
+    "text": "用户售卖游戏代练号并保证不会触发封禁",
+    "schema": { "risk_type": "作弊工具", "channel": "私信", "entities": ["代练号", "封禁"], "severity": "中" },
+    "relations": [{ "rel": "同风险", "target": "d010" }]
+  },
+  {
+    "id": "d040",
+    "text": "群公告提供多个新号实名资料包并按数量报价",
+    "schema": { "risk_type": "账号黑产", "channel": "群聊", "entities": ["新号", "实名资料包", "报价"], "severity": "高" },
+    "relations": [{ "rel": "同风险", "target": "d027" }]
+  }
+]

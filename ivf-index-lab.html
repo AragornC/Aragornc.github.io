@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>IVF 索引存储结构白盒 · 库里到底存了啥</title>
+<style>
+  :root{--bg:#fafaf7;--paper:#fff;--ink:#1a1a1a;--ink2:#4a4a4a;--muted:#8a8a8a;--line:#e8e6df;
+    --accent:#245f73;--accent2:#1f6f4f;--warn:#b84a36;--gold:#8a5d1f;
+    --font:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    --mono:"SF Mono",ui-monospace,Menlo,monospace;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.7;font-size:15px}
+  .page{max-width:1040px;margin:0 auto;padding:32px 22px 80px}
+  h1{font-size:23px;margin:0 0 4px}.sub{color:var(--muted);margin:0 0 14px}a{color:var(--accent)}
+  .reassure{background:#eef6f0;border:1px solid #cfe6d8;border-radius:10px;padding:11px 15px;font-size:13.5px;color:#1f6f4f;margin:12px 0}
+  .reassure b{color:#155}
+  .bar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+  button{font:inherit;font-weight:700;padding:8px 14px;border:1px solid var(--accent);border-radius:8px;background:var(--accent);color:#fff;cursor:pointer}
+  button:disabled{opacity:.4}.status{font-size:13px;color:var(--ink2)}
+  input[type=text]{font:inherit;padding:8px 11px;border:1px solid var(--line);border-radius:7px;background:#fffdf8;flex:1;min-width:200px}
+  .seg{margin-top:18px;background:var(--paper);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .seg-head{padding:12px 18px;border-bottom:1px solid var(--line);background:#f6f5ef}
+  .seg-head h2{margin:0;font-size:16px}.seg-head .algo{margin-top:3px;color:var(--ink2);font-size:13px}
+  .seg-body{padding:14px 18px}
+  table{border-collapse:collapse;font-size:12.5px;width:100%}td,th{border:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top}
+  th{background:#f3f2ec}.mono{font-family:var(--mono);font-size:12px}
+  .store{background:#1f2328;color:#e6e6df;border-radius:8px;padding:12px 14px;font-family:var(--mono);font-size:12px;white-space:pre-wrap;word-break:break-word;overflow-x:auto;margin-top:8px;line-height:1.6}
+  .store .k{color:#79c0e8}.store .n{color:#e0a849}.store .c{color:#8a8a8a}.store .v{color:#b6d99a}
+  .pill{display:inline-block;background:#eef4f5;color:var(--accent);border-radius:5px;padding:0 6px;margin:1px;font-family:var(--mono);font-size:11.5px}
+  .clu{display:inline-block;width:22px;height:22px;line-height:22px;text-align:center;border-radius:6px;font-size:11px;font-weight:800;color:#fff}
+  .label{display:inline-block;font-size:11px;font-weight:800;color:#fff;border-radius:4px;padding:1px 8px;margin-bottom:6px}
+  .vec{font-family:var(--mono);font-size:11px;color:#888}
+  .hint{font-size:12.5px;color:var(--muted);margin-top:8px}.err{color:var(--warn);font-weight:700}
+  .scan{background:#fff6e6}.skip{opacity:.5}
+  .note{font-size:12.5px;color:var(--ink2);margin-top:14px;padding:11px 14px;background:#f4f6f7;border:1px solid #e2ebec;border-radius:8px}
+  .note b{color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>IVF 索引存储结构白盒 · 库里到底存了啥</h1>
+  <p class="sub">补上 IVF 那块:它在向量库里 = <b>一张码本(簇中心)+ 每个簇一条倒排列表(簇→属于它的向量)</b>。真文本→真 embedding→真 k-means,逐字摊开。<a href="./hnsw-index-lab.html">← HNSW 存储</a> · <a href="./inverted-index-lab.html">倒排索引存储</a> · <a href="./">导航</a></p>
+
+  <div class="reassure">🧩 <b>IVF = Inverted File(倒排文件)</b>。它和 BM25 的倒排索引是<b>同一个思路</b>:倒排索引是「词→哪些文档」,IVF 是「<b>簇→哪些向量</b>」。下面把它落盘的两样东西摊开:① 码本(k 个簇中心)② 每个簇的倒排列表。</div>
+
+  <div class="bar"><button id="load">加载模型 + 嵌入 + 跑 k-means 建 IVF</button><span class="status" id="status">点按钮:把12条文本→向量→k-means 分 4 簇→建倒排列表。</span></div>
+
+  <div class="seg"><div class="seg-head"><h2>① 索引总览</h2></div>
+    <div class="seg-body"><div id="overview" class="mono"></div></div></div>
+
+  <div class="seg"><div class="seg-head"><h2>② 码本 / 粗量化器(nlist 个簇中心)</h2>
+    <div class="algo">k-means 算出的 <b>k 个簇中心(centroid)</b>,每个是一个和文档同维的向量(512维)。查询时先和这几个中心比,定位到最近的簇。这就是 IVF 的"目录"。</div></div>
+    <div class="seg-body"><div id="centroids"></div>
+      <div class="hint">向量太长(512维),只显示前 6 维示意。每个中心还附了"离它最近的那条真实文本",方便你理解这个簇大概是啥主题。</div></div></div>
+
+  <div class="seg"><div class="seg-head"><h2>③ 倒排列表(IVF 的真身:簇 → 属于它的向量)</h2>
+    <div class="algo">每个簇挂一条列表,里面是<b>分到这个簇的所有向量</b>。IVFFlat 存法 = 每条列表项是 <span class="pill">向量id : 完整向量</span>。查询只扫命中簇的这几条列表,不扫全库。</div></div>
+    <div class="seg-body"><div id="lists"></div>
+      <div class="hint">⚠️ 诚实说明:k-means 是<b>按向量几何分簇,不保证和人为主题标签对齐</b>。这页里"编程""天气"分得很干净,但"做菜""体育"会被 bge-small 混到一起(它俩在这个小模型的向量空间里离得不够远)。这<b>本身就真实</b>——也正好预示了 IVF 的边界问题:簇的划法不完美,边界附近就容易把真邻居切到隔壁簇。</div>
+    </div></div>
+
+  <div class="seg"><div class="seg-head"><h2>④ 查询时怎么用它(看 nprobe 扫哪几条列表)</h2>
+    <div class="algo">输入查询 → 和 k 个簇中心比 → 取最近的 nprobe 个簇 → 只扫这几条倒排列表。改 nprobe 看扫的范围。</div></div>
+    <div class="seg-body">
+      <div class="bar"><input type="text" id="q" value="我的程序运行时报错了怎么办"><label class="status">nprobe=<b id="npV">1</b><input type="range" id="np" min="1" max="4" value="1" style="vertical-align:middle"></label><button id="go" disabled>查询</button></div>
+      <div id="trace"></div>
+    </div></div>
+
+  <div class="seg"><div class="seg-head"><h2>⑤ 完整存储形态(库里为 IVF 落盘的 JSON)</h2></div>
+    <div class="seg-body"><div class="label" style="background:var(--accent2)">这就是向量库为 IVFFlat 落盘的东西(码本 + 倒排列表)</div><div class="store" id="storeJSON"></div>
+      <div class="hint">想更省内存?把列表项里的"完整向量"换成 <b>PQ 压缩码</b>(几个字节)就是 <b>IVFPQ</b>——结构一模一样,只是每条存的从 512 个浮点数变成几个编号。</div></div></div>
+
+  <div class="note">和另两种存储对照:<a href="./hnsw-index-lab.html">HNSW</a> 存的是「每层的邻接表(点→邻居)」,<b>IVF 存的是「码本 + 簇→向量 的倒排列表」</b>,<a href="./inverted-index-lab.html">BM25 倒排</a> 存的是「词→文档」。三者都和数据层(id/原文/向量)挂在一起。IVF 的命门也在这结构里看得出:<b>查询只扫命中的簇,真邻居若在没扫的隔壁簇就漏了(边界漏检)</b>,所以要靠 nprobe 多扫几条补救。</div>
+</div>
+
+<script type="module">
+const $=s=>document.querySelector(s);
+const status=$('#status');
+const CHUNKS=[
+  {t:'Python 报 IndexError 列表索引越界',c:'编程'},{t:'MySQL 查询太慢需要给字段加索引',c:'编程'},{t:'CSS flex 布局怎么让元素水平居中',c:'编程'},
+  {t:'红烧肉要先焯水再小火慢炖收汁',c:'做菜'},{t:'戚风蛋糕用烤箱180度烤35分钟',c:'做菜'},{t:'番茄牛腩汤要小火炖煮两小时',c:'做菜'},
+  {t:'湖人队昨晚加时赛险胜对手',c:'体育'},{t:'国足在世预赛中战平了对手',c:'体育'},{t:'马拉松全程要跑42公里',c:'体育'},
+  {t:'台风蓝色预警明天将登陆沿海',c:'天气'},{t:'周末持续降雨出门记得带伞',c:'天气'},{t:'明天高温橙色预警注意防暑',c:'天气'},
+];
+const K=4;
+const id=i=>'v'+String(i+1).padStart(2,'0');
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const COLORS=['#245f73','#1f6f4f','#b07b24','#b94d2d'];
+const L2=(a,b)=>{let s=0;for(let i=0;i<a.length;i++){const d=a[i]-b[i];s+=d*d;}return Math.sqrt(s);};
+let M=null,vecs=null,cent=[],assign=[];
+
+async function ensure(){if(M)return M;$('#load').disabled=true;status.textContent='加载 bge…';
+  try{M=await import('./src/dense.js?v=2');await M.loadModel(e=>{if(e&&e.status)status.textContent='加载：'+(e.file||e.status);});}
+  catch(e){status.innerHTML='<span class="err">加载失败：'+String(e.message||e)+'</span>';$('#load').disabled=false;throw e;}return M;}
+
+function kmeansOnce(vs,k,seed,iters=20){
+  let s=seed;const rnd=()=>{s=(s*1103515245+12345)&0x7fffffff;return s/0x7fffffff;};
+  const n=vs.length,dim=vs[0].length;
+  // k-means++ 初始化:第一个随机,后面每个按"到已选中心的距离平方"加权抽
+  let c=[vs[Math.floor(rnd()*n)].slice()];
+  while(c.length<k){
+    const d2=vs.map(v=>{let m=Infinity;for(const cc of c){const d=L2(v,cc);if(d*d<m)m=d*d;}return m;});
+    let sum=d2.reduce((a,b)=>a+b,0),r=rnd()*sum,pick=n-1;
+    for(let i=0;i<n;i++){r-=d2[i];if(r<=0){pick=i;break;}}
+    c.push(vs[pick].slice());
+  }
+  let asg=new Array(n).fill(0);
+  for(let it=0;it<iters;it++){
+    for(let i=0;i<n;i++){let best=0,bd=Infinity;for(let q=0;q<k;q++){const d=L2(vs[i],c[q]);if(d<bd){bd=d;best=q;}}asg[i]=best;}
+    const sum=Array.from({length:k},()=>new Array(dim).fill(0)),cnt=new Array(k).fill(0);
+    for(let i=0;i<n;i++){const q=asg[i];cnt[q]++;for(let d=0;d<dim;d++)sum[q][d]+=vs[i][d];}
+    for(let q=0;q<k;q++)if(cnt[q])for(let d=0;d<dim;d++)c[q][d]=sum[q][d]/cnt[q];
+  }
+  let inertia=0;for(let i=0;i<n;i++){const d=L2(vs[i],c[asg[i]]);inertia+=d*d;}
+  return {c,asg,inertia};
+}
+function kmeans(vs,k){
+  // 多次重启(不同初始化),取 inertia 最小的那次,躲开坏的局部最优
+  let best=null;
+  for(let r=1;r<=12;r++){const res=kmeansOnce(vs,k,r*131+7);if(!best||res.inertia<best.inertia)best=res;}
+  return {c:best.c,asg:best.asg};
+}
+const members=q=>[...assign.keys()].filter(i=>assign[i]===q);
+const vprev=v=>'['+Array.from(v.slice(0,6)).map(x=>x.toFixed(3)).join(', ')+', …]';
+const nearestDoc=q=>{const ms=members(q);let best=ms[0],bd=Infinity;ms.forEach(i=>{const d=L2(vecs[i],cent[q]);if(d<bd){bd=d;best=i;}});return best;};
+
+function render(){
+  const cnt=[...Array(K).keys()].map(q=>members(q).length);
+  $('#overview').innerHTML=`向量总数:<b>${vecs.length}</b> · 维度:<b>${vecs[0].length}</b> · 簇数 nlist:<b>${K}</b><br>每簇向量数 → ${cnt.map((n,q)=>`<span class="clu" style="background:${COLORS[q]}">C${q}</span>${n}条`).join(' &nbsp; ')}`;
+  // 码本
+  let ct='<table><tr><th>簇中心</th><th>成员数</th><th>向量(前6维示意)</th><th>离它最近的真实文本(代表该簇主题)</th></tr>';
+  for(let q=0;q<K;q++){const nd=nearestDoc(q);
+    ct+=`<tr><td><span class="clu" style="background:${COLORS[q]}">C${q}</span> centroid_${q}</td><td class="mono">${members(q).length}</td><td class="vec">${vprev(cent[q])}</td><td>${esc(CHUNKS[nd].t)} <span class="mono" style="color:#aaa">(${id(nd)})</span></td></tr>`;}
+  $('#centroids').innerHTML=ct+'</table>';
+  // 倒排列表
+  let ll='';
+  for(let q=0;q<K;q++){const ms=members(q);
+    ll+=`<div class="label" style="background:${COLORS[q]}">簇 C${q} 的倒排列表 · ${ms.length} 个向量</div>`;
+    let t='<table><tr><th>向量id</th><th>原文(数据层)</th><th>完整向量(IVFFlat 这里存512维,示意前6维)</th></tr>';
+    ms.forEach(i=>{t+=`<tr><td class="mono">${id(i)}</td><td>${esc(CHUNKS[i].t)}</td><td class="vec">${vprev(vecs[i])}</td></tr>`;});
+    ll+=t+'</table><div style="height:10px"></div>';}
+  $('#lists').innerHTML=ll;
+  // JSON
+  let j=`{
+  "type": "IVF_FLAT",
+  "nlist": ${K},                          // 簇的个数
+  "metric": "L2",
+  "codebook": {                           // ① 码本:k 个簇中心(粗量化器)\n`;
+  for(let q=0;q<K;q++)j+=`    "centroid_${q}": [${Array.from(cent[q].slice(0,4)).map(x=>x.toFixed(3)).join(', ')}, …(共512维)],\n`;
+  j+=`  },
+  "inverted_lists": {                     // ② 倒排列表:簇 → 属于它的向量\n`;
+  for(let q=0;q<K;q++){const ms=members(q);
+    j+=`    "list_${q}": [                  // ← 同下标:装的是属于 centroid_${q} 的向量\n`;
+    ms.forEach(i=>{j+=`      { "id": "${id(i)}", "vector": [${Array.from(vecs[i].slice(0,3)).map(x=>x.toFixed(3)).join(', ')}, …] },\n`;});
+    j+=`    ],\n`;}
+  j+=`  }\n}`;
+  $('#storeJSON').innerHTML=colorJSON(j);
+  trace();
+}
+function colorJSON(j){return esc(j)
+  .replace(/"(type|nlist|metric|codebook|inverted_lists|centroid_\d|list_\d|id|vector)"/g,'"<span class="k">$1</span>"')
+  .replace(/"(v\d\d|IVF_FLAT|L2)"/g,'"<span class="n">$1</span>"')
+  .replace(/(\/\/.*)$/gm,'<span class="c">$1</span>');}
+
+async function trace(){
+  if(!vecs)return;const q=$('#q').value.trim();const nprobe=+$('#np').value;
+  const qv=await M.embedQuery(q);
+  const cd=[...Array(K).keys()].map(c=>({c,d:L2(qv,cent[c])})).sort((a,b)=>a.d-b.d);
+  const scan=new Set(cd.slice(0,nprobe).map(x=>x.c));
+  let t='<table><tr><th>簇</th><th>查询到该簇中心的距离</th><th>是否扫描</th><th>该簇里的向量</th></tr>';
+  cd.forEach(({c,d})=>{const on=scan.has(c);const ms=members(c).map(i=>`<span class="pill">${id(i)}</span>`).join('');
+    t+=`<tr class="${on?'scan':'skip'}"><td><span class="clu" style="background:${COLORS[c]}">C${c}</span></td><td class="mono">${d.toFixed(4)}</td><td>${on?'<b style="color:#b07b24">✓ 扫</b>':'✗ 跳过'}</td><td>${ms}</td></tr>`;});
+  const scanned=[...scan].reduce((a,c)=>a+members(c).length,0);
+  $('#trace').innerHTML=t+'</table>'+`<div class="hint">nprobe=${nprobe}:只在最近的 ${nprobe} 个簇(共 ${scanned} 个向量)里精算,跳过其余 ${vecs.length-scanned} 个。<b>nprobe 调大→扫得多→更不容易漏(边界),但更慢。</b></div>`;
+}
+
+async function load(){const m=await ensure();status.textContent='嵌入 '+CHUNKS.length+' 条 + 跑 k-means…';
+  vecs=[];for(const c of CHUNKS)vecs.push(Array.from(await m.embed(c.t)));
+  const r=kmeans(vecs,K);cent=r.c;assign=r.asg;render();
+  $('#go').disabled=false;status.textContent='完成 ✓ 这就是 IVF 索引在库里的真身。';}
+$('#load').onclick=load;
+$('#go').onclick=trace;
+$('#np').oninput=()=>{$('#npV').textContent=$('#np').value;if(vecs)trace();};
+</script>
+<a id="home-fab" href="./knowledge-map.html" style="position:fixed;right:16px;bottom:16px;z-index:9999;background:#245f73;color:#fff;text-decoration:none;font:600 13px/1 -apple-system,BlinkMacSystemFont,sans-serif;padding:10px 14px;border-radius:24px;box-shadow:0 2px 10px rgba(0,0,0,.18)">🏠 总览</a>
+</body>
+</html>

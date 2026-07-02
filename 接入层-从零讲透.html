@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>接入层 · 从零讲透（小白版）</title>
+<style>
+  :root{
+    --bg:#fbfcfd; --paper:#fff; --ink:#0f1820; --ink-2:#26333f; --muted:#5e6b78; --muted-2:#8997a5;
+    --line:#dde4ec; --green:#1f6f4f; --green-d:#16543b; --green-soft:#e9f3ee;
+    --blue:#0c5d80; --blue-soft:#e6f1f6; --amber:#8a5d1f; --amber-soft:#fbf2dc;
+    --red:#a3373a; --red-soft:#fbeceb; --gray-soft:#f3f5f8;
+    --purple:#5b3e8f; --purple-soft:#efeaf7;
+    --client:#2563a8; --server:#1f6f4f; --lb:#7a4fb0; --mq:#b07a1f;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;color:var(--ink);background:var(--bg);line-height:1.78;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
+  .wrap{max-width:880px;margin:0 auto;padding:34px 22px 90px}
+  .eyebrow{display:inline-block;margin-bottom:8px;color:var(--green);font-size:11px;font-weight:850;letter-spacing:.18em}
+  h1{margin:6px 0 6px;font-size:27px;font-weight:850}
+  .subtitle{margin:0;color:var(--ink-2);font-size:14.5px}
+  .meta{margin-top:13px;color:var(--muted);font-size:12.5px;border-bottom:1px solid var(--line);padding-bottom:20px}
+
+  /* Level header */
+  .lv{display:flex;align-items:center;gap:13px;margin:44px 0 10px}
+  .lv .num{flex:0 0 auto;width:50px;height:50px;border-radius:14px;background:var(--green);color:#fff;font-size:13px;font-weight:850;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.05}
+  .lv .num small{font-size:9px;font-weight:700;opacity:.85}
+  .lv h2{margin:0;font-size:20px;font-weight:850;color:var(--ink)}
+  .lv .tag{margin-top:3px;font-size:11.5px;color:var(--muted)}
+
+  p{font-size:14px;color:var(--ink-2);margin:10px 0}
+  p b{color:var(--ink)}
+  .big{font-size:15px}
+
+  /* 术语解释框 */
+  .term{margin:12px 0;padding:13px 17px;border-radius:10px;background:var(--amber-soft);border-left:4px solid var(--amber)}
+  .term .w{font-size:13.5px;font-weight:850;color:var(--amber);margin-bottom:3px}
+  .term .w .en{font-weight:600;color:var(--muted);font-size:12px}
+  .term p{margin:3px 0;font-size:13px;color:var(--ink-2)}
+
+  /* 类比框 */
+  .ana{margin:12px 0;padding:13px 17px;border-radius:10px;background:var(--blue-soft);border-left:4px solid var(--blue)}
+  .ana .h{font-size:12.5px;font-weight:850;color:var(--blue);margin-bottom:4px}
+  .ana .h::before{content:"🌰 "}
+  .ana p{margin:3px 0;font-size:13px}
+
+  /* 关键点 */
+  .key{margin:12px 0;padding:13px 17px;border-radius:10px;background:var(--green-soft);border-left:4px solid var(--green)}
+  .key .h{font-size:12.5px;font-weight:850;color:var(--green-d);margin-bottom:3px}
+  .key .h::before{content:"🔑 "}
+  .key p{margin:3px 0;font-size:13px}
+  .key b{color:var(--green-d)}
+
+  /* 图：盒子系统 */
+  .diagram{margin:16px 0;padding:18px 16px;background:#fff;border:1px solid var(--line);border-radius:12px;text-align:center;overflow-x:auto}
+  .diagram .cap{font-size:11.5px;color:var(--muted);margin-top:10px}
+  .flow{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap}
+  .box{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;padding:11px 15px;border-radius:10px;font-size:12.5px;font-weight:750;min-width:74px;border:2px solid;background:#fff;line-height:1.3}
+  .box small{font-size:10px;font-weight:600;opacity:.8;margin-top:2px}
+  .box.client{border-color:var(--client);color:var(--client)}
+  .box.server{border-color:var(--server);color:var(--server)}
+  .box.lb{border-color:var(--lb);color:var(--lb);background:var(--purple-soft)}
+  .box.mq{border-color:var(--mq);color:var(--mq)}
+  .box.dim{border-color:var(--muted-2);color:var(--muted-2);opacity:.6}
+  .arrow{font-size:18px;color:var(--muted-2);font-weight:850}
+  .arrow.down{display:block;margin:4px 0}
+  .col{display:flex;flex-direction:column;gap:8px;align-items:center}
+  .servers{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+
+  table.tab{width:100%;border-collapse:collapse;margin:12px 0;font-size:13px}
+  table.tab th,table.tab td{padding:9px 12px;border:1px solid var(--line);text-align:left;vertical-align:top}
+  table.tab th{background:#eef3f8;font-weight:800;color:var(--ink)}
+  table.tab td b{color:var(--ink)}
+  table.tab tr.good td{background:var(--green-soft)} table.tab tr.bad td{background:var(--red-soft)}
+
+  .axis-tag{display:inline-block;font-size:10.5px;font-weight:850;padding:2px 9px;border-radius:12px;margin-right:5px}
+  .axis-tag.a1{background:var(--green-soft);color:var(--green-d);border:1px solid #bfe0cd}
+  .axis-tag.a2{background:var(--blue-soft);color:var(--blue);border:1px solid #c8dfeb}
+  .axis-tag.a3{background:var(--red-soft);color:var(--red);border:1px solid #f0c4c2}
+
+  .toc{margin:16px 0;padding:14px 18px;background:var(--gray-soft);border-radius:10px}
+  .toc b{display:block;color:var(--ink);margin-bottom:7px;font-size:13px}
+  .toc a{color:var(--green-d);text-decoration:none;font-weight:700;margin:0 10px 5px 0;display:inline-block;font-size:12px}
+  .toc a:hover{text-decoration:underline}
+
+  code.in{background:var(--gray-soft);padding:1px 6px;border-radius:4px;font-size:.88em;font-family:"SF Mono",Menlo,Consolas,monospace}
+
+  .foot{margin-top:48px;padding-top:15px;border-top:1px solid var(--line);font-size:11.5px;color:var(--muted)}
+  hr.sp{border:0;border-top:1px dashed var(--line);margin:18px 0}
+
+  /* 深挖子区块 */
+  .deep{margin:18px 0;padding:18px 20px 20px;background:#fff;border:1px solid var(--line);border-radius:14px}
+  .deep .dh{font-size:15px;font-weight:850;color:var(--green-d);margin-bottom:8px}
+  .deep>p{font-size:13.5px}
+
+  /* TIME_WAIT 动画 stepper */
+  .tw{margin:14px 0;border:1px solid var(--line);border-radius:12px;padding:14px;background:var(--gray-soft)}
+  .tw-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin-bottom:12px}
+  .tw-legend i{display:inline-block;width:11px;height:11px;border-radius:3px;vertical-align:-1px;margin-right:5px}
+  .tw-stage{display:grid;grid-template-columns:1fr 1.4fr 1fr;align-items:center;gap:6px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:16px 8px}
+  .tw-party{text-align:center}
+  .tw-party .nm{font-size:12.5px;font-weight:800;color:var(--ink);line-height:1.35;margin-bottom:9px}
+  .tw-party .nm small{display:block;font-size:10.5px;font-weight:600;color:var(--muted)}
+  .tw-badge{display:inline-block;padding:5px 9px;border-radius:6px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:11.5px;font-weight:800}
+  .tw-badge.est{background:var(--blue-soft);color:var(--blue)}
+  .tw-badge.tw{background:var(--amber-soft);color:var(--amber)}
+  .tw-badge.closed{background:#fff;color:var(--muted-2);border:1px solid var(--line)}
+  .tw-sub{font-size:10.5px;font-weight:700;margin-top:6px;min-height:13px}
+  .tw-sub.warn{color:var(--amber)} .tw-sub.mut{color:var(--muted)}
+  .tw-wire .msg{font-size:12.5px;font-weight:800;color:var(--ink);min-height:18px}
+  .tw-wire .track{position:relative;height:3px;background:var(--line);margin:11px 4px;border-radius:2px}
+  .tw-wire .dot{position:absolute;top:-3.5px;width:10px;height:10px;border-radius:50%;background:var(--green);opacity:0;left:50%;transition:left .45s ease,opacity .2s}
+  .tw-wire .dir{font-size:17px;font-weight:850;color:var(--green);min-height:20px}
+  .tw-cap{margin-top:13px;font-size:13px;line-height:1.7;color:var(--ink-2);min-height:64px}
+  .tw-cap b{color:var(--ink)}
+  .tw-cap code{background:#fff;border:1px solid var(--line);padding:0 5px;border-radius:4px;font-size:.86em;font-family:"SF Mono",Menlo,Consolas,monospace;color:var(--ink)}
+  .tw-ctrl{display:flex;align-items:center;justify-content:space-between;margin-top:12px;gap:10px}
+  .tw-btn{min-width:88px;padding:7px 14px;border:1px solid var(--line);background:#fff;border-radius:8px;font-size:12.5px;font-weight:750;color:var(--ink-2);cursor:pointer;font-family:inherit}
+  .tw-btn:hover:not(:disabled){background:var(--gray-soft);border-color:var(--muted-2)}
+  .tw-btn:disabled{opacity:.4;cursor:default}
+  .tw-dots{display:flex;gap:6px}
+  .tw-dots i{width:8px;height:8px;border-radius:50%;background:var(--muted-2);opacity:.45}
+  .tw-dots i.on{background:var(--green);opacity:1}
+
+  /* 代码块 */
+  pre.code{margin:9px 0;padding:13px 15px;background:#0f1820;color:#e8eef4;border-radius:10px;overflow-x:auto;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:12px;line-height:1.65;white-space:pre}
+  pre.code .c{color:#7d96a8} pre.code .k{color:#7fc7ff} pre.code .s{color:#9fe0a0} pre.code .o{color:#e0b97f}
+  .codecap{font-size:11.5px;color:var(--muted);margin:9px 0 3px;font-weight:700}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">从零讲透 · 假设你只会 1+1=2</div>
+  <h1>接入层 · 从最底层一点点盖楼</h1>
+  <p class="subtitle">每个专业词都拆开解释 · 每个概念都配图 + 类比 · 一直递归到最底</p>
+  <div class="meta">读法：从上往下，一层盖一层，前面不懂后面会塌。每个新词出现都有「这是啥」框。最后回到三轴。</div>
+
+  <div class="toc">
+    <b>盖楼顺序（地基 → 屋顶）</b>
+    <a href="#l0">0 一次请求</a>
+    <a href="#l1">1 IP+端口</a>
+    <a href="#l2">2 TCP连接</a>
+    <a href="#l3">3 服务器极限</a>
+    <a href="#l4">4 负载均衡登场</a>
+    <a href="#l5">5 五种分发算法</a>
+    <a href="#l6">6 L4 vs L7</a>
+    <a href="#l7">7 分发员高可用VIP</a>
+    <a href="#l8">8 DNS</a>
+    <a href="#l9">9 长/短连接</a>
+    <a href="#l10">10 TCP调优</a>
+    <a href="#l11">11 多活</a>
+    <a href="#l12">12 接入层限流</a>
+    <a href="#l13">13 API网关</a>
+    <a href="#l14">14 回到三轴</a>
+  </div>
+
+  <!-- ===================== L0 ===================== -->
+  <div class="lv" id="l0"><div class="num"><small>地基</small>0</div><div><h2>一次请求，到底是啥？</h2><div class="tag">先把"你刷手机"这件事讲清楚</div></div></div>
+
+  <p class="big">你打开快手 App，看到一个视频。这背后发生了什么？</p>
+  <p>你的<b>手机</b>，向远方某台<b>电脑</b>说："把这个视频给我。" 那台电脑收到后，把视频<b>送回来</b>。就这么简单的一来一回。</p>
+
+  <div class="term">
+    <div class="w">客户端 <span class="en">Client</span></div>
+    <p>"提出要求的那一方"。你的手机、电脑、浏览器，都是客户端。<b>客户 = 要东西的人</b>。</p>
+  </div>
+  <div class="term">
+    <div class="w">服务器 <span class="en">Server</span></div>
+    <p>"提供服务、给东西的那台电脑"。它不是你桌上的电脑，是放在机房里、24 小时开着、专门回答请求的电脑。<b>服务 = 伺候你的人</b>。</p>
+  </div>
+  <div class="term">
+    <div class="w">请求 / 响应 <span class="en">Request / Response</span></div>
+    <p><b>请求</b> = 客户端发出的"我要 XX"。<b>响应</b> = 服务器返回的"给你 XX"。一问一答，叫<b>一次请求</b>。</p>
+  </div>
+
+  <div class="diagram">
+    <div class="flow">
+      <div class="box client">📱 你的手机<small>客户端</small></div>
+      <div class="arrow">→</div>
+      <div class="col"><span style="font-size:11px;color:var(--muted)">"把视频给我"（请求）</span><span style="font-size:11px;color:var(--muted)">"给你视频"（响应）</span></div>
+      <div class="arrow">→</div>
+      <div class="box server">🖥️ 服务器<small>机房里的电脑</small></div>
+    </div>
+    <div class="cap">最最基础：一次请求 = 客户端问，服务器答</div>
+  </div>
+
+  <!-- ===================== L1 ===================== -->
+  <div class="lv" id="l1"><div class="num"><small>地基</small>1</div><div><h2>手机怎么知道去找"哪台"服务器？</h2><div class="tag">IP 地址 + 端口</div></div></div>
+
+  <p>世界上有几千万台服务器。你的手机怎么知道"快手的视频" 在<b>哪一台</b>？</p>
+  <p>答案：每台服务器都有一个独一无二的<b>门牌号</b>。</p>
+
+  <div class="term">
+    <div class="w">IP 地址 <span class="en">IP Address</span></div>
+    <p>每台联网设备的"门牌号"，长这样：<code class="in">142.250.66.78</code>（四段数字）。<b>全世界唯一</b>，靠它就能在茫茫网络里精确找到这一台机器。</p>
+  </div>
+
+  <p>但是！一台服务器上同时跑着很多个程序：一个管登录、一个管视频、一个管评论…… 光有门牌号（IP）只能找到"这栋楼"，还要知道找"哪个房间"。这就需要<b>端口</b>。</p>
+
+  <div class="term">
+    <div class="w">端口 <span class="en">Port</span></div>
+    <p>一台服务器里"房间号"，是个数字（0–65535）。比如网页程序常住 <code class="in">80</code> 房间、加密网页住 <code class="in">443</code> 房间。<b>IP 找到楼，端口找到房间。</b></p>
+  </div>
+
+  <div class="diagram">
+    <div class="flow">
+      <div class="box client">📱 手机</div>
+      <div class="arrow">→</div>
+      <div class="col">
+        <div class="box server" style="min-width:200px">🖥️ 服务器 142.250.66.78
+          <div class="servers" style="margin-top:8px">
+            <span class="box dim" style="min-width:54px;padding:5px 8px">:80<small>网页房</small></span>
+            <span class="box dim" style="min-width:54px;padding:5px 8px">:443<small>加密房</small></span>
+            <span class="box dim" style="min-width:54px;padding:5px 8px">:3306<small>数据库房</small></span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="cap">IP（楼）+ 端口（房间）= 精确定位"哪台机器的哪个程序"</div>
+  </div>
+
+  <div class="key"><div class="h">记住一个组合</div><p><b>IP : 端口</b>（如 <code class="in">142.250.66.78:443</code）= 网络世界里一个程序的"完整地址"。后面所有东西都是围着这个地址转。</p></div>
+
+  <!-- ===================== L2 ===================== -->
+  <div class="lv" id="l2"><div class="num"><small>地基</small>2</div><div><h2>数据怎么从手机"流"到服务器？</h2><div class="tag">TCP 连接 = 打电话</div></div></div>
+
+  <p>找到地址了，但不能直接把数据"扔"过去。要先<b>建立一条通道</b>，像打电话要先拨号接通，才能说话。</p>
+
+  <div class="term">
+    <div class="w">TCP 连接 <span class="en">TCP Connection</span></div>
+    <p><b>TCP</b> 是一套"怎么可靠传数据"的规矩（协议）。<b>连接</b> = 手机和服务器之间临时建立的一条"专线"。建立好后，数据就在这条线上来回跑。<b>就像打电话先拨通，才能讲话。</b></p>
+  </div>
+
+  <div class="term">
+    <div class="w">三次握手 <span class="en">Three-way Handshake</span></div>
+    <p>"拨号接通"的具体过程，要来回打三次招呼才算接通：<br>① 手机："喂，能听到吗？"<br>② 服务器："能，你能听到我吗？"<br>③ 手机："能，开始吧！"<br>→ 三句话之后，连接才正式建立。<b>所以"建连接" 本身是有成本的（要等三个来回）。</b></p>
+  </div>
+
+  <div class="diagram">
+    <div class="col" style="align-items:stretch;max-width:420px;margin:0 auto">
+      <div class="flow" style="justify-content:space-between"><span class="box client">📱手机</span><span style="font-size:11px;color:var(--muted)">"喂能听到吗?" →</span><span class="box server">🖥️服务器</span></div>
+      <div class="flow" style="justify-content:space-between"><span class="box client" style="opacity:.4">📱</span><span style="font-size:11px;color:var(--muted)">← "能,你能听到我吗?"</span><span class="box server" style="opacity:.4">🖥️</span></div>
+      <div class="flow" style="justify-content:space-between"><span class="box client" style="opacity:.4">📱</span><span style="font-size:11px;color:var(--muted)">"能,开始!" →</span><span class="box server" style="opacity:.4">🖥️</span></div>
+      <div style="text-align:center;font-size:12px;color:var(--green-d);font-weight:750;margin-top:6px">✓ 连接建立，开始传数据</div>
+    </div>
+    <div class="cap">三次握手：建一条连接要 3 个来回，所以"建连接"是要花时间的（记住这点，第 9 层有用）</div>
+  </div>
+
+  <!-- ===================== L3 ===================== -->
+  <div class="lv" id="l3"><div class="num"><small>问题</small>3</div><div><h2>一台服务器，能扛多少？</h2><div class="tag">QPS 与"天花板"</div></div></div>
+
+  <p>一台服务器再强，也有极限。它能同时接的"电话"（连接）有限，每秒能算的请求也有限。</p>
+
+  <div class="term">
+    <div class="w">QPS <span class="en">Queries Per Second</span></div>
+    <p>"每秒能处理多少个请求"。<b>Q</b>uery=查询/请求，<b>P</b>er=每，<b>S</b>econd=秒。一台普通服务器大概能扛 <b>几万 QPS</b>（比如 3 万）。</p>
+  </div>
+
+  <div class="key"><div class="h">关键的算账</div>
+    <p>快手风控要扛 <b>1500 万 QPS</b>（每秒 1500 万个请求）。一台只能扛 3 万。<br><b>1500 万 ÷ 3 万 = 500 台</b>。<br>→ <b>一台绝对不可能，必须用几百台一起扛。</b> 这就是后面所有问题的源头。</p>
+  </div>
+
+  <div class="diagram">
+    <div class="flow">
+      <div class="box client" style="min-width:120px">🌊 1500万 QPS<small>洪水般的请求</small></div>
+      <div class="arrow">→</div>
+      <div class="box server bad" style="border-color:var(--red);color:var(--red)">🖥️ 一台服务器<small>只能扛 3万 ❌</small></div>
+      <div class="arrow">→</div>
+      <div style="font-size:24px">💥</div>
+    </div>
+    <div class="cap">一台扛不住 → 被冲垮（这叫"打挂了")</div>
+  </div>
+
+  <!-- ===================== L4 ===================== -->
+  <div class="lv" id="l4"><div class="num"><small>核心</small>4</div><div><h2>几百台机器，请求该发给哪一台？</h2><div class="tag"><span class="axis-tag a1">轴① 横向摊薄</span>负载均衡登场</div></div></div>
+
+  <p>有 500 台机器了。但新问题来了：你的手机发请求，<b>该连哪一台？</b></p>
+  <p>不能让用户自己选——用户根本不知道有哪 500 台、哪台正闲着。<br>所以需要在用户和这 500 台之间，加一个<b>"分发员"</b>，由它来决定每个请求发给谁。</p>
+
+  <div class="term">
+    <div class="w">负载均衡器 <span class="en">Load Balancer，简称 LB</span></div>
+    <p>站在所有服务器最前面的"分发员"。<b>负载</b>=工作量，<b>均衡</b>=分摊均匀。它收到所有请求，再"均匀地"分给后面的服务器，让每台都不会太累。<b>这就是"横向摊薄"的核心装置。</b></p>
+  </div>
+
+  <div class="diagram">
+    <div class="col">
+      <div class="box client" style="min-width:130px">🌊 海量请求</div>
+      <div class="arrow down">↓</div>
+      <div class="box lb" style="min-width:160px">🚦 负载均衡器（分发员）<small>决定每个请求发给谁</small></div>
+      <div class="arrow down">↓ ↓ ↓</div>
+      <div class="servers">
+        <span class="box server">🖥️ 1号</span>
+        <span class="box server">🖥️ 2号</span>
+        <span class="box server">🖥️ 3号</span>
+        <span class="box server">…</span>
+        <span class="box server">🖥️ 500号</span>
+      </div>
+    </div>
+    <div class="cap">分发员（LB）站最前面，把洪水分成 500 条小溪，每台只接 1/500</div>
+  </div>
+
+  <div class="ana"><div class="h">类比：食堂打饭</div><p>500 个窗口（服务器），门口站一个引导员（负载均衡器），他喊："你去 3 号窗口，你去 17 号窗口……" 让排队的人均匀散开，不会全挤在一个窗口。</p></div>
+
+  <!-- ===================== L5 ===================== -->
+  <div class="lv" id="l5"><div class="num"><small>核心</small>5</div><div><h2>分发员怎么决定"发给谁"？</h2><div class="tag">五种负载均衡算法</div></div></div>
+
+  <p>分发员脑子里有一套"规则"，决定下一个请求发给哪台。常见 5 种，每种一个类比：</p>
+
+  <h3 style="font-size:15px;color:var(--green-d);margin:18px 0 6px">① 轮询（Round Robin）</h3>
+  <p>挨个轮着来：1号→2号→3号→…→500号→1号→…循环。最简单、最公平。</p>
+  <div class="ana"><div class="h">类比</div><p>发扑克牌：一人一张，转圈发，绝对公平。</p></div>
+  <p style="font-size:12.5px;color:var(--muted)">缺点：不管每台机器忙不忙，一律平均分。如果有台机器特别慢，照样塞给它。</p>
+
+  <h3 style="font-size:15px;color:var(--green-d);margin:18px 0 6px">② 加权轮询（Weighted Round Robin）</h3>
+  <p>好机器多分，差机器少分。给每台机器一个"权重"（能力值），按能力分配。</p>
+  <div class="ana"><div class="h">类比</div><p>新来的壮汉（强机器）一次扛 3 箱，瘦小的（弱机器）一次扛 1 箱。按力气分。</p></div>
+
+  <h3 style="font-size:15px;color:var(--green-d);margin:18px 0 6px">③ 最少连接（Least Connections）</h3>
+  <p>谁手上的活最少，就发给谁。分发员盯着每台机器"当前在处理几个请求"，挑最空闲的。</p>
+  <div class="ana"><div class="h">类比</div><p>超市结账：你会自动走到<b>排队最短</b>的那个收银台，而不是傻傻轮流。</p></div>
+
+  <h3 style="font-size:15px;color:var(--green-d);margin:18px 0 6px">④ 一致性哈希（Consistent Hashing）</h3>
+  <p><b>同一个用户，永远发给同一台机器。</b> 怎么做到？把用户 ID 用一个固定公式（哈希）算出一个数，这个数对应固定的某台机器。</p>
+  <div class="term">
+    <div class="w">哈希 <span class="en">Hash</span></div>
+    <p>一个"把任意东西变成固定数字"的公式。比如 <code class="in">哈希("用户张三") = 永远是 88</code>。同样输入永远同样输出 → 所以张三永远被算到同一台机器。</p>
+  </div>
+  <div class="ana"><div class="h">类比</div><p>你的"专属理发师"：每次去都找同一个，因为他记得你上次剪的样子（机器上缓存了你的数据，同一台命中缓存，快）。</p></div>
+  <p style="font-size:12.5px;color:var(--muted)">"一致性"的意思：加机器/减机器时，只有少部分用户被重新分配，大部分还是原来那台（不会全乱套）。</p>
+
+  <h3 style="font-size:15px;color:var(--green-d);margin:18px 0 6px">⑤ P2C（Power of Two Choices，二选一）</h3>
+  <p>随机挑 2 台，比一下谁更闲，发给更闲的那台。<b>现代生产最爱用</b>——又简单又接近"最少连接"的效果。</p>
+  <div class="ana"><div class="h">类比</div><p>排队时不数所有队列（太累），随便瞄 2 个队，站短的那个。省力又有效。</p></div>
+
+  <table class="tab">
+    <thead><tr><th>算法</th><th>一句话</th><th>适合</th></tr></thead>
+    <tbody>
+      <tr><td>轮询</td><td>挨个转圈</td><td>机器都一样强</td></tr>
+      <tr><td>加权轮询</td><td>强的多分</td><td>机器强弱不一</td></tr>
+      <tr><td>最少连接</td><td>谁闲给谁</td><td>请求耗时不均</td></tr>
+      <tr><td>一致性哈希</td><td>同用户同机器</td><td>要缓存命中 / 会话保持</td></tr>
+      <tr class="good"><td>P2C ⭐</td><td>随机二选闲</td><td>现代生产首选</td></tr>
+    </tbody>
+  </table>
+
+  <!-- ===================== L6 ===================== -->
+  <div class="lv" id="l6"><div class="num"><small>进阶</small>6</div><div><h2>分发员看不看"信件内容"？</h2><div class="tag">L4 vs L7</div></div></div>
+
+  <p>分发员转发请求时，有两种工作方式：<b>只看信封 / 拆开看信</b>。要讲清这个，先讲一个概念：网络是<b>分层</b>的。</p>
+
+  <div class="term">
+    <div class="w">网络分层 <span class="en">OSI / TCP-IP 模型</span></div>
+    <p>数据从你手机到服务器，要经过好几层"打包"，像快递层层套盒。我们只需记住两层：<br>• <b>第 4 层（传输层）</b>：管"地址"——IP 和 端口。<br>• <b>第 7 层（应用层）</b>：管"内容"——你具体要哪个视频、带什么 cookie。<br>所以叫 <b>L4</b>（Layer 4）和 <b>L7</b>（Layer 7）。</p>
+  </div>
+
+  <table class="tab">
+    <thead><tr><th></th><th>L4 负载均衡</th><th>L7 负载均衡</th></tr></thead>
+    <tbody>
+      <tr><td><b>看什么</b></td><td>只看信封（IP + 端口）</td><td>拆开看信（URL、cookie、内容）</td></tr>
+      <tr><td><b>快慢</b></td><td>极快（不拆包）</td><td>慢一点（要拆包分析）</td></tr>
+      <tr><td><b>聪明程度</b></td><td>笨（不懂内容）</td><td>聪明（能按内容路由）</td></tr>
+      <tr><td><b>能干啥</b></td><td>纯转发</td><td>"视频请求发A组，评论请求发B组"</td></tr>
+      <tr><td><b>代表软件</b></td><td><b>LVS</b></td><td><b>Nginx / Envoy</b></td></tr>
+    </tbody>
+  </table>
+
+  <div class="ana"><div class="h">类比：快递站 vs 公司前台</div><p><b>L4 = 快递分拣员</b>：只看包裹上的地址（IP+端口）就往车上扔，不拆开看里面是啥，所以飞快。<br><b>L7 = 公司前台</b>：拆开看"哦这是给财务部的合同"，再决定送哪个部门，更聪明但更慢。</p></div>
+
+  <div class="term">
+    <div class="w">LVS <span class="en">Linux Virtual Server</span></div>
+    <p>Linux 系统自带的 L4 负载均衡器，工作在第 4 层，<b>只看 IP+端口、极快</b>，能扛百万级并发。大流量入口的第一道分发常用它。</p>
+  </div>
+  <div class="term">
+    <div class="w">Nginx <span class="en">读作 "Engine-X"</span></div>
+    <p>最流行的 L7 负载均衡器 + 网页服务器。能拆开看内容、按 URL 路由，还能限流、缓存。比 LVS 聪明，但单台吞吐稍低。</p>
+  </div>
+
+  <div class="key"><div class="h">实战常组合</div><p>最前面用 <b>LVS（L4，快，扛量）</b> 把流量粗分到多个 <b>Nginx（L7，聪明，细分）</b>，再由 Nginx 转给具体服务器。<b>快 + 聪明 两全。</b></p></div>
+
+  <!-- ===================== L7 ===================== -->
+  <div class="lv" id="l7"><div class="num"><small>容灾</small>7</div><div><h2>分发员自己挂了怎么办？</h2><div class="tag"><span class="axis-tag a3">轴③ 兜底</span>VIP + Keepalived</div></div></div>
+
+  <p>所有请求都先过分发员（LB）。万一<b>分发员自己宕机</b>了——那后面 500 台再好也没用，因为没人分发了。这叫<b>单点故障</b>。</p>
+  <div class="term">
+    <div class="w">单点故障 <span class="en">Single Point of Failure，SPOF</span></div>
+    <p>系统里"只有一个、挂了就全完"的那个点。<b>高可用设计的头号大敌。</b></p>
+  </div>
+
+  <p>解法：准备<b>两个</b>分发员（主 + 备），再用一个"漂移的门牌号"指向当前活着的那个。</p>
+
+  <div class="term">
+    <div class="w">VIP <span class="en">Virtual IP，虚拟 IP</span></div>
+    <p>一个"不固定绑在某台机器上的门牌号"。平时挂在主分发员身上；主挂了，这个门牌号<b>瞬间漂移</b>到备用分发员身上。<b>对外永远是同一个地址，用户无感。</b></p>
+  </div>
+  <div class="term">
+    <div class="w">Keepalived <span class="en">保持存活</span></div>
+    <p>一个"监工"程序。它一直盯着主分发员的心跳，一旦发现主挂了，立刻把 VIP 切到备用的身上。<b>它就是负责"漂移门牌号"的那个人。</b></p>
+  </div>
+
+  <div class="diagram">
+    <div class="col">
+      <div class="box client">📱 用户都连 VIP：1.1.1.1</div>
+      <div class="arrow down">↓（VIP 现在指向主）</div>
+      <div class="flow">
+        <div class="box lb">🚦 主分发员<small>✓ 活着</small></div>
+        <div class="box lb dim">🚦 备分发员<small>待命</small></div>
+        <div class="box" style="border-color:var(--amber);color:var(--amber)">👁️ Keepalived<small>盯着主</small></div>
+      </div>
+    </div>
+    <div class="cap">主挂了 → Keepalived 把 VIP（1.1.1.1）瞬间切到备用 → 用户完全没感觉</div>
+  </div>
+
+  <!-- ===================== L8 ===================== -->
+  <div class="lv" id="l8"><div class="num"><small>更前</small>8</div><div><h2>"kuaishou.com" 怎么变成 IP 的？</h2><div class="tag"><span class="axis-tag a1">轴① 摊薄</span>DNS</div></div></div>
+
+  <p>你输入的是"kuaishou.com"这种<b>名字</b>，但网络只认<b>数字 IP</b>。中间需要一本"电话簿"把名字翻译成 IP。</p>
+  <div class="term">
+    <div class="w">DNS <span class="en">Domain Name System，域名系统</span></div>
+    <p>互联网的"电话簿"。你问它"kuaishou.com 的 IP 是多少？"，它告诉你"1.1.1.1"。<b>域名（名字）→ IP（数字）的翻译机。</b></p>
+  </div>
+  <div class="term">
+    <div class="w">DNS 负载均衡</div>
+    <p>这本"电话簿"还能<b>耍花招</b>：同一个名字，给不同用户返回<b>不同的 IP</b>。北京用户给北京机房的 IP，上海用户给上海机房的 IP。<b>这是最前面、最粗的一道分发</b>（连分发员都还没碰到，DNS 就先分了一次）。</p>
+  </div>
+
+  <div class="diagram">
+    <div class="col">
+      <div class="box client">📱 用户输入 kuaishou.com</div>
+      <div class="arrow down">↓ 问 DNS</div>
+      <div class="box" style="border-color:var(--mq);color:var(--mq);min-width:200px">📖 DNS 电话簿<small>北京用户→北京IP / 上海用户→上海IP</small></div>
+      <div class="arrow down">↓ 拿到对应机房的 VIP</div>
+      <div class="box lb">🚦 那个机房的负载均衡器</div>
+    </div>
+    <div class="cap">分发其实有两道：DNS 先按地区分到不同机房 → 机房内 LB 再分到具体机器</div>
+  </div>
+
+  <!-- ===================== L9 ===================== -->
+  <div class="lv" id="l9"><div class="num"><small>提速</small>9</div><div><h2>每次说话都要重新拨号吗？</h2><div class="tag"><span class="axis-tag a2">轴② 减负</span>长连接 vs 短连接</div></div></div>
+
+  <p>还记得第 2 层说的"建连接要三次握手（3 个来回）"吗？如果<b>每个请求都重新建连接、用完就断</b>，那光"拨号"就浪费大量时间。</p>
+
+  <table class="tab">
+    <thead><tr><th></th><th>短连接</th><th>长连接</th></tr></thead>
+    <tbody>
+      <tr class="bad"><td><b>怎么做</b></td><td>每个请求：拨号→说话→挂断</td><td></td></tr>
+      <tr class="good"><td><b>怎么做</b></td><td></td><td>拨号一次，反复说话，不挂断</td></tr>
+      <tr><td><b>成本</b></td><td>每次都付"三次握手"的时间</td><td>只在开头付一次</td></tr>
+      <tr><td><b>适合</b></td><td>偶尔来一次的请求</td><td>高频、持续的请求（如风控）</td></tr>
+    </tbody>
+  </table>
+
+  <div class="ana"><div class="h">类比：打电话</div><p><b>短连接</b> = 每说一句话就挂电话，下句话重新拨号——傻。<br><b>长连接</b> = 拨通后一直聊，聊完再挂——聪明。<b>风控这种每秒上千万请求，必须用长连接，省掉海量握手成本。</b></p></div>
+
+  <div class="term">
+    <div class="w">连接池 <span class="en">Connection Pool</span></div>
+    <p>提前建好一批连接"养着"，谁要用就借一条，用完还回去，不用每次新建。<b>把"建连接"的成本均摊到几乎为 0。</b></p>
+  </div>
+
+  <!-- ===================== L10 ===================== -->
+  <div class="lv" id="l10"><div class="num"><small>底层</small>10</div><div><h2>操作系统层面还能怎么榨？</h2><div class="tag"><span class="axis-tag a2">轴② 减负</span>TCP 调优</div></div></div>
+
+  <p>到了最底层，连接本身还有几个"旋钮"可以调，让机器扛更多连接。三个高频名词：</p>
+
+  <div class="term">
+    <div class="w">backlog <span class="en">连接排队区</span></div>
+    <p>三次握手还没完成的连接，先在一个"等待区"排队。<b>backlog 就是这个等待区能站多少人。</b> 太小 → 高峰期排不下、新连接被拒。调大它能扛更多突发连接。</p>
+  </div>
+  <div class="term">
+    <div class="w">TIME_WAIT <span class="en">挂断后的"冷却期"</span></div>
+    <p>连接挂断后，端口不会立刻释放，要"冷却"一会儿（确保残留数据收完）。高并发下挂断的连接极多 → 大量端口卡在冷却期 → <b>端口被耗尽，新连接建不了。</b> 要调参数加速回收。</p>
+  </div>
+  <div class="term">
+    <div class="w">keepalive <span class="en">心跳保活</span></div>
+    <p>长连接如果很久不说话，怎么知道对方还活着？定期发个"还在吗？"的小信号探一下。对方没回 → 判定断了，回收这条连接。<b>避免"僵尸连接"白占资源。</b></p>
+  </div>
+
+  <p style="font-size:13px;color:var(--muted)">这三个是 Linux 操作系统的网络参数，调好了能让单台机器多扛几倍连接 —— 属于"纵向减负"里最底层的一拧。</p>
+
+  <!-- ===== TIME_WAIT 深挖 ===== -->
+  <div class="deep">
+    <div class="dh">🔬 TIME_WAIT 深挖：它到底卡在四次挥手的哪一步？</div>
+    <p>先把最容易绕晕的点钉死：<b>TIME_WAIT 不是"挥手之前"也不是"挥手之后"的独立事件——它是一个状态，是主动关闭方发完第 4 个 ACK 之后、端口彻底释放之前的那约 60 秒。</b>连接关闭不是"啪一下关掉"，而是走一段有名字的台阶（四次挥手），TIME_WAIT 是倒数第二级台阶，先关的那一方要在上面多站 60 秒。点"下一步"看它卡在哪 ——</p>
+
+    <div class="tw">
+      <div class="tw-legend">
+        <span><i style="background:var(--blue-soft);border:1px solid #c8dfeb"></i>过渡状态</span>
+        <span><i style="background:var(--amber-soft);border:1px solid #e7cd92"></i>TIME_WAIT（站岗中）</span>
+        <span><i style="background:#fff;border:1px solid var(--muted-2)"></i>CLOSED（端口已释放）</span>
+      </div>
+      <div class="tw-stage">
+        <div class="tw-party">
+          <div class="nm">客户端<small>主动关闭方</small></div>
+          <span class="tw-badge est" id="twC">ESTABLISHED</span>
+          <div class="tw-sub warn" id="twCs"></div>
+        </div>
+        <div class="tw-wire">
+          <div class="msg" id="twMsg">连接正常使用中</div>
+          <div class="track"><div class="dot" id="twDot"></div></div>
+          <div class="dir" id="twDir">·</div>
+        </div>
+        <div class="tw-party">
+          <div class="nm">服务器<small>被动关闭方</small></div>
+          <span class="tw-badge est" id="twS">ESTABLISHED</span>
+          <div class="tw-sub mut" id="twSs"></div>
+        </div>
+      </div>
+      <div class="tw-cap" id="twCap"></div>
+      <div class="tw-ctrl">
+        <button class="tw-btn" id="twPrev">上一步</button>
+        <div class="tw-dots" id="twDots"></div>
+        <button class="tw-btn" id="twNext">下一步</button>
+      </div>
+    </div>
+
+    <div class="key"><div class="h">为什么发完最后一个 ACK 还要再等 60 秒？</div>
+      <p><b>① 怕最后那个 ACK 在路上丢了。</b>客户端发完 ACK 就以为完事，但它可能丢包；丢了服务器收不到确认，会重发自己的 FIN。客户端得还"在场"（停在 TIME_WAIT），才能补一个 ACK。要是立刻关了、端口都让给别人了，服务器重发的 FIN 就没人正确回应。</p>
+      <p><b>② 怕旧连接的残包污染下一条新连接。</b>一条连接靠 (源IP, 源端口, 目IP, 目端口) 四元组唯一标识。若立刻用同一端口建新连接，上一条还在网上飘的残包会被当成新连接的数据 → 串台。等约 60 秒（2×报文最大存活时间），保证旧包全部"过期死光"再复用。</p>
+    </div>
+
+    <p style="font-size:13.5px"><b>真实代码：亲眼看 TIME_WAIT 堆成山。</b>一个最简单的服务器，配两种客户端，跑时另开终端用 <code class="in">ss</code>（socket statistics）盯状态：</p>
+
+    <div class="codecap">① 服务器（谁先 close 谁吃 TIME_WAIT，这里让客户端先关）</div>
+    <pre class="code"><span class="k">import</span> socket
+s = socket.socket()
+s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, <span class="o">1</span>)
+s.bind((<span class="s">'127.0.0.1'</span>, <span class="o">9999</span>)); s.listen(<span class="o">128</span>)
+<span class="k">while</span> True:
+    conn, addr = s.accept()   <span class="c"># 接一条连接（完成三次握手）</span>
+    conn.recv(<span class="o">1024</span>)           <span class="c"># 收一句</span>
+    conn.send(<span class="s">b"hello"</span>)       <span class="c"># 回一句</span>
+    conn.close()</pre>
+
+    <div class="codecap">② 短连接客户端：每个请求新建一条、用完就关</div>
+    <pre class="code"><span class="c"># client_short.py —— 短连接</span>
+<span class="k">import</span> socket
+<span class="k">for</span> i <span class="k">in</span> range(<span class="o">10000</span>):
+    c = socket.socket()
+    c.connect((<span class="s">'127.0.0.1'</span>, <span class="o">9999</span>))  <span class="c"># 建连接（三次握手）</span>
+    c.send(<span class="s">b"hi"</span>); c.recv(<span class="o">1024</span>)
+    c.close()                        <span class="c"># 用完立刻关 ← 埋下一个 TIME_WAIT</span></pre>
+
+    <div class="codecap">③ 另开终端盯着 TIME_WAIT 涨</div>
+    <pre class="code">$ ss -tan | grep 9999 | awk <span class="s">'{print $1}'</span> | sort | uniq -c
+<span class="o">   9847 TIME-WAIT</span>      <span class="c"># 一万次请求，堆出近一万个 TIME_WAIT</span>
+      3 ESTAB
+
+<span class="c"># 把循环改成 range(100000) 并发跑，端口很快不够用：</span>
+OSError: [Errno 99] Cannot assign requested address   <span class="c"># ← 端口耗尽</span></pre>
+
+    <p style="font-size:13.5px">本机能用的端口就约 6 万个，全卡在 TIME_WAIT 冷却期 → 新连接建不出来。<b>这就是 L10 那句"端口被耗尽"的真相。</b></p>
+
+    <div class="codecap">④ 换长连接客户端：建一次，复用同一条发一万次</div>
+    <pre class="code"><span class="c"># client_long.py —— 长连接 / 连接复用</span>
+<span class="k">import</span> socket
+c = socket.socket()
+c.connect((<span class="s">'127.0.0.1'</span>, <span class="o">9999</span>))   <span class="c"># ★ 只建一次！</span>
+<span class="k">for</span> i <span class="k">in</span> range(<span class="o">10000</span>):
+    c.send(<span class="s">b"hi"</span>); c.recv(<span class="o">1024</span>)      <span class="c"># 复用同一条连接</span>
+c.close()                        <span class="c"># 全部发完才关这一次</span>
+
+$ ss -tan | grep 9999
+<span class="o">      1 ESTAB</span>          <span class="c"># 全程 1 条连接，TIME_WAIT 顶多 1 个</span></pre>
+
+    <div class="key"><div class="h">结论：根治靠连接复用，不是靠调内核参数</div>
+      <p><b>一万次请求，短连接堆出近一万个 TIME_WAIT；长连接只产生 1 个。</b>所以高并发下治 TIME_WAIT 的正解是「长连接 + 连接池」（见 <a href="#l9" style="color:var(--green-d);font-weight:800;text-decoration:none">L9</a>），调 <code class="in">tcp_tw_reuse</code> 只是辅助；<code class="in">tcp_tw_recycle</code> 新内核已删除、在 NAT 后会误杀，别用。</p>
+    </div>
+  </div>
+
+  <!-- ===================== L11 ===================== -->
+  <div class="lv" id="l11"><div class="num"><small>容灾</small>11</div><div><h2>整个机房停电了怎么办？</h2><div class="tag"><span class="axis-tag a1">轴① 摊薄</span>单元化 / 多活</div></div></div>
+
+  <p>前面 500 台都放在一栋楼（一个机房）。万一这栋楼<b>整个停电 / 着火 / 光纤被挖断</b>——全完。所以要把鸡蛋放到不同篮子。</p>
+
+  <div class="term">
+    <div class="w">机房 <span class="en">IDC，数据中心</span></div>
+    <p>放服务器的"楼"。成百上千台机器集中放在里面，有空调、备用电、专线。</p>
+  </div>
+  <table class="tab">
+    <thead><tr><th>方案</th><th>意思</th><th>能扛什么灾</th></tr></thead>
+    <tbody>
+      <tr><td><b>同城双活</b></td><td>同一个城市建两个机房，都在干活，一个挂另一个顶</td><td>单机房停电</td></tr>
+      <tr><td><b>异地多活</b></td><td>不同城市（北京+上海+广州）都有机房同时干活</td><td>整个城市级灾难（地震/大停电）</td></tr>
+      <tr><td><b>单元化</b></td><td>把用户切成几片，每片放进一个"自包含的单元"，单元里啥都全</td><td>单元独立，一个坏不影响别的 + 方便异地扩展</td></tr>
+    </tbody>
+  </table>
+  <div class="ana"><div class="h">类比</div><p><b>同城双活</b> = 家里两个保险丝盒，一个跳闸另一个还供电。<br><b>异地多活</b> = 北京广州都有分店，北京地震了广州照常营业。<br><b>单元化</b> = 把客户按地区分给不同分店，各分店自给自足。</p></div>
+
+  <!-- ===================== L12 ===================== -->
+  <div class="lv" id="l12"><div class="num"><small>兜底</small>12</div><div><h2>洪峰真的太大，先在门口拦一道</h2><div class="tag"><span class="axis-tag a3">轴③ 兜底</span>接入层限流</div></div></div>
+
+  <p>就算 500 台，也有扛不住的极限（比如突发 3000 万 QPS）。这时与其让所有请求冲进来把系统压垮，不如<b>在最外面的门口，先拦掉一部分</b>，保住核心不挂。</p>
+
+  <div class="term">
+    <div class="w">限流 <span class="en">Rate Limiting</span></div>
+    <p>"限制流量"：超过设定的速度，多余的请求直接拒绝（返回"稍后再试"）。<b>宁可拒绝一部分，也不能让全部冲垮系统。</b></p>
+  </div>
+  <div class="ana"><div class="h">类比：景区限流</div><p>景区每天只放 1 万人。第 10001 个人来了，门口直接说"今天满了，明天请早"。<b>放进去 1 万人玩得好，全放进去 5 万人挤踩踏——所以必须门口拦。</b></p></div>
+  <div class="term">
+    <div class="w">Nginx limit_req</div>
+    <p>Nginx（L7 分发员）自带的限流功能。在接入层就能设"每秒最多放 N 个进来"，多的挡在门外。<b>越早拦越省（别让洪水进了核心才发现扛不住）。</b></p>
+  </div>
+
+  <!-- ===================== L13 ===================== -->
+  <div class="lv" id="l13"><div class="num"><small>统一</small>13</div><div><h2>所有请求先过一道"统一大门"</h2><div class="tag">API 网关</div></div></div>
+
+  <p>很多通用的事——<b>检查你是不是登录了、记日志、限流、防攻击</b>——每个服务都自己做太重复。不如设一个"统一大门"，所有请求先过它，把这些通用活集中干了。</p>
+  <div class="term">
+    <div class="w">API 网关 <span class="en">API Gateway</span></div>
+    <p>站在所有后端服务前的"统一入口大门"。<b>API</b> = 程序对外提供服务的接口。网关在这里统一做：鉴权（你是谁、有没有权限）、路由（这个请求该转给哪个服务）、限流、日志、防刷。<b>把横切的通用逻辑集中到一处。</b></p>
+  </div>
+  <div class="ana"><div class="h">类比：公司大门保安</div><p>所有访客先过大门保安：查证件（鉴权）、登记（日志）、人多了排队（限流）、引路（路由）。各部门自己不用再各设一道岗。</p></div>
+
+  <!-- ===================== L14 ===================== -->
+  <div class="lv" id="l14"><div class="num"><small>收口</small>14</div><div><h2>盖好了，回头看三轴</h2><div class="tag">接入层的所有东西，归到三轴</div></div></div>
+
+  <p>现在把前面盖的所有楼层，归回到三轴里——你会发现每个知识点都属于某一轴：</p>
+
+  <table class="tab">
+    <thead><tr><th>轴</th><th>在接入层的落地</th><th>对应楼层</th></tr></thead>
+    <tbody>
+      <tr><td><span class="axis-tag a1">轴① 横向摊薄</span></td><td>负载均衡（分发到多机）、DNS 分发、多活/单元化</td><td>L4、L5、L8、L11</td></tr>
+      <tr><td><span class="axis-tag a2">轴② 纵向减负</span></td><td>长连接复用、连接池、TCP 底层调优</td><td>L9、L10</td></tr>
+      <tr><td><span class="axis-tag a3">轴③ 横切兜底</span></td><td>接入层限流、VIP+Keepalived 高可用、快速失败</td><td>L7、L12</td></tr>
+    </tbody>
+  </table>
+
+  <div class="key"><div class="h">一句话总结接入层</div><p>接入层干三件事：<b>① 把洪水分到几百台机器上（负载均衡 + 多活）② 让每条连接尽量省（长连接 + TCP 调优）③ 扛不住时门口先拦、分发员自己也不能挂（限流 + VIP 高可用）</b>。这正好就是三轴在"流量入口"这一层的全部落地。</p></div>
+
+  <div class="ana"><div class="h">面试怎么说（把这层串成一句）</div><p>"接入层我会从三轴讲：<b>横向摊薄</b>靠 DNS 按地区分到多机房、机房内 LVS+Nginx 多级负载均衡（L4 快分、L7 细分）+ 多活容灾；<b>纵向减负</b>靠长连接复用 + 连接池 + TCP 内核调优（backlog/TIME_WAIT/keepalive）；<b>横切兜底</b>靠接入层就近限流 + VIP+Keepalived 消除分发器单点。"</p></div>
+
+  <div class="foot">从零讲透系列 · 接入层 · 2026-06-23 · 下一层可继续：服务计算层 / 缓存层 …</div>
+</div>
+<script>
+(function(){
+  var S=[
+    {c:['ESTABLISHED','est',''],s:['ESTABLISHED','est',''],m:'连接正常使用中',d:0,
+     t:'<b>第 0 步 ｜ 连接正常用着。</b>双方都在 <code>ESTABLISHED</code>（已建立），正常收发数据。下面开始关闭这条连接。'},
+    {c:['FIN_WAIT_1','est',''],s:['ESTABLISHED','est',''],m:'FIN：我说完了',d:1,
+     t:'<b>第 1 次挥手 ｜ 客户端发 FIN：「我说完了」。</b>谁先发 FIN 谁就是"主动关闭方"。客户端进 <code>FIN_WAIT_1</code>，等服务器回应。'},
+    {c:['FIN_WAIT_2','est',''],s:['CLOSE_WAIT','est',''],m:'ACK：知道了',d:-1,
+     t:'<b>第 2 次挥手 ｜ 服务器回 ACK：「知道你说完了」。</b>服务器进 <code>CLOSE_WAIT</code>（它可能还有数据要发，先不急着发自己的 FIN）；客户端进 <code>FIN_WAIT_2</code>。'},
+    {c:['FIN_WAIT_2','est',''],s:['LAST_ACK','est',''],m:'FIN：我也说完了',d:-1,
+     t:'<b>第 3 次挥手 ｜ 服务器发 FIN：「我也说完了」。</b>服务器进 <code>LAST_ACK</code>：就差客户端最后一个确认，确认到了就走。'},
+    {c:['TIME_WAIT','tw','站岗 60 秒'],s:['CLOSED','closed','立刻释放'],m:'ACK：知道了',d:1,
+     t:'<b>第 4 次挥手 ｜ 客户端回 ACK：「知道你也说完了」。</b>服务器一收到就<b>立刻 CLOSED、端口马上释放</b>；客户端却进入 <code>TIME_WAIT</code>。<b>看这里：四条消息全发完了，但客户端没有立刻关。</b>'},
+    {c:['TIME_WAIT','tw','倒计时…端口被占'],s:['CLOSED','closed','已走'],m:'（无消息，纯等待）',d:0,
+     t:'<b>TIME_WAIT 中 ｜ 挥手已结束，客户端原地干等约 60 秒。</b>等的就是上面那两个原因：防丢的 ACK、防串台的残包。这 60 秒里<b>端口被占着，不能给新连接复用</b>。'},
+    {c:['CLOSED','closed','端口释放'],s:['CLOSED','closed',''],m:'连接彻底关闭',d:0,
+     t:'<b>第 6 步 ｜ 60 秒到，客户端才真正 CLOSED</b>，端口此刻才释放可复用。<b>所以 TIME_WAIT = 第 4 条消息之后、彻底关闭之前那 60 秒，由"先关的那一方"独自承担。</b>'}
+  ];
+  var i=0,$=function(x){return document.getElementById(x)};
+  var C=$('twC'),Sv=$('twS'),Cs=$('twCs'),Ss=$('twSs'),M=$('twMsg'),D=$('twDir'),Cap=$('twCap'),Dot=$('twDot'),Dots=$('twDots'),P=$('twPrev'),N=$('twNext');
+  for(var k=0;k<S.length;k++){Dots.appendChild(document.createElement('i'));}
+  function bdg(el,a){el.textContent=a[0];el.className='tw-badge '+a[1];}
+  function draw(){
+    var x=S[i];
+    bdg(C,x.c);bdg(Sv,x.s);
+    Cs.textContent=x.c[2]||'';Ss.textContent=x.s[2]||'';
+    M.textContent=x.m;Cap.innerHTML=x.t;
+    D.textContent=x.d===1?'→':x.d===-1?'←':'·';
+    if(x.d===0){Dot.style.opacity='0';}
+    else{Dot.style.opacity='0';void Dot.offsetWidth;Dot.style.left=x.d===1?'6%':'94%';Dot.style.opacity='1';setTimeout(function(){Dot.style.left=x.d===1?'94%':'6%';},30);}
+    for(var n=0;n<Dots.children.length;n++){Dots.children[n].className=n===i?'on':'';}
+    P.disabled=i===0;N.disabled=i===S.length-1;
+  }
+  P.onclick=function(){if(i>0){i--;draw();}};
+  N.onclick=function(){if(i<S.length-1){i++;draw();}};
+  draw();
+})();
+</script>
+</body>
+</html>

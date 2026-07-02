@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>倒排索引存储白盒 · BM25 这套数据躺在哪</title>
+<style>
+  :root{--bg:#fafaf7;--paper:#fff;--ink:#1a1a1a;--ink2:#4a4a4a;--muted:#8a8a8a;--line:#e8e6df;
+    --accent:#245f73;--good:#1f6f4f;--warn:#b84a36;--gold:#8a5d1f;
+    --font:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    --mono:"SF Mono",ui-monospace,Menlo,monospace;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.7;font-size:15px}
+  .page{max-width:940px;margin:0 auto;padding:30px 22px 90px}
+  h1{font-size:23px;margin:0 0 4px}.sub{color:var(--muted);margin:0 0 10px}a{color:var(--accent)}
+  .reassure{background:#eef6f0;border:1px solid #cfe6d8;border-radius:10px;padding:11px 15px;font-size:13.5px;color:#1f6f4f;margin:12px 0}
+  .reassure b{color:#155}
+  .step{margin-top:22px;background:var(--paper);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .step-h{padding:13px 18px;background:#f6f5ef;border-bottom:1px solid var(--line)}
+  .step-h h2{margin:0;font-size:16px}.step-h .q{margin-top:3px;font-size:13px;color:var(--ink2)}
+  .step-b{padding:16px 18px}
+  p.t{margin:0 0 12px;color:var(--ink2);font-size:14px}
+  .jar{background:#fbf7ee;border:1px solid #ecdfc7;border-radius:8px;padding:9px 12px;font-size:13px;color:var(--gold);margin:10px 0}
+  .jar b{color:#5e3f12}
+  table{border-collapse:collapse;font-size:13px;width:100%;margin:6px 0}
+  td,th{border:1px solid var(--line);padding:5px 9px;text-align:center;vertical-align:middle}
+  th{background:#f3f2ec;font-size:12px}
+  td.tx{text-align:left}.mono{font-family:var(--mono);font-size:12px}
+  .w{display:inline-block;background:#eef4f5;color:var(--accent);border-radius:4px;padding:0 5px;margin:1px;font-size:12px}
+  .post{display:inline-block;font-family:var(--mono);font-size:12px;background:#f3f6f4;border:1px solid #d8e6dd;border-radius:5px;padding:1px 6px;margin:2px}
+  .post .doc{color:var(--accent);font-weight:700}.post .tf{color:var(--warn)}
+  .arrow{color:var(--muted);margin:0 6px;font-family:var(--mono)}
+  .hit-row{background:#fff6e6}
+  .term-cell{font-family:var(--mono);font-weight:700;color:var(--gold);font-size:14px}
+  .store{background:#1f2328;color:#e6e6df;border-radius:8px;padding:13px 15px;font-family:var(--mono);font-size:12px;white-space:pre-wrap;word-break:break-word;overflow-x:auto;margin-top:8px;line-height:1.65}
+  .store .k{color:#79c0e8}.store .n{color:#e0a849}.store .c{color:#8a8a8a}.store .s{color:#b6d99a}
+  .bar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:12px 0;background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+  input[type=text]{font:inherit;padding:8px 11px;border:1px solid var(--line);border-radius:7px;background:#fffdf8;flex:1;min-width:180px}
+  .note{font-size:12.5px;color:var(--ink2);margin-top:14px;padding:11px 14px;background:#f4f6f7;border:1px solid #e2ebec;border-radius:8px}
+  .note b{color:var(--accent)}
+  .legend{font-size:12px;color:var(--muted);margin-top:4px}
+  .split{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media(max-width:760px){.split{grid-template-columns:1fr}}
+  .cmp{border:1px solid var(--line);border-radius:9px;padding:11px 13px;font-size:13px;background:#fff}
+  .cmp h4{margin:0 0 5px;font-size:13px}.cmp.dense h4{color:var(--accent)}.cmp.sparse h4{color:var(--gold)}
+  .traceOut{margin-top:8px;font-size:13px}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>倒排索引存储白盒 · BM25 这套数据到底躺在哪</h1>
+  <p class="sub">补上之前漏掉的一块:向量侧我们建过 HNSW/IVF/PQ 的存储白盒,这次摊开<b>稀疏侧(BM25)</b>存的东西。<a href="./bm25-lab.html">← BM25 手推</a> · <a href="./hnsw-index-lab.html">向量侧存储</a> · <a href="./">导航</a></p>
+
+  <div class="reassure">🧩 <b>这一页回答一个问题:BM25 不用向量,那它的"分词"存哪儿?</b> 答案是<b>倒排索引</b>——和向量索引并排的另一套数据结构。下面把它逐字摊开,最后给一份"库里落盘长这样"的 JSON。用的还是 BM25 手推页那 8 篇文档。</div>
+
+  <!-- 0 正排 -->
+  <div class="step"><div class="step-h"><h2>第 0 步 · 先看"正排":文档 → 它有哪些词</h2>
+    <div class="q">人类自然的存法:一篇文档,记下它切出来的词。这叫正排(forward)。</div></div>
+    <div class="step-b">
+      <p class="t">8 篇文档,各自切词(这里用空格分词,每个色块一个词):</p>
+      <div id="forward"></div>
+      <div class="note">问题:查询时你手里攥着的是<b>一个词</b>(比如"猫"),可正排是"文档→词"。要知道哪些文档有"猫",你得<b>把 8 篇挨个翻一遍</b>。文档几百万篇时这就崩了。所以要"反过来"建。</div>
+    </div></div>
+
+  <!-- 1 倒排 -->
+  <div class="step"><div class="step-h"><h2>第 1 步 · 把它"倒"过来:词 → 哪些文档有它、各几次(倒排表)</h2>
+    <div class="q">这就是"倒排"二字的含义:不是文档→词,而是词→文档。查询时拿词直接命中。</div></div>
+    <div class="step-b">
+      <div class="jar"><b>倒排表(postings)</b>:每个<b>词</b>挂一串 <span class="post"><span class="doc">文档</span>:<span class="tf">次数</span></span>,意思是"这个词在该文档里出现了几次"。那个"次数"就是 BM25 公式里的 <b>tf</b>;一行挂了几个文档,就是 <b>df</b>。</div>
+      <p class="t">下表每一行 = 一个词的倒排链(按 df 从多到少排):</p>
+      <div id="inverted"></div>
+      <div class="legend">这张表就是你问的"分词存哪"的答案 —— <b>词被原原本本存着</b>(左列),还连着"谁有它、几次"。向量侧把词揉成 512 个浮点数后,词本身就消失了;这里没有。</div>
+    </div></div>
+
+  <!-- 2 查询走一遍 -->
+  <div class="step"><div class="step-h"><h2>第 2 步 · 查询时怎么用它(输入词,看它点亮哪几篇)</h2>
+    <div class="q">BM25 不扫全部文档,只去倒排表查这几个词的那几行,瞬间拿到候选。</div></div>
+    <div class="step-b">
+      <div class="bar"><input type="text" id="q" value="猫 鱼"><span class="legend">空格分词,多个词分别查</span></div>
+      <div id="trace" class="traceOut"></div>
+    </div></div>
+
+  <!-- 3 配套统计 -->
+  <div class="step"><div class="step-h"><h2>第 3 步 · 光有倒排表还不够:BM25 公式要的其它数据也得存</h2>
+    <div class="q">回忆 BM25 公式里的变量:tf、df、L、avgdl、N —— 每个都得有地方放。</div></div>
+    <div class="step-b">
+      <div class="split">
+        <div class="cmp sparse"><h4>② 每篇文档长度 L(算长度罚用)</h4><div id="lens" class="mono"></div></div>
+        <div class="cmp sparse"><h4>③ 全局统计(算 IDF / 长度罚用)</h4><div id="stats"></div></div>
+      </div>
+      <div class="note">注意 <b>df 不用单独存</b>:某个词的 df = 它在倒排表里挂了几个文档,数一下就有(第 1 步表里"df"列就是这么来的)。<b>tf 也不用单独存</b>:它就写在倒排链的 <span class="post"><span class="doc">D2</span>:<span class="tf">5</span></span> 里。所以 BM25 真正落盘的就是:<b>倒排表 + 每篇长度 + 几个全局数 + 词典</b>。</div>
+    </div></div>
+
+  <!-- 4 JSON -->
+  <div class="step"><div class="step-h"><h2>第 4 步 · 完整存储形态(库里为 BM25 落盘的 JSON)</h2>
+    <div class="q">把上面四样合起来,这就是稀疏侧持久化的真身。</div></div>
+    <div class="step-b">
+      <div class="store" id="json"></div>
+      <div class="note">这份东西躺在库的<b>倒排索引那一半</b>(Elasticsearch/Lucene 的看家结构;Milvus/Qdrant/Weaviate 这类支持混合检索的库内部也维护一份)。它和向量索引<b>共用同一批 doc_id</b>,各查各的,最后用 RRF 把两边结果合并 —— 那就是<a href="./hybrid-lab.html">混合检索</a>。</div>
+    </div></div>
+
+  <!-- 5 对照 -->
+  <div class="step"><div class="step-h"><h2>第 5 步 · 一图对齐:同一篇文档,两侧各存了什么</h2></div>
+    <div class="step-b">
+      <p class="t">拿 D1「猫 吃 鱼」举例,看它在库里被存成两份完全不同的东西:</p>
+      <div class="split">
+        <div class="cmp dense"><h4>稠密侧(向量索引)存的 D1</h4>
+          <div class="mono" style="font-size:11.5px;color:var(--ink2)">vector: [0.071, -0.213, 0.088, ... , 0.142]<br><span style="color:#999">（512 个浮点数；"猫""吃""鱼"已被揉进数字，字面没了）</span></div></div>
+        <div class="cmp sparse"><h4>稀疏侧(倒排索引)存的 D1</h4>
+          <div class="mono" style="font-size:11.5px;color:var(--ink2)">出现在这些词的倒排链里：<br>"猫"→…D1:1… &nbsp;"吃"→…D1:1… &nbsp;"鱼"→…D1:1…<br>length: 3<br><span style="color:#999">（词原样保留，能精确匹配 E1024 这种码）</span></div></div>
+      </div>
+      <div class="note">同一篇文档,在库里存了<b>两份性质相反的索引</b>:一份丢字面留语义(向量),一份留字面没语义(倒排)。这就是为什么混合检索能互补——<b>它俩的存储本就互补。</b></div>
+    </div></div>
+
+  <div class="note" style="margin-top:22px">到这儿,"建索引"的拼图补完整了:<a href="./hnsw-index-lab.html">向量侧</a>(HNSW 图 / 向量)+ <b>稀疏侧(本页:倒排表)</b>,两套并存,这才是一个混合检索库真实的样子。</div>
+</div>
+
+<script>
+const $=s=>document.querySelector(s);
+const CORPUS=[
+  {id:'D1', text:'猫 吃 鱼'},
+  {id:'D2', text:'猫 猫 猫 猫 猫 喜欢 睡觉'},
+  {id:'D3', text:'今天 天气 不错 我 和 朋友 去 公园 看到 一只 猫 在 吃 草 旁边 还有 很多 鱼'},
+  {id:'D4', text:'狗 喜欢 吃 骨头'},
+  {id:'D5', text:'大家 都 要 吃 饭'},
+  {id:'D6', text:'鱼 生活 在 海里'},
+  {id:'D7', text:'猫 是 一种 宠物'},
+  {id:'D8', text:'鸟 也 要 吃 东西'},
+];
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const tok=s=>s.trim().split(/\s+/).filter(Boolean);
+const DOCS=CORPUS.map(d=>{const t=tok(d.text);const c={};t.forEach(w=>c[w]=(c[w]||0)+1);return {...d,toks:t,counts:c,len:t.length};});
+const N=DOCS.length;
+const AVGDL=DOCS.reduce((s,d)=>s+d.len,0)/N;
+
+// 建倒排表: term -> [{id, tf}]
+const POST={};
+DOCS.forEach(d=>{for(const w in d.counts){(POST[w]=POST[w]||[]).push({id:d.id,tf:d.counts[w]});}});
+// 按 df 降序的词序
+const TERMS=Object.keys(POST).sort((a,b)=>POST[b].length-POST[a].length || a.localeCompare(b));
+
+function postHTML(list,hlDocs){return list.map(p=>`<span class="post"><span class="doc">${p.id}</span>:<span class="tf">${p.tf}</span></span>`).join('');}
+
+function render(){
+  // 0 正排
+  $('#forward').innerHTML='<table><tr><th>文档</th><th>切出来的词(正排:文档→词)</th><th>词数 L</th></tr>'+
+    DOCS.map(d=>`<tr><td class="mono">${d.id}</td><td class="tx">${d.toks.map(w=>`<span class="w">${esc(w)}</span>`).join('')}</td><td class="mono">${d.len}</td></tr>`).join('')+'</table>';
+
+  // 1 倒排
+  $('#inverted').innerHTML='<table><tr><th>词(term)</th><th>df<br>(挂了几篇)</th><th>倒排链 → <span class="post"><span class="doc">文档</span>:<span class="tf">次数tf</span></span></th></tr>'+
+    TERMS.map(t=>`<tr><td class="term-cell">${esc(t)}</td><td class="mono">${POST[t].length}</td><td class="tx">${postHTML(POST[t])}</td></tr>`).join('')+'</table>';
+
+  // 3 长度 / 统计
+  $('#lens').innerHTML=DOCS.map(d=>`${d.id}: ${d.len}`).join(' &nbsp; ');
+  $('#stats').innerHTML=`<div class="mono">文档总数 N = <b>${N}</b></div><div class="mono">平均长度 avgdl = (${DOCS.map(d=>d.len).join('+')}) / ${N} = <b>${AVGDL.toFixed(2)}</b></div><div class="mono">词典大小 = <b>${TERMS.length}</b> 个不同的词</div>`;
+
+  // 4 JSON
+  let j='{\n  "type": "INVERTED_INDEX (BM25)",\n';
+  j+='  "stats": { "N": '+N+', "avgdl": '+AVGDL.toFixed(2)+' },\n';
+  j+='  "doc_length": {\n'+DOCS.map(d=>`    "${d.id}": ${d.len}`).join(',\n')+'\n  },\n';
+  j+='  "postings": {                          // 词 → [文档:次数tf] ，df = 链长\n';
+  j+=TERMS.map(t=>`    "${t}": [${POST[t].map(p=>`{"${p.id}":${p.tf}}`).join(', ')}]`).join(',\n');
+  j+='\n  }\n}';
+  $('#json').innerHTML=colorJSON(j);
+
+  trace();
+}
+function colorJSON(j){return esc(j)
+  .replace(/"(type|stats|doc_length|postings|N|avgdl)"/g,'"<span class="k">$1</span>"')
+  .replace(/"(D\d)"/g,'"<span class="n">$1</span>"')
+  .replace(/(\/\/.*)$/gm,'<span class="c">$1</span>');}
+
+function trace(){
+  const qs=tok($('#q').value);
+  if(!qs.length){$('#trace').innerHTML='<span class="legend">输入一个词试试。</span>';return;}
+  let html='';
+  const hitDocs=new Set();
+  qs.forEach(w=>{
+    if(POST[w]){
+      POST[w].forEach(p=>hitDocs.add(p.id));
+      html+=`<div style="margin:6px 0"><span class="term-cell">${esc(w)}</span><span class="arrow">→ 直接查倒排表这一行 →</span>命中 <b>${POST[w].length}</b> 篇:${postHTML(POST[w])}</div>`;
+    }else{
+      html+=`<div style="margin:6px 0"><span class="term-cell">${esc(w)}</span><span class="arrow">→</span><span style="color:#b84a36">词典里没有这个词,0 命中</span></div>`;
+    }
+  });
+  html+=`<div class="note" style="margin-top:8px">合并候选文档(去重)= <b>${[...hitDocs].sort().join('、')||'无'}</b>。<b>BM25 只对这几篇算分</b>,其余 ${N-hitDocs.size} 篇连碰都不碰 —— 这就是倒排索引让关键词检索快的原因:不扫全库,拿词直接跳到那几行。</div>`;
+  $('#trace').innerHTML=html;
+}
+$('#q').addEventListener('input',trace);
+render();
+</script>
+<a id="home-fab" href="./knowledge-map.html" style="position:fixed;right:16px;bottom:16px;z-index:9999;background:#245f73;color:#fff;text-decoration:none;font:600 13px/1 -apple-system,BlinkMacSystemFont,sans-serif;padding:10px 14px;border-radius:24px;box-shadow:0 2px 10px rgba(0,0,0,.18)">🏠 总览</a>
+</body>
+</html>

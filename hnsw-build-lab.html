@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>从零建图 · HNSW 索引是怎么一个点一个点长出来的</title>
+<style>
+  :root{--bg:#fafaf7;--paper:#fff;--ink:#1a1a1a;--ink2:#4a4a4a;--muted:#8a8a8a;--line:#e8e6df;
+    --accent:#245f73;--accent2:#1f6f4f;--warn:#b84a36;--new:#b94d2d;
+    --font:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    --mono:"SF Mono",ui-monospace,Menlo,monospace;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.7;font-size:15px}
+  .page{max-width:1040px;margin:0 auto;padding:32px 22px 80px}
+  h1{font-size:23px;margin:0 0 4px}.sub{color:var(--muted);margin:0 0 14px}a{color:var(--accent)}
+  .bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+  button{font:inherit;font-weight:700;padding:8px 14px;border:1px solid var(--accent);border-radius:8px;background:var(--accent);color:#fff;cursor:pointer}
+  button.ghost{background:#fff;color:var(--accent)}button:disabled{opacity:.4}
+  .ctl{display:flex;flex-direction:column;font-size:13px;color:var(--ink2)}input[type=range]{width:100px}
+  .now{margin:10px 0;padding:12px 16px;border-radius:10px;background:var(--paper);border:1px solid var(--line);font-size:15px;min-height:54px}
+  .now b{color:var(--new)}
+  canvas{background:#fbfbf8;border:1px solid var(--line);border-radius:10px;width:100%}
+  .legend{font-size:12.5px;color:var(--muted);margin-top:6px}
+  .log{margin-top:12px;background:#f4f6f7;border:1px solid #e2ebec;border-radius:8px;padding:10px 12px;font-family:var(--mono);font-size:12.5px;color:var(--ink2);max-height:170px;overflow:auto}
+  .steps{font-size:13px;color:var(--ink2);margin-top:10px;padding-left:18px}.steps li{margin:2px 0}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>从零建图 · HNSW 索引怎么一个点一个点长出来</h1>
+  <p class="sub">空白开始,每点一次「插入下一个点」就插入一个向量,它<b>连到"已经在图里的、离它最近的 k 个点"</b>。看路网从无到有。<a href="./hnsw-lab.html">建好后怎么搜→</a></p>
+
+  <div class="bar">
+    <label class="ctl">每点连 k 个：<b><span id="kV">2</span></b><input type="range" id="k" min="1" max="4" value="2"></label>
+    <button id="step">插入下一个点 ▶</button>
+    <button class="ghost" id="auto">自动插完</button>
+    <button class="ghost" id="reset">重来</button>
+    <span class="ctl" id="status"></span>
+  </div>
+
+  <div class="now" id="now"></div>
+  <canvas id="cv" width="1000" height="520"></canvas>
+  <div class="legend">空心灰点=还没插入　实心点=已插入(已在图里)　★大点=本次刚插入的　红边=本次新连的边　灰线=已有的边　绿圈=入口(第一个插入的)</div>
+  <div class="log" id="log"></div>
+
+  <ol class="steps">
+    <li>第 1 个点:孤零零,没有边 → 它当<b>入口</b>。</li>
+    <li>之后每个新点:在<b>"已经插入的点"</b>里找最近的 k 个,连过去(红边)。</li>
+    <li>注意:早期点少,"最近"也可能挺远 → 连出<b>跨区域的长边(高速公路)</b>。</li>
+    <li>全部插完 = 一张"每点连着附近几个点"的图 → 这就是 HNSW 索引(存的就是这些边)。</li>
+  </ol>
+</div>
+
+<script>
+const $=s=>document.querySelector(s);
+const status=$('#status'), nowEl=$('#now'), logEl=$('#log');
+let pts=[], order=[], graph=[], inserted=[], step=0, lastNew=-1, lastEdges=[];
+const L2=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+function gen(){let s=23;const r=()=>{s=(s*1103515245+12345)&0x7fffffff;return s/0x7fffffff;};
+  const g=()=>Math.sqrt(-2*Math.log(r()+1e-9))*Math.cos(2*Math.PI*r());
+  const C=[[0.2,0.28],[0.78,0.24],[0.74,0.78],[0.26,0.76],[0.5,0.5]];pts=[];
+  C.forEach(c=>{for(let i=0;i<4;i++){let x=c[0]+g()*0.07,y=c[1]+g()*0.07;pts.push({x:Math.min(.96,Math.max(.04,x)),y:Math.min(.96,Math.max(.04,y))});}});
+  order=[...pts.keys()];let s2=5;const r2=()=>{s2=(s2*1103515245+12345)&0x7fffffff;return s2/0x7fffffff;};
+  for(let i=order.length-1;i>0;i--){const j=Math.floor(r2()*(i+1));[order[i],order[j]]=[order[j],order[i]];}
+}
+function reset(){gen();graph=pts.map(()=>new Set());inserted=[];step=0;lastNew=-1;lastEdges=[];logEl.innerHTML='';
+  nowEl.innerHTML='空白图。点「插入下一个点」开始,把 '+pts.length+' 个向量一个个插进去。';status.textContent='0 / '+pts.length+' 已插入';
+  $('#step').disabled=false;draw();}
+function map(p){const cv=$('#cv'),pad=34;return [pad+p.x*(cv.width-2*pad),pad+p.y*(cv.height-2*pad)];}
+function getC(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+function draw(){const cv=$('#cv'),ctx=cv.getContext('2d');ctx.clearRect(0,0,cv.width,cv.height);
+  // 未插入:空心灰
+  pts.forEach((p,i)=>{if(inserted.includes(i))return;const[x,y]=map(p);ctx.beginPath();ctx.arc(x,y,5,0,7);ctx.strokeStyle='#d3d0c6';ctx.lineWidth=1.5;ctx.stroke();});
+  // 已有边(灰)
+  ctx.strokeStyle='rgba(120,120,120,0.3)';ctx.lineWidth=1;
+  inserted.forEach(i=>{const[x,y]=map(pts[i]);graph[i].forEach(j=>{if(j>i&&inserted.includes(j)){const[x2,y2]=map(pts[j]);ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x2,y2);ctx.stroke();}});});
+  // 本次新边(红)
+  ctx.strokeStyle=getC('--new');ctx.lineWidth=2.5;
+  lastEdges.forEach(([a,b])=>{const[x,y]=map(pts[a]),[x2,y2]=map(pts[b]);ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x2,y2);ctx.stroke();});
+  // 已插入点(实心)
+  inserted.forEach(i=>{const[x,y]=map(pts[i]);ctx.beginPath();ctx.arc(x,y,6,0,7);ctx.fillStyle=i===lastNew?getC('--new'):'#7a8a86';ctx.fill();});
+  // 入口
+  if(inserted.length){const e=order[0];const[x,y]=map(pts[e]);ctx.beginPath();ctx.arc(x,y,10,0,7);ctx.strokeStyle=getC('--accent2');ctx.lineWidth=2.5;ctx.stroke();ctx.fillStyle=getC('--accent2');ctx.font='11px sans-serif';ctx.textAlign='center';ctx.fillText('入口',x,y-14);}
+  // 本次新点大星
+  if(lastNew>=0){const[x,y]=map(pts[lastNew]);ctx.beginPath();ctx.arc(x,y,11,0,7);ctx.strokeStyle=getC('--new');ctx.lineWidth=2;ctx.stroke();}
+}
+function doStep(){
+  if(step>=pts.length){return;}
+  const k=+$('#k').value;const idx=order[step];lastNew=idx;lastEdges=[];
+  if(inserted.length===0){
+    nowEl.innerHTML=`插入第 1 个点 <b>d${idx}</b>:图里就它一个,<b>没有边</b>,它当<b>入口</b>。`;
+    logEl.innerHTML=`插入 d${idx}(第1个,入口,无边)<br>`+logEl.innerHTML;
+  } else {
+    const near=inserted.map(j=>[L2(pts[idx],pts[j]),j]).sort((a,b)=>a[0]-b[0]).slice(0,k);
+    near.forEach(([,j])=>{graph[idx].add(j);graph[j].add(idx);lastEdges.push([idx,j]);});
+    const far=near[near.length-1][0];
+    nowEl.innerHTML=`插入 <b>d${idx}</b>:此刻图里已有 ${inserted.length} 个点。在它们里找最近的 <b>${k}</b> 个 → 连边到 <b>[${near.map(([,j])=>'d'+j).join(', ')}]</b>(红边)。`+
+      (far>0.35?`<br><span style="color:var(--warn)">⚡ 这次最近的也挺远(${far.toFixed(2)})——这就连出了一条"长边/高速公路"。</span>`:'');
+    logEl.innerHTML=`插入 d${idx} → 连 [${near.map(([d,j])=>'d'+j+'('+d.toFixed(2)+')').join(', ')}]<br>`+logEl.innerHTML;
+  }
+  inserted.push(idx);step++;status.textContent=step+' / '+pts.length+' 已插入';draw();
+  if(step>=pts.length){$('#step').disabled=true;nowEl.innerHTML+=`<br><b style="color:var(--accent2)">✓ 全部 ${pts.length} 个点插完!这张图就是 HNSW 索引。</b> 接下来搜索就在这张图上贪心走(<a href="./hnsw-lab.html">看搜索→</a>)。`;}
+}
+$('#k').oninput=()=>{$('#kV').textContent=$('#k').value;reset();};
+$('#step').onclick=doStep;
+$('#auto').onclick=()=>{const t=setInterval(()=>{if(step>=pts.length){clearInterval(t);return;}doStep();},600);};
+$('#reset').onclick=reset;
+reset();
+</script>
+<a id="home-fab" href="./knowledge-map.html" style="position:fixed;right:16px;bottom:16px;z-index:9999;background:#245f73;color:#fff;text-decoration:none;font:600 13px/1 -apple-system,BlinkMacSystemFont,sans-serif;padding:10px 14px;border-radius:24px;box-shadow:0 2px 10px rgba(0,0,0,.18)">🏠 总览</a>
+</body>
+</html>

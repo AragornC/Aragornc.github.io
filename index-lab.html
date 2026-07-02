@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>建索引实验台 · Flat / IVF / HNSW</title>
+<style>
+  :root{
+    --bg:#fafaf7;--paper:#fff;--ink:#1a1a1a;--ink2:#4a4a4a;--muted:#8a8a8a;
+    --line:#e8e6df;--accent:#245f73;--accent2:#1f6f4f;--warn:#b84a36;
+    --font:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    --mono:"SF Mono",ui-monospace,Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.7;font-size:15px}
+  .page{max-width:1080px;margin:0 auto;padding:34px 22px 90px}
+  h1{font-size:27px;margin:0 0 4px}
+  .sub{color:var(--muted);margin:0 0 18px}
+  a{color:var(--accent)}
+  .controls{display:flex;gap:18px;flex-wrap:wrap;align-items:center;padding:14px 16px;background:var(--paper);border:1px solid var(--line);border-radius:10px;margin-bottom:8px}
+  button{font:inherit;font-weight:700;padding:8px 14px;border:1px solid var(--accent);border-radius:8px;background:var(--accent);color:#fff;cursor:pointer}
+  button.ghost{background:#fff;color:var(--accent)}
+  .ctl{display:flex;flex-direction:column;gap:2px;font-size:13px;color:var(--ink2);min-width:150px}
+  .ctl b{color:var(--accent)}
+  input[type=range]{width:150px}
+  .hint{font-size:12.5px;color:var(--muted);margin:4px 2px 0}
+  .summary{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0}
+  .card{flex:1;min-width:210px;border:1px solid var(--line);border-radius:10px;background:var(--paper);padding:12px 14px}
+  .card h3{margin:0 0 6px;font-size:15px}
+  .card .big{font-size:13px;color:var(--ink2)}
+  .card .big b{font-size:17px;color:var(--ink)}
+  .recall-100{color:var(--accent2)}.recall-low{color:var(--warn)}
+  .seg{margin-top:20px;background:var(--paper);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .seg-head{padding:13px 18px;border-bottom:1px solid var(--line);background:#f6f5ef}
+  .seg-head h2{margin:0;font-size:17px}
+  .seg-head .algo{margin-top:3px;color:var(--ink2);font-size:13px}
+  .seg-body{padding:14px 18px}
+  canvas{background:#fbfbf8;border:1px solid var(--line);border-radius:8px;width:100%;cursor:crosshair;touch-action:none}
+  .stat{font-size:13px;color:var(--ink2);margin-top:8px}
+  .stat b{color:var(--ink)}
+  .legend{font-size:12px;color:var(--muted);margin-top:4px}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>建索引实验台 · 几百万向量怎么快速找最近的</h1>
+  <p class="sub">每个点 = 一个文档向量(这里用 2D，几何关系真实)。⭐ 是查询。三种方法并排：看各自<b>比较了多少个点</b>(=快慢)、<b>漏没漏掉真正的最近邻</b>(=召回)。<b>在任意图上点一下可移动查询点。</b> <a href="./rag-pipeline.html">← 回流程总表</a></p>
+
+  <div class="controls">
+    <button class="ghost" id="regen">重新生成数据</button>
+    <button class="ghost" id="rndq">随机查询点</button>
+    <label class="ctl">IVF 簇数 C：<b><span id="cV">8</span></b><input type="range" id="c" min="3" max="16" step="1" value="8"></label>
+    <label class="ctl">IVF 探查簇 nprobe：<b><span id="npV">1</span></b><input type="range" id="np" min="1" max="6" step="1" value="1"></label>
+    <label class="ctl">HNSW 近邻数 k：<b><span id="kV">6</span></b><input type="range" id="k" min="2" max="12" step="1" value="6"></label>
+    <label class="ctl">HNSW 候选宽度 ef：<b><span id="efV">8</span></b><input type="range" id="ef" min="1" max="20" step="1" value="8"></label>
+  </div>
+  <p class="hint">取 top-5 最近邻。Flat 的结果是"真值"，IVF / HNSW 的召回率 = 它们找回的 ⊆ Flat 真值的比例。</p>
+
+  <div class="summary" id="summary"></div>
+
+  <div class="seg"><div class="seg-head"><h2>① Flat（暴力精确）</h2>
+    <div class="algo">跟全部 N 个点逐个算距离，排序取最近 5 个。100% 准，但比较 N 次——量大就慢。这是"真值"。</div></div>
+    <div class="seg-body"><canvas id="cvFlat" width="980" height="440"></canvas>
+      <div class="stat" id="stFlat"></div>
+      <div class="legend">灰=参与比较的点(全部)　红圈=找到的 top-5　⭐=查询</div></div></div>
+
+  <div class="seg"><div class="seg-head"><h2>② IVF（聚类倒排）</h2>
+    <div class="algo">先把点 k-means 分成 C 个簇(✕=簇心)。查询时只找最近的 nprobe 个簇、只搜簇里的点。比较次数大降，但目标若在没探查的簇里就漏召回。</div></div>
+    <div class="seg-body"><canvas id="cvIvf" width="980" height="440"></canvas>
+      <div class="stat" id="stIvf"></div>
+      <div class="legend">彩色=被探查簇的点(参与比较)　淡灰=没探查(跳过)　✕=簇心　红圈=找到　红叉=漏掉的真值</div></div></div>
+
+  <div class="seg"><div class="seg-head"><h2>③ HNSW（近邻图 + 贪心跳转）</h2>
+    <div class="algo">每个点连到它最近的 k 个点形成"近邻图"。查询时从入口点出发，每步跳到离查询更近的邻居，逼近目标。只走访路径上的点，比较次数少。ef 越大走访越多、越准。</div></div>
+    <div class="seg-body"><canvas id="cvHnsw" width="980" height="440"></canvas>
+      <div class="stat" id="stHnsw"></div>
+      <div class="legend">细线=近邻图边　蓝线=搜索走过的路径　蓝点=走访过(参与比较)的点　红圈=找到　红叉=漏掉</div></div></div>
+</div>
+
+<script>
+const $=s=>document.querySelector(s);
+let seed=42; const rnd=()=>{seed=(seed*1103515245+12345)&0x7fffffff;return seed/0x7fffffff;};
+const gauss=()=>Math.sqrt(-2*Math.log(rnd()+1e-9))*Math.cos(2*Math.PI*rnd());
+const CENTERS=[[0.18,0.28],[0.78,0.2],[0.5,0.5],[0.22,0.78],[0.82,0.8]];
+let points=[], query={x:0.5,y:0.42};
+function genData(){ seed=Math.floor(Math.random()*1e6)+1; points=[]; CENTERS.forEach((c,ci)=>{for(let i=0;i<40;i++){let x=c[0]+gauss()*0.07,y=c[1]+gauss()*0.07;x=Math.min(0.98,Math.max(0.02,x));y=Math.min(0.98,Math.max(0.02,y));points.push({x,y,blob:ci});}}); }
+const L2=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+const K=5;
+
+// ---- Flat ----
+function flat(){ const d=points.map((p,i)=>[L2(p,query),i]).sort((a,b)=>a[0]-b[0]); return {top:d.slice(0,K).map(x=>x[1]), comp:points.length}; }
+
+// ---- k-means for IVF ----
+function kmeans(C){
+  let cent=[]; const used=new Set();
+  for(let i=0;i<C;i++){let idx;do{idx=Math.floor(rnd()*points.length);}while(used.has(idx)&&used.size<points.length);used.add(idx);cent.push({x:points[idx].x,y:points[idx].y});}
+  let assign=new Array(points.length).fill(0);
+  for(let it=0;it<12;it++){
+    for(let i=0;i<points.length;i++){let bd=1e9,bj=0;for(let j=0;j<C;j++){const d=L2(points[i],cent[j]);if(d<bd){bd=d;bj=j;}}assign[i]=bj;}
+    const sx=new Array(C).fill(0),sy=new Array(C).fill(0),cn=new Array(C).fill(0);
+    for(let i=0;i<points.length;i++){sx[assign[i]]+=points[i].x;sy[assign[i]]+=points[i].y;cn[assign[i]]++;}
+    for(let j=0;j<C;j++)if(cn[j]){cent[j]={x:sx[j]/cn[j],y:sy[j]/cn[j]};}
+  }
+  return {cent,assign};
+}
+let kmCache={};
+function ivf(C,nprobe){
+  const key=C+'_'+seed; if(!kmCache[key])kmCache[key]=kmeans(C); const {cent,assign}=kmCache[key];
+  const cd=cent.map((c,j)=>[L2(c,query),j]).sort((a,b)=>a[0]-b[0]);
+  const probed=new Set(cd.slice(0,nprobe).map(x=>x[1]));
+  const cand=[]; for(let i=0;i<points.length;i++)if(probed.has(assign[i]))cand.push(i);
+  const top=cand.map(i=>[L2(points[i],query),i]).sort((a,b)=>a[0]-b[0]).slice(0,K).map(x=>x[1]);
+  return {top,comp:cand.length+C,cent,assign,probed,cand};
+}
+
+// ---- kNN graph + greedy search for HNSW ----
+let graphCache={};
+// NSW 式增量建图：逐点插入，每个点连到「已插入点」中的最近 k 个(双向)。
+// 早期插入的点散布全局 → 形成跨簇的远程长链，贪心搜索才能在簇间导航(这正是 HNSW 的关键)。
+function buildGraph(k){
+  const key=k+'_'+seed; if(graphCache[key])return graphCache[key];
+  const order=[...points.keys()];
+  let s2=seed+7; const r2=()=>{s2=(s2*1103515245+12345)&0x7fffffff;return s2/0x7fffffff;};
+  for(let i=order.length-1;i>0;i--){const j=Math.floor(r2()*(i+1));[order[i],order[j]]=[order[j],order[i]];}
+  const g=points.map(()=>new Set()); const inserted=[];
+  for(const idx of order){
+    if(inserted.length){const near=inserted.map(j=>[L2(points[idx],points[j]),j]).sort((a,b)=>a[0]-b[0]).slice(0,k);
+      near.forEach(([,j])=>{g[idx].add(j);g[j].add(idx);});}
+    inserted.push(idx);
+  }
+  const out={graph:g.map(s=>[...s]),entry:order[0]}; graphCache[key]=out; return out;
+}
+function hnsw(k,ef){
+  const built=buildGraph(k); const g=built.graph; const entry=built.entry; const dist=i=>L2(points[i],query);
+  const visited=new Set([entry]); const path=[entry];
+  let cand=[[dist(entry),entry]]; let res=[[dist(entry),entry]];
+  while(cand.length){
+    cand.sort((a,b)=>a[0]-b[0]); const [cdv,c]=cand.shift();
+    const worst=res.length?res[res.length-1][0]:1e9;
+    if(res.length>=ef && cdv>worst)break;
+    for(const nb of g[c]){ if(visited.has(nb))continue; visited.add(nb); path.push(nb);
+      const d=dist(nb); cand.push([d,nb]); res.push([d,nb]); res.sort((a,b)=>a[0]-b[0]); if(res.length>ef)res.pop(); }
+  }
+  return {top:res.slice(0,K).map(r=>r[1]), comp:visited.size, visited:[...visited], path, graph:g, entry};
+}
+
+// ---- drawing ----
+const PALETTE=['#b94d2d','#207864','#6450a8','#b07b24','#2f6f9f','#8c4b71','#5c6f2f','#47606f','#a05a86','#6b8e23','#9a3b3b','#356b6b','#7a5cc0','#c08a2a','#3f7fa8','#8f4b6f'];
+function mapXY(cv,p){const pad=20,W=cv.width,H=cv.height;return [pad+p.x*(W-2*pad),pad+p.y*(H-2*pad)];}
+function dot(ctx,x,y,r,fill){ctx.beginPath();ctx.arc(x,y,r,0,7);ctx.fillStyle=fill;ctx.fill();}
+function star(ctx,x,y){ctx.fillStyle='#1a1a1a';ctx.font='22px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('★',x,y);}
+function ring(ctx,x,y,color){ctx.beginPath();ctx.arc(x,y,9,0,7);ctx.strokeStyle=color;ctx.lineWidth=2.5;ctx.stroke();}
+function cross(ctx,x,y,color){ctx.strokeStyle=color;ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(x-7,y-7);ctx.lineTo(x+7,y+7);ctx.moveTo(x+7,y-7);ctx.lineTo(x-7,y+7);ctx.stroke();}
+
+function drawFlat(r){const cv=$('#cvFlat'),ctx=cv.getContext('2d');ctx.clearRect(0,0,cv.width,cv.height);
+  points.forEach(p=>{const[x,y]=mapXY(cv,p);dot(ctx,x,y,4,'#b8b4a8');});
+  r.top.forEach(i=>{const[x,y]=mapXY(cv,points[i]);ring(ctx,x,y,'#b94d2d');});
+  const[qx,qy]=mapXY(cv,query);star(ctx,qx,qy);
+  $('#stFlat').innerHTML=`比较 <b>${r.comp}</b> 个点(全部) · 召回 <b class="recall-100">100%</b>(它就是真值)`;
+}
+function drawIvf(r,truth){const cv=$('#cvIvf'),ctx=cv.getContext('2d');ctx.clearRect(0,0,cv.width,cv.height);
+  points.forEach((p,i)=>{const[x,y]=mapXY(cv,p);const pr=r.probed.has(r.assign[i]);dot(ctx,x,y,4,pr?PALETTE[r.assign[i]%PALETTE.length]:'#e3e0d6');});
+  r.cent.forEach((c,j)=>{const[x,y]=mapXY(cv,c);cross(ctx,x,y,r.probed.has(j)?'#1a1a1a':'#bbb');});
+  r.top.forEach(i=>{const[x,y]=mapXY(cv,points[i]);ring(ctx,x,y,'#b94d2d');});
+  const missed=truth.filter(i=>!r.top.includes(i));
+  missed.forEach(i=>{const[x,y]=mapXY(cv,points[i]);cross(ctx,x,y,'#b94d2d');});
+  const[qx,qy]=mapXY(cv,query);star(ctx,qx,qy);
+  const rec=Math.round((K-missed.length)/K*100);
+  $('#stIvf').innerHTML=`比较 <b>${r.comp}</b> 个点(只搜了 ${r.probed.size}/${r.cent.length} 个簇) · 召回 <b class="${rec===100?'recall-100':'recall-low'}">${rec}%</b>${missed.length?` · 漏了 ${missed.length} 个真值(红叉)`:''} · 比 Flat 省 <b>${Math.round((1-r.comp/points.length)*100)}%</b> 比较`;
+}
+function drawHnsw(r,truth){const cv=$('#cvHnsw'),ctx=cv.getContext('2d');ctx.clearRect(0,0,cv.width,cv.height);
+  // graph edges (faint)
+  ctx.strokeStyle='rgba(140,140,140,0.18)';ctx.lineWidth=1;
+  points.forEach((p,i)=>{const[x,y]=mapXY(cv,p);r.graph[i].forEach(j=>{if(j>i){const[x2,y2]=mapXY(cv,points[j]);ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x2,y2);ctx.stroke();}});});
+  points.forEach((p,i)=>{const[x,y]=mapXY(cv,p);dot(ctx,x,y,4,r.visited.includes(i)?'#2f6f9f':'#cfccc2');});
+  // path
+  ctx.strokeStyle='#2f6f9f';ctx.lineWidth=2;ctx.beginPath();
+  r.path.forEach((i,idx)=>{const[x,y]=mapXY(cv,points[i]);idx?ctx.lineTo(x,y):ctx.moveTo(x,y);});ctx.stroke();
+  const[ex,ey]=mapXY(cv,points[r.entry]);ctx.fillStyle='#2f6f9f';ctx.font='11px sans-serif';ctx.textAlign='center';ctx.fillText('入口',ex,ey-12);
+  r.top.forEach(i=>{const[x,y]=mapXY(cv,points[i]);ring(ctx,x,y,'#b94d2d');});
+  const missed=truth.filter(i=>!r.top.includes(i));
+  missed.forEach(i=>{const[x,y]=mapXY(cv,points[i]);cross(ctx,x,y,'#b94d2d');});
+  const[qx,qy]=mapXY(cv,query);star(ctx,qx,qy);
+  const rec=Math.round((K-missed.length)/K*100);
+  $('#stHnsw').innerHTML=`比较 <b>${r.comp}</b> 个点(走访路径) · 召回 <b class="${rec===100?'recall-100':'recall-low'}">${rec}%</b>${missed.length?` · 漏了 ${missed.length}(红叉)`:''} · 比 Flat 省 <b>${Math.round((1-r.comp/points.length)*100)}%</b> 比较`;
+}
+
+function runAll(){
+  const C=+$('#c').value,np=+$('#np').value,k=+$('#k').value,ef=+$('#ef').value;
+  const f=flat(); const iv=ivf(C,np); const h=hnsw(k,ef);
+  drawFlat(f); drawIvf(iv,f.top); drawHnsw(h,f.top);
+  const recI=Math.round(f.top.filter(i=>iv.top.includes(i)).length/K*100);
+  const recH=Math.round(f.top.filter(i=>h.top.includes(i)).length/K*100);
+  $('#summary').innerHTML=`
+    <div class="card"><h3>① Flat 暴力</h3><div class="big">比较 <b>${f.comp}</b> 次 · 召回 <b class="recall-100">100%</b></div></div>
+    <div class="card"><h3>② IVF 聚类</h3><div class="big">比较 <b>${iv.comp}</b> 次 · 召回 <b class="${recI===100?'recall-100':'recall-low'}">${recI}%</b></div></div>
+    <div class="card"><h3>③ HNSW 图</h3><div class="big">比较 <b>${h.comp}</b> 次 · 召回 <b class="${recH===100?'recall-100':'recall-low'}">${recH}%</b></div></div>`;
+}
+
+['cvFlat','cvIvf','cvHnsw'].forEach(id=>{$('#'+id).addEventListener('click',e=>{const cv=$('#'+id),rect=cv.getBoundingClientRect(),pad=20;
+  const x=((e.clientX-rect.left)/rect.width*cv.width-pad)/(cv.width-2*pad);
+  const y=((e.clientY-rect.top)/rect.height*cv.height-pad)/(cv.height-2*pad);
+  query={x:Math.min(0.98,Math.max(0.02,x)),y:Math.min(0.98,Math.max(0.02,y))};runAll();});});
+$('#regen').onclick=()=>{genData();kmCache={};graphCache={};runAll();};
+$('#rndq').onclick=()=>{query={x:0.1+Math.random()*0.8,y:0.1+Math.random()*0.8};runAll();};
+['c','np','k','ef'].forEach(id=>{$('#'+id).oninput=()=>{$('#'+id+'V').textContent=$('#'+id).value; if(id==='c')kmCache={}; if(id==='k')graphCache={}; runAll();};});
+genData();runAll();
+</script>
+<a id="home-fab" href="./knowledge-map.html" style="position:fixed;right:16px;bottom:16px;z-index:9999;background:#245f73;color:#fff;text-decoration:none;font:600 13px/1 -apple-system,BlinkMacSystemFont,sans-serif;padding:10px 14px;border-radius:24px;box-shadow:0 2px 10px rgba(0,0,0,.18)">🏠 总览</a>
+</body>
+</html>

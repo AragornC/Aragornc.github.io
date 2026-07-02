@@ -1,0 +1,74 @@
+[
+  {
+    "id": "q001",
+    "text": "直播里让观众加微信私下买东西",
+    "schema_hint": { "risk_type": "导流", "channel": "直播" },
+    "relevant_ids": ["d001", "d014", "d030"]
+  },
+  {
+    "id": "q002",
+    "text": "短视频引导用户保存联系方式去第三方店铺付款",
+    "schema_hint": { "risk_type": "导流", "channel": "短视频" },
+    "relevant_ids": ["d002", "d015", "d032"]
+  },
+  {
+    "id": "q003",
+    "text": "中奖红包要先交手续费或保证金",
+    "schema_hint": { "risk_type": "诈骗", "channel": "私信" },
+    "relevant_ids": ["d003", "d016", "d031", "d035"]
+  },
+  {
+    "id": "q004",
+    "text": "有人冒充客服索取验证码解封账号",
+    "schema_hint": { "risk_type": "诈骗", "channel": "客服会话" },
+    "relevant_ids": ["d004", "d022", "d031"]
+  },
+  {
+    "id": "q005",
+    "text": "刷单返佣需要先垫付本金",
+    "schema_hint": { "risk_type": "诈骗", "channel": "群聊" },
+    "relevant_ids": ["d005", "d017", "d024"]
+  },
+  {
+    "id": "q006",
+    "text": "评论泄露别人身份证手机号住址",
+    "schema_hint": { "risk_type": "隐私泄露", "channel": "评论" },
+    "relevant_ids": ["d007", "d019", "d023", "d037"]
+  },
+  {
+    "id": "q007",
+    "text": "夸大药品食品疗效说能治病",
+    "schema_hint": { "risk_type": "虚假宣传" },
+    "relevant_ids": ["d009", "d021", "d038"]
+  },
+  {
+    "id": "q008",
+    "text": "外挂脚本自动抢券规避风控检测",
+    "schema_hint": { "risk_type": "作弊工具" },
+    "relevant_ids": ["d010", "d026", "d039"]
+  },
+  {
+    "id": "q009",
+    "text": "出售接码服务和批量实名账号",
+    "schema_hint": { "risk_type": "账号黑产", "channel": "群聊" },
+    "relevant_ids": ["d011", "d027", "d040"]
+  },
+  {
+    "id": "q010",
+    "text": "脱离平台担保直接转账交易",
+    "schema_hint": { "risk_type": "交易风险" },
+    "relevant_ids": ["d012", "d025", "d028", "d033"]
+  },
+  {
+    "id": "q011",
+    "text": "发布付费课程录屏或电影片段下载",
+    "schema_hint": { "risk_type": "侵权" },
+    "relevant_ids": ["d008", "d020"]
+  },
+  {
+    "id": "q012",
+    "text": "群里传播自残方法和极端节食挑战",
+    "schema_hint": { "risk_type": "自伤" },
+    "relevant_ids": ["d013", "d029"]
+  }
+]

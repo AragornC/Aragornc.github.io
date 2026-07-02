@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>BM25 从零手推白盒 · 纯数数,没有向量</title>
+<style>
+  :root{--bg:#fafaf7;--paper:#fff;--ink:#1a1a1a;--ink2:#4a4a4a;--muted:#8a8a8a;--line:#e8e6df;
+    --accent:#245f73;--good:#1f6f4f;--warn:#b84a36;--gold:#8a5d1f;
+    --font:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    --mono:"SF Mono",ui-monospace,Menlo,monospace;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.7;font-size:15px}
+  .page{max-width:920px;margin:0 auto;padding:30px 22px 90px}
+  h1{font-size:24px;margin:0 0 4px}.sub{color:var(--muted);margin:0 0 10px}a{color:var(--accent)}
+  .reassure{background:#eef6f0;border:1px solid #cfe6d8;border-radius:10px;padding:11px 15px;font-size:13.5px;color:#1f6f4f;margin:12px 0}
+  .reassure b{color:#155}
+  .bar{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin:14px 0 4px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+  input[type=text]{font:inherit;padding:8px 11px;border:1px solid var(--line);border-radius:7px;background:#fffdf8;flex:1;min-width:200px}
+  .ctl{display:flex;flex-direction:column;font-size:12px;color:var(--ink2);gap:2px}
+  input[type=range]{width:130px}
+  .ctl b{font-family:var(--mono);color:var(--accent)}
+  .step{margin-top:24px;background:var(--paper);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .step-h{padding:13px 18px;background:#f6f5ef;border-bottom:1px solid var(--line)}
+  .step-h h2{margin:0;font-size:17px}
+  .step-h .q{margin-top:3px;font-size:13px;color:var(--ink2)}
+  .step-b{padding:16px 18px}
+  p.t{margin:0 0 12px;color:var(--ink2);font-size:14px}
+  .jar{background:#fbf7ee;border:1px solid #ecdfc7;border-radius:8px;padding:9px 12px;font-size:13px;color:var(--gold);margin:10px 0}
+  .jar b{color:#5e3f12}
+  table{border-collapse:collapse;font-size:13px;width:100%;margin:6px 0}
+  td,th{border:1px solid var(--line);padding:5px 8px;text-align:center;vertical-align:middle}
+  th{background:#f3f2ec;font-size:12px}
+  td.tx{text-align:left}
+  .mono{font-family:var(--mono);font-size:12px}
+  .doc-words .w{display:inline-block;background:#eef4f5;color:var(--accent);border-radius:4px;padding:0 5px;margin:1px;font-size:12px}
+  .doc-words .w.hit{background:#f7e4c4;color:#7a4f12;font-weight:700}
+  .win{background:#eef6f0;font-weight:700}
+  .dim{color:#bbb}
+  .bad{color:var(--warn);font-weight:700}
+  .calc{font-family:var(--mono);font-size:12px;color:var(--ink2);background:#f7f6f1;border-radius:6px;padding:2px 7px;display:inline-block}
+  .idfbar{height:9px;background:var(--accent);border-radius:3px;display:inline-block;vertical-align:middle}
+  .rank-item{border:1px solid var(--line);border-radius:10px;margin:9px 0;overflow:hidden}
+  .rank-head{display:flex;align-items:center;gap:12px;padding:10px 14px;background:#fff;cursor:pointer}
+  .rank-head .rk{font-family:var(--mono);font-weight:800;font-size:16px;color:var(--accent);min-width:54px}
+  .rank-head .txt{flex:1;font-size:14px}
+  .rank-head .sc{font-family:var(--mono);font-weight:800;color:var(--good);font-size:15px}
+  .rank-item.top .rank-head{background:#eef6f0}
+  .rank-detail{padding:4px 14px 12px;border-top:1px dashed var(--line);background:#fcfbf7;display:none}
+  .rank-item.open .rank-detail{display:block}
+  .note{font-size:12.5px;color:var(--ink2);margin-top:14px;padding:11px 14px;background:#f4f6f7;border:1px solid #e2ebec;border-radius:8px}
+  .note b{color:var(--accent)}
+  .formula{font-family:var(--mono);font-size:13px;background:#1f2328;color:#e6e6df;padding:11px 14px;border-radius:8px;margin:10px 0;line-height:1.7;overflow-x:auto}
+  .formula .hl{color:#e0a849}.formula .hl2{color:#79c0e8}.formula .hl3{color:#b6d99a}
+  .legend{font-size:12px;color:var(--muted);margin-top:4px}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>BM25 从零手推 · 关键词召回的打分公式</h1>
+  <p class="sub">把"关键词检索怎么给文档打分"拆成 4 块积木,一块块搭起来,每个数都算给你看。<a href="./hybrid-lab.html">混合检索 →</a> · <a href="./">导航</a></p>
+
+  <div class="reassure">😌 <b>放心:这一整页没有任何向量、没有神经网络。</b> BM25 干的事就是「数词出现了几次」+「小学加减乘除」。你能用计算器核对页面上每一个数字。看不懂就停下来问。</div>
+
+  <div class="bar">
+    <input type="text" id="q" value="猫 吃 鱼" />
+    <label class="ctl">k1(饱和)= <b id="k1V">1.4</b><input type="range" id="k1" min="0" max="4" step="0.1" value="1.4"></label>
+    <label class="ctl">b(长度罚)= <b id="bV">0.72</b><input type="range" id="b" min="0" max="1" step="0.01" value="0.72"></label>
+  </div>
+  <p class="legend">查询用空格分词(每个空格隔开的就是一个"词"/term)。改查询或拖滑块,下面所有数字实时重算。默认 k1=1.4、b=0.72 跟混合检索页里那套 BM25 完全一致。</p>
+
+  <!-- 第0步 语料 -->
+  <div class="step"><div class="step-h"><h2>第 0 步 · 我们的小语料库(8 篇超短文档)</h2></div>
+    <div class="step-b">
+      <p class="t">检索就是:给定一个<b>查询</b>,从这堆<b>文档</b>里挑出最相关的。下面高亮的是命中查询词的位置。</p>
+      <div id="corpus"></div>
+    </div></div>
+
+  <!-- 第1步 TF -->
+  <div class="step"><div class="step-h"><h2>第 1 步 · 最朴素的想法:数数(TF 词频)</h2>
+    <div class="q">直觉:查询词在一篇文档里出现得越多,这篇越相关。那就数呗。</div></div>
+    <div class="step-b">
+      <div class="jar"><b>TF = Term Frequency = 词频</b>:某个查询词,在某篇文档里出现了<b>几次</b>。就是数数。</div>
+      <p class="t">下表:每个查询词在每篇文档里数到几次,最后一列把它们直接相加 = "朴素分"。</p>
+      <div id="tfTable"></div>
+      <div class="note" id="tfProblem"></div>
+    </div></div>
+
+  <!-- 第2步 IDF -->
+  <div class="step"><div class="step-h"><h2>第 2 步 · 修第一个毛病:稀有的词更值钱(IDF)</h2>
+    <div class="q">"吃"到处都是,命中它说明不了什么;"鱼"很少见,命中它信息量大。该按稀有度加权。</div></div>
+    <div class="step-b">
+      <div class="jar"><b>DF = Document Frequency</b>:有<b>几篇</b>文档出现过这个词(注意:是"几篇",不是"几次")。<br><b>IDF = Inverse DF = 逆文档频率</b>:DF 的"反过来"——出现的文档越<b>少</b>,IDF 越<b>大</b>(越值钱)。</div>
+      <div class="formula">IDF(词) = ln( <span class="hl2">(N+1)</span> / <span class="hl">(df + 0.5)</span> ) + 1<br>　　　　　N = 文档总数 ,　df = 含这个词的文档篇数 ,　ln = 自然对数</div>
+      <p class="t">把每个查询词的 N、df 代进去,手算 IDF(柱子越长 = 越稀有 = 越值钱):</p>
+      <div id="idfTable"></div>
+      <div class="note" id="idfNote"></div>
+    </div></div>
+
+  <!-- 第3步 饱和 -->
+  <div class="step"><div class="step-h"><h2>第 3 步 · 修第二个毛病:出现 5 次 ≠ 相关 5 倍(饱和 k1)</h2>
+    <div class="q">一篇文档把"猫"刷了 5 遍,它真比只提 1 次的相关 5 倍吗?不。该让分数涨到一定程度就"封顶"。</div></div>
+    <div class="step-b">
+      <div class="jar"><b>饱和(saturation)</b>:出现次数 tf 越大,加分越多,但<b>越加越慢,最后逼近一个上限</b>。控制这个"涨多快、封多高"的旋钮叫 <b>k1</b>。</div>
+      <div class="formula">把光秃秃的 tf,换成会饱和的版本:<br>　饱和后 = <span class="hl3">tf × (k1+1)</span> / ( <span class="hl3">tf</span> + k1 )　　<span style="color:#8a8a8a">(先不管长度,下一步再加)</span></div>
+      <p class="t">同一个词出现 tf 次,饱和前(直接用 tf)vs 饱和后,对比看"封顶"效果(当前 k1=<b id="k1echo" class="mono"></b>):</p>
+      <div id="satTable"></div>
+      <div class="note" id="satNote"></div>
+    </div></div>
+
+  <!-- 第4步 长度 -->
+  <div class="step"><div class="step-h"><h2>第 4 步 · 修第三个毛病:长文档占便宜(长度归一化 b)</h2>
+    <div class="q">长文档天生词多、更容易命中。一篇 18 个词的文章里有"鱼",不该和一篇 3 个词的短句里有"鱼"一样值钱。该按长度打折。</div></div>
+    <div class="step-b">
+      <div class="jar"><b>avgdl = average document length</b>:所有文档的<b>平均长度</b>(平均多少个词)。<br>一篇文档比平均<b>长</b> → 分母被撑大 → 同样的命中<b>打折扣</b>;比平均<b>短</b> → 反而加成。旋钮叫 <b>b</b>(b=0 完全不管长度,b=1 狠罚)。</div>
+      <div class="formula">完整分母(把长度塞进 k1 那项里):<br>　分母 = tf + k1 × ( 1 − b + b × <span class="hl">文档长度 / avgdl</span> )</div>
+      <p class="t">avgdl = <b id="avgdl" class="mono"></b> 个词。每篇文档的长度,以及它带来的"长度罚因子"(当前 b=<b id="bEcho" class="mono"></b>):</p>
+      <div id="lenTable"></div>
+      <div class="note" id="lenNote"></div>
+    </div></div>
+
+  <!-- 第5步 合体 -->
+  <div class="step"><div class="step-h"><h2>第 5 步 · 四块积木合体 = 完整 BM25</h2>
+    <div class="q">把 IDF(稀有度)× 饱和后的 TF(带长度罚)合起来,一个查询词一项,加总 = 这篇文档的 BM25 总分。</div></div>
+    <div class="step-b">
+      <div class="formula">BM25(文档 D, 查询 Q) = 对查询里<b>每个词 t</b> 求和:<br>
+　Σ　<span class="hl">IDF(t)</span> × <span class="hl3">tf × (k1+1)</span> / ( <span class="hl3">tf</span> + k1 × (1 − b + b × <span class="hl2">L/avgdl</span>) )<br>
+　　　└稀有度┘　└──── 饱和的词频 ────┘　　└─ 长度归一化 ─┘<br>
+　　　tf = 词 t 在 D 里的次数 ,　L = D 的长度 ,　k1=<span class="hl">饱和</span> ,　b=<span class="hl">长度罚</span></div>
+      <p class="t">最终排名(点任意一条<b>展开看每一项怎么算出来的</b>):</p>
+      <div id="rank"></div>
+      <div class="note" id="finalNote"></div>
+    </div></div>
+
+  <div class="note" style="margin-top:22px">这就是关键词召回(BM25)的全部。<b>没有向量,没有训练,纯统计</b>:数词频 → 按稀有度加权 → 防刷词饱和 → 按长度打折 → 加总排名。它的死穴:<b>只认字面</b>——查"掉线"它绝不会去命中"网络中断"(在它眼里是完全不同的词)。这正是为什么要再叠一路<b>稠密向量</b>来补语义,合起来就是<a href="./hybrid-lab.html">混合检索</a>。</div>
+</div>
+
+<script>
+const $=s=>document.querySelector(s);
+const CORPUS=[
+  {id:'D1', text:'猫 吃 鱼'},
+  {id:'D2', text:'猫 猫 猫 猫 猫 喜欢 睡觉'},
+  {id:'D3', text:'今天 天气 不错 我 和 朋友 去 公园 看到 一只 猫 在 吃 草 旁边 还有 很多 鱼'},
+  {id:'D4', text:'狗 喜欢 吃 骨头'},
+  {id:'D5', text:'大家 都 要 吃 饭'},
+  {id:'D6', text:'鱼 生活 在 海里'},
+  {id:'D7', text:'猫 是 一种 宠物'},
+  {id:'D8', text:'鸟 也 要 吃 东西'},
+];
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const tok=s=>s.trim().split(/\s+/).filter(Boolean);
+const f=(x,n=3)=>Number(x).toFixed(n);
+
+// 预处理:每篇 tokens / 词频表 / 长度
+const DOCS=CORPUS.map(d=>{const t=tok(d.text);const c={};t.forEach(w=>c[w]=(c[w]||0)+1);return {...d,toks:t,counts:c,len:t.length};});
+const N=DOCS.length;
+const AVGDL=DOCS.reduce((s,d)=>s+d.len,0)/N;
+// df / idf 全语料(对任意词都能查)
+function df(term){return DOCS.filter(d=>d.counts[term]).length;}
+function idf(term){const v=df(term);return Math.log((N+1)/(v+0.5))+1;}
+
+function queryTerms(){return [...new Set(tok($('#q').value))];}
+function k1(){return +$('#k1').value;}
+function bb(){return +$('#b').value;}
+
+function termScore(tf,L,term){
+  if(!tf)return 0;
+  const denom=tf+k1()*(1-bb()+bb()*(L/AVGDL));
+  return idf(term)*(tf*(k1()+1))/denom;
+}
+
+function render(){
+  const Q=queryTerms();
+  $('#k1V').textContent=f(k1(),1);$('#bV').textContent=f(bb(),2);
+  $('#k1echo').textContent=f(k1(),1);$('#bEcho').textContent=f(bb(),2);
+  $('#avgdl').textContent=f(AVGDL,2)+'('+DOCS.map(d=>d.len).join('+')+' = '+DOCS.reduce((s,d)=>s+d.len,0)+', ÷'+N+')';
+
+  // 第0步 语料
+  $('#corpus').innerHTML='<table><tr><th>文档</th><th>原文(每个色块=一个词)</th><th>词数 L</th></tr>'+
+    DOCS.map(d=>`<tr><td class="mono">${d.id}</td><td class="tx doc-words">${d.toks.map(w=>`<span class="w${Q.includes(w)?' hit':''}">${esc(w)}</span>`).join('')}</td><td class="mono">${d.len}</td></tr>`).join('')+'</table>'+
+    `<div class="legend">高亮 = 命中查询词 [${Q.map(esc).join('、')}]。</div>`;
+
+  // 第1步 TF
+  let th='<tr><th>文档</th>'+Q.map(t=>`<th>「${esc(t)}」次数`).join('')+'<th>朴素分(直接相加)</th></tr>';
+  const naive=DOCS.map(d=>{const cells=Q.map(t=>d.counts[t]||0);const sum=cells.reduce((a,c)=>a+c,0);return {d,cells,sum};});
+  const naiveMax=Math.max(...naive.map(x=>x.sum));
+  $('#tfTable').innerHTML='<table>'+th+naive.map(x=>`<tr><td class="mono">${x.d.id}</td>${x.cells.map(c=>`<td class="mono ${c?'':'dim'}">${c}</td>`).join('')}<td class="mono ${x.sum===naiveMax?'bad':''}">${x.sum}</td></tr>`).join('')+'</table>';
+  const spam=naive.slice().sort((a,b)=>b.sum-a.sum)[0];
+  $('#tfProblem').innerHTML=`<b>问题来了</b>:按朴素分,<b>${spam.d.id}</b> 以 ${spam.sum} 分领先 —— 可它只是把「${esc(Q[0])}」刷了好多遍,根本不含其它查询词,谈不上最相关。光数次数有三个毛病:<b>① 常见词(如"吃")和稀有词(如"鱼")一样值钱</b>;<b>② 刷 5 遍就算 5 倍</b>;<b>③ 长文档天然占便宜</b>。下面三步逐个修。`;
+
+  // 第2步 IDF
+  const idfRows=Q.map(t=>({t,df:df(t),idf:idf(t)}));
+  const idfMax=Math.max(...idfRows.map(r=>r.idf),0.01);
+  $('#idfTable').innerHTML='<table><tr><th>查询词</th><th>含它的文档数 df</th><th>代入公式</th><th>IDF</th><th>稀有度(越长越值钱)</th></tr>'+
+    idfRows.sort((a,b)=>b.idf-a.idf).map(r=>`<tr><td class="mono">${esc(r.t)}</td><td class="mono">${r.df} / ${N}</td><td><span class="calc">ln(${N+1} / ${r.df}.5) + 1</span></td><td class="mono"><b>${f(r.idf)}</b></td><td class="tx"><span class="idfbar" style="width:${Math.round(r.idf/idfMax*140)}px"></span></td></tr>`).join('')+'</table>';
+  const sorted=idfRows.slice().sort((a,b)=>b.idf-a.idf);
+  if(sorted.length>=2){const hi=sorted[0],lo=sorted[sorted.length-1];
+    $('#idfNote').innerHTML=`读法:<b>「${esc(lo.t)}」</b>出现在 ${lo.df} 篇里(常见)→ IDF 最低 ${f(lo.idf)}(不值钱);<b>「${esc(hi.t)}」</b>只在 ${hi.df} 篇里(稀有)→ IDF 最高 ${f(hi.idf)}(值钱)。<b>命中稀有词,加分更多</b>——第一个毛病修好了。`;}
+
+  // 第3步 饱和
+  const tfs=[1,2,3,5,10];
+  const satHead='<tr><th>出现次数 tf</th>'+tfs.map(t=>`<th>${t} 次</th>`).join('')+'</tr>';
+  const satRow1='<tr><td class="tx">饱和前(= tf 本身)</td>'+tfs.map(t=>`<td class="mono">${t}.0</td>`).join('')+'</tr>';
+  const satRow2='<tr><td class="tx">饱和后 = tf×(k1+1)/(tf+k1)</td>'+tfs.map(t=>`<td class="mono"><b>${f(t*(k1()+1)/(t+k1()),2)}</b></td>`).join('')+'</tr>';
+  $('#satTable').innerHTML='<table>'+satHead+satRow1+satRow2+'</table>';
+  const sat=t=>t*(k1()+1)/(t+k1());
+  $('#satNote').innerHTML=`看最后一行:次数从 1→10(涨 10 倍),饱和后的值只从 ${f(sat(1),2)}→${f(sat(10),2)}(涨不到 ${f(sat(10)/sat(1),1)} 倍),<b>越往后越涨不动,逼近上限 k1+1=${f(k1()+1,1)}</b>。这就堵死了"刷词"。把 k1 滑块拉大→封顶更高更难饱和;拉到 0→出现1次就直接顶满。`;
+
+  // 第4步 长度
+  $('#lenTable').innerHTML='<table><tr><th>文档</th><th>长度 L</th><th>L / avgdl</th><th>长度罚因子<br>1−b+b×(L/avg)</th><th>效果</th></tr>'+
+    DOCS.map(d=>{const pen=1-bb()+bb()*(d.len/AVGDL);const long=d.len>AVGDL;
+      return `<tr><td class="mono">${d.id}</td><td class="mono">${d.len}</td><td class="mono">${f(d.len/AVGDL,2)}</td><td class="mono"><b>${f(pen,2)}</b></td><td class="tx" style="font-size:12px;color:${long?'#b84a36':'#1f6f4f'}">${long?'比平均长 → 分母变大 → 打折':'比平均短 → 加成'}</td></tr>`;}).join('')+'</table>';
+  const longest=DOCS.slice().sort((a,b)=>b.len-a.len)[0];
+  $('#lenNote').innerHTML=`罚因子越大,它在分母里把分数压得越狠。最长的 <b>${longest.id}</b>(${longest.len} 个词)罚因子最高,所以哪怕它命中了全部查询词,也会被狠狠打折。b=0 时这一列全变 1.00(完全不看长度),试试拖 b 滑块。`;
+
+  // 第5步 合体排名
+  const scored=DOCS.map(d=>{
+    const parts=Q.map(t=>{const tf=d.counts[t]||0;return {t,tf,idf:idf(t),s:termScore(tf,d.len,t)};});
+    const total=parts.reduce((a,p)=>a+p.s,0);
+    return {d,parts,total};
+  }).sort((a,b)=>b.total-a.total);
+  $('#rank').innerHTML=scored.map((x,i)=>{
+    const detail='<table><tr><th>查询词</th><th>idf</th><th>tf(本文次数)</th><th>代入算式</th><th>这一项得分</th></tr>'+
+      x.parts.map(p=>{
+        const denom=p.tf?(p.tf+k1()*(1-bb()+bb()*(x.d.len/AVGDL))):0;
+        const calc=p.tf?`${f(p.idf)} × (${p.tf}×${f(k1()+1,1)}) / ${f(denom,3)}`:'tf=0,不得分';
+        return `<tr><td class="mono">${esc(p.t)}</td><td class="mono">${f(p.idf)}</td><td class="mono ${p.tf?'':'dim'}">${p.tf}</td><td><span class="calc">${calc}</span></td><td class="mono ${p.tf?'':'dim'}">${f(p.s)}</td></tr>`;
+      }).join('')+`<tr><td colspan="4" class="tx" style="text-align:right"><b>总分(各项相加)</b></td><td class="mono"><b>${f(x.total)}</b></td></tr>`+'</table>'+
+      `<div class="legend">L=${x.d.len},avgdl=${f(AVGDL,2)},k1=${f(k1(),1)},b=${f(bb(),2)}</div>`;
+    return `<div class="rank-item${i===0?' top':''}" data-i="${i}"><div class="rank-head"><span class="rk">#${i+1} ${x.d.id}</span><span class="txt">${esc(x.d.text)}</span><span class="sc">${f(x.total)}</span></div><div class="rank-detail">${detail}</div></div>`;
+  }).join('');
+  document.querySelectorAll('.rank-item').forEach(el=>el.querySelector('.rank-head').onclick=()=>el.classList.toggle('open'));
+  // 最终洞察
+  const w=scored[0];
+  $('#finalNote').innerHTML=`<b>最终冠军 ${w.d.id}</b>(${f(w.total)} 分)。对比第 1 步:朴素数数让刷词的 ${spam.d.id} 领先,而完整 BM25 把它压下去了——因为 ${w.d.id} 同时命中多个查询词、又短(没被长度罚)、稀有词(IDF 高)也加了分。<b>展开各条看每一项的算式,和你手算的对一对。</b>`;
+}
+
+['input','change'].forEach(ev=>{$('#q').addEventListener(ev,render);$('#k1').addEventListener(ev,render);$('#b').addEventListener(ev,render);});
+render();
+</script>
+<a id="home-fab" href="./knowledge-map.html" style="position:fixed;right:16px;bottom:16px;z-index:9999;background:#245f73;color:#fff;text-decoration:none;font:600 13px/1 -apple-system,BlinkMacSystemFont,sans-serif;padding:10px 14px;border-radius:24px;box-shadow:0 2px 10px rgba(0,0,0,.18)">🏠 总览</a>
+</body>
+</html>

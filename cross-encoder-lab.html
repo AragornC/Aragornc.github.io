@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cross-Encoder 从头走一遍 · 真模型逐步白盒</title>
+<style>
+  :root{--bg:#fafaf7;--paper:#fff;--ink:#1a1a1a;--ink2:#4a4a4a;--muted:#8a8a8a;--line:#e8e6df;
+    --accent:#245f73;--good:#1f6f4f;--warn:#b84a36;--gold:#8a5d1f;--bi:#245f73;--cross:#b84a36;
+    --font:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    --mono:"SF Mono",ui-monospace,Menlo,monospace;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.65;font-size:15px}
+  .page{max-width:960px;margin:0 auto;padding:30px 20px 90px}
+  h1{font-size:23px;margin:0 0 4px}.sub{color:var(--muted);margin:0 0 10px}a{color:var(--accent)}
+  .reassure{background:#eef6f0;border:1px solid #cfe6d8;border-radius:10px;padding:11px 15px;font-size:13.5px;color:#1f6f4f;margin:12px 0}
+  .reassure b{color:#155}
+  .bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:10px 0}
+  button{font:inherit;font-weight:700;padding:7px 13px;border:1px solid var(--accent);border-radius:8px;background:var(--accent);color:#fff;cursor:pointer}button:disabled{opacity:.4}
+  button.ghost{background:#fff;color:var(--accent)}
+  input[type=text]{font:inherit;padding:8px 11px;border:1px solid var(--line);border-radius:7px;background:#fffdf8}
+  .inrow{display:flex;gap:8px;align-items:center;margin:6px 0}.inrow label{font-size:12px;color:var(--muted);min-width:38px}
+  .inrow input{flex:1}
+  .status{font-size:13px;color:var(--ink2)}
+  .step{margin-top:18px;background:var(--paper);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .step-h{padding:11px 16px;background:#f6f5ef;border-bottom:1px solid var(--line)}
+  .step-h h2{margin:0;font-size:15.5px}.step-h .q{margin-top:2px;font-size:12.5px;color:var(--ink2)}
+  .step-b{padding:14px 16px}
+  .tok{display:inline-block;font-family:var(--mono);font-size:12px;background:#eef4f5;color:var(--accent);border-radius:5px;padding:1px 6px;margin:2px}
+  .tok.special{background:#3a2730;color:#f3c9b8;font-weight:700}
+  .tok.q{background:#e7f0f2}.tok.d{background:#f7ece2;color:#7a4f12}
+  .seqbox{background:#1f2328;border-radius:8px;padding:10px 12px;margin-top:6px;line-height:2}
+  .seqbox .tok{background:#2a2f36;color:#cfd6dd}.seqbox .tok.special{background:#5a3a2a;color:#ffd2bb}
+  .seqbox .tok.q{color:#bcdce6}.seqbox .tok.d{color:#e9c39c}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media(max-width:720px){.two{grid-template-columns:1fr}}
+  .pane{border:1px solid var(--line);border-radius:10px;padding:11px 13px;background:#fff}
+  .pane.bi{border-top:3px solid var(--bi)}.pane.cr{border-top:3px solid var(--cross)}
+  .pane h3{margin:0 0 6px;font-size:14px}.pane.bi h3{color:var(--bi)}.pane.cr h3{color:var(--cross)}
+  .pane .d{font-size:12px;color:var(--ink2);line-height:1.5}
+  .big{font-family:var(--mono);font-weight:800;font-size:22px}
+  .bi .big{color:var(--bi)}.cr .big{color:var(--cross)}
+  .grid-wrap{overflow-x:auto;margin-top:8px}
+  table.att{border-collapse:collapse;font-size:11px}
+  table.att td,table.att th{border:1px solid #eee;padding:2px;text-align:center;min-width:22px;height:22px}
+  table.att th{background:#f3f2ec;font-family:var(--mono);font-weight:700;position:sticky}
+  table.att th.qh{color:var(--bi)}table.att th.dh{color:var(--gold)}
+  table.att td.cell{background:#e9f0f2;cursor:default}
+  table.att tr.hl td.cell{background:#f3d9a6}
+  table.att td.cell.hlcol{background:#f3d9a6}
+  .note{font-size:12.5px;color:var(--ink2);margin-top:14px;padding:11px 14px;background:#f4f6f7;border:1px solid #e2ebec;border-radius:8px}
+  .note b{color:var(--accent)}.warnote{background:#fbf7ee;border-color:#ecdfc7}.warnote b{color:#5e3f12}
+  .verdict{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:6px}
+  @media(max-width:720px){.verdict{grid-template-columns:1fr}}
+  .err{color:var(--warn);font-weight:700}
+  .presets{display:flex;gap:6px;flex-wrap:wrap;margin:4px 0 8px}
+  .presets button{font-size:12px;padding:5px 9px}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>Cross-Encoder 从头走一遍 · 真模型逐步白盒</h1>
+  <p class="sub">拿<b>一对</b> query/doc,一步步过 cross-encoder,看它和 bi-encoder 差在哪。token、分数都来自真模型(bge-reranker-base)。<a href="./rerank-lab.html">← 重排</a> · <a href="./">导航</a></p>
+
+  <div class="reassure">🔬 <b>底座复用,成品专门</b>:cross-encoder 和嵌入模型都是预训练 Transformer 编码器(这个 reranker 是 XLM-RoBERTa 底座),区别只在「拼一起喂 + 打分头 + 按相关性分类训练」。下面用一对真实例子把这套走一遍。</div>
+
+  <div class="bar"><button id="load">加载模型</button><span class="status" id="status">点按钮加载 bge(召回侧)+ bge-reranker(重排侧)。</span></div>
+
+  <div class="presets">
+    <span style="font-size:12px;color:#888;align-self:center">试试这几对(看 bi 和 cross 谁判得对):</span>
+    <button class="ghost" data-q="信用卡逾期了会怎么样" data-d="信用卡逾期会留下不良征信记录影响以后贷款">① 真相关</button>
+    <button class="ghost" data-q="信用卡逾期了会怎么样" data-d="信用卡怎么样才能快速提升额度">② 话题像但答非所问</button>
+    <button class="ghost" data-q="苹果续航怎么样" data-d="苹果富含维生素纤维适合每天吃一个">③ 一词多义(苹果)</button>
+  </div>
+  <div class="inrow"><label>query</label><input type="text" id="q" value="信用卡逾期了会怎么样"></div>
+  <div class="inrow"><label>doc</label><input type="text" id="d" value="信用卡逾期会留下不良征信记录影响以后贷款"></div>
+  <div class="bar"><button id="go" disabled>走一遍</button></div>
+
+  <!-- 1 两条路的输入差别 -->
+  <div class="step"><div class="step-h"><h2>第 1 步 · 输入的根本差别:分开喂 vs 拼一起喂</h2>
+    <div class="q">同一对 query/doc,两种模型"读"法不同。这一步决定了后面准不准。</div></div>
+    <div class="step-b">
+      <div class="two">
+        <div class="pane bi"><h3>Bi-Encoder:两段分开,各进各的</h3>
+          <div class="d">query 和 doc <b>各自</b>送进模型,互不相见:</div>
+          <div style="margin-top:6px"><span style="font-size:11px;color:#888">query →</span><div id="biq"></div></div>
+          <div style="margin-top:4px"><span style="font-size:11px;color:#888">doc →</span><div id="bid"></div></div>
+          <div class="d" style="margin-top:6px">各自压成一个向量,最后才比 cosine。</div>
+        </div>
+        <div class="pane cr"><h3>Cross-Encoder:拼成一条,一起进</h3>
+          <div class="d">真模型看到的<b>一整条</b>序列(<span class="tok special">特殊标记</span> <span class="tok q">query词</span> <span class="tok d">doc词</span>):</div>
+          <div class="seqbox" id="crseq"></div>
+          <div class="d" style="margin-top:6px">XLM-R 拼法:<span class="mono">&lt;s&gt; query &lt;/s&gt;&lt;/s&gt; doc &lt;/s&gt;</span>。注意中间是<b>两个 &lt;/s&gt;</b>(RoBERTa 系分隔两段的写法),全程<b>一条序列</b>。</div>
+        </div>
+      </div>
+    </div></div>
+
+  <!-- 2 注意力对视 -->
+  <div class="step"><div class="step-h"><h2>第 2 步 · "一起读"买到了什么:词与词的对视(注意力)</h2>
+    <div class="q">拼一起后,query 的每个词都能直接"看" doc 的每个词。鼠标悬停一个 query 词,看它能看到的 doc 词整行亮起。</div></div>
+    <div class="step-b">
+      <div class="grid-wrap" id="attWrap"></div>
+      <div class="note warnote">⚠️ <b>诚实说明</b>:这张格子画的是<b>注意力的"连接结构"</b>——每个 query 词都能看到每个 doc 词(全连接,这是 cross-encoder 的本事)。但<b>每个格子真实的权重数值是模型 12 层训练出来、藏在内部的,ONNX 导出版不吐出来</b>,所以这里<b>不显示真实数值,只显示"谁能看谁"</b>。Bi-encoder 这张图是<b>空的</b>:它俩从不在一起,没有跨段对视。</div>
+    </div></div>
+
+  <!-- 3 出口 -->
+  <div class="step"><div class="step-h"><h2>第 3 步 · 出口:bi 吐"方向接近度",cross 吐"相不相关的判断"</h2></div>
+    <div class="step-b">
+      <div class="verdict">
+        <div class="pane bi"><h3>Bi-Encoder 出口</h3>
+          <div class="d">两个向量的 cosine(0~1,方向多接近):</div>
+          <div class="big" id="biScore">—</div>
+          <div class="d">连续度量,不直接说"相不相关"。</div></div>
+        <div class="pane cr"><h3>Cross-Encoder 出口</h3>
+          <div class="d">打分头吐 1 个 logit → sigmoid → 相关概率:</div>
+          <div class="big" id="crScore">—</div>
+          <div class="d" id="crDetail"></div></div>
+      </div>
+      <div class="note" id="verdict"></div>
+    </div></div>
+
+  <div class="note">回到你的问题:<b>cross-encoder 不是新物种</b>。它和嵌入模型同底座(都是预训练 Transformer 编码器),只是<b>拼一起喂 + 顶上加打分头 + 用"相关/不相关"标签微调</b>。所以你用的是一个<b>专门的 reranker checkpoint</b>(单独下载),但它的"血统"是复用的通用编码器。</div>
+</div>
+
+<script type="module">
+import * as Dense from './src/dense.js?v=2';
+import { loadReranker, rerankScore, sigmoid, tokenizePair, tokenizeOne } from './src/rerank.js?v=2';
+const $=s=>document.querySelector(s);
+const status=$('#status');
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+let loaded=false;
+
+async function ensure(){
+  if(loaded)return;$('#load').disabled=true;
+  status.textContent='加载 bge…';
+  await Dense.loadModel(e=>{if(e&&e.status)status.textContent='bge:'+(e.file||e.status);});
+  status.textContent='加载 reranker(~280MB,首次稍久)…';
+  await loadReranker(e=>{if(e&&e.status)status.textContent='reranker:'+(e.file||e.status)+(e.progress?(' '+Math.round(e.progress)+'%'):'');});
+  loaded=true;$('#go').disabled=false;status.textContent='就绪 ✓ 点"走一遍"。';
+}
+
+function tokChip(t,cls){return `<span class="tok ${t.special?'special':cls}">${esc(t.text.trim()||t.text)}</span>`;}
+
+async function run(){
+  await ensure();const q=$('#q').value.trim(),d=$('#d').value.trim();if(!q||!d)return;
+  status.textContent='跑真模型中…';
+  // 真 token
+  const [qToks,dToks,pairToks]=await Promise.all([tokenizeOne(q),tokenizeOne(d),tokenizePair(q,d)]);
+  $('#biq').innerHTML=qToks.map(t=>tokChip(t,'q')).join('');
+  $('#bid').innerHTML=dToks.map(t=>tokChip(t,'d')).join('');
+  // 拼接序列:用 pair 的真实 token,按出现顺序;前半(到第一个doc词前)算query段
+  // 通过特殊标记定位:<s> ... </s></s> ... </s>  → 找第2个special(第一个</s>)和它后面
+  let segFlag='q';const seqHTML=pairToks.map((t,i)=>{
+    if(t.special) {return tokChip(t,'');}
+    return tokChip(t,segFlag);
+  });
+  // 切段:第一个special后是q,遇到连续</s>(中间双分隔)后切到d
+  let specialCount=0,seg='q';const seq2=pairToks.map(t=>{
+    if(t.special){specialCount++; if(specialCount>=2)seg='d'; return tokChip(t,'');}
+    return tokChip(t,seg);
+  });
+  $('#crseq').innerHTML=seq2.join('');
+  // 注意力格子:query真实词(去特殊+去掉SentencePiece空词边界符) × doc真实词
+  const real=t=>!t.special && t.text.replace(/[\s▁]/g,'')!=='';
+  const qw=qToks.filter(real), dw=dToks.filter(real);
+  renderAtt(qw,dw);
+  // bi cosine(真)
+  const [qv,dv]=await Promise.all([Dense.embedQuery(q),Dense.embed(d)]);
+  const cos=Dense.cosine(qv,dv);
+  $('#biScore').textContent=cos.toFixed(3);
+  // cross logit→prob(真)
+  const logit=await rerankScore(q,d);const prob=sigmoid(logit);
+  $('#crScore').textContent=(prob*100).toFixed(1)+'%';
+  $('#crDetail').innerHTML=`logit=${logit.toFixed(2)} → sigmoid → ${(prob*100).toFixed(1)}%。logit ${logit>0?'为正=判定相关':'为负=判定不相关'},绝对值越大越笃定。`;
+  // verdict
+  let v=`<b>这一对的判定</b>:bi-encoder 给 cosine <b>${cos.toFixed(3)}</b>,cross-encoder 给相关 <b>${(prob*100).toFixed(1)}%</b>。`;
+  if(prob<0.5 && cos>0.45){
+    v+=` 注意:bi 给的 cosine 不低(话题/字面像),但 cross 一起读后判定<b>不相关</b>——它发现 doc 并没真正回答 query。<b>这正是 cross-encoder 比 bi 准的地方:利用了词与词的具体对应,不被"话题沾边"骗。</b>`;
+  }else if(prob>=0.5 && cos>0.45){
+    v+=` 两者都判相关。对这种字面也对得上的"好球",bi 就够用了——所以 bi 当召回(快)、cross 只在召回后补刀(准)。`;
+  }else{
+    v+=` 两者判断一致。`;
+  }
+  $('#verdict').innerHTML=v;
+  status.textContent='完成 ✓';
+}
+
+function renderAtt(qw,dw){
+  // 行=query词,列=doc词;每格=该query词"看"该doc词
+  let h='<table class="att"><tr><th></th>'+dw.map(t=>`<th class="dh">${esc(t.text.trim()||t.text)}</th>`).join('')+'</tr>';
+  qw.forEach((qt,ri)=>{
+    h+=`<tr data-row="${ri}"><th class="qh">${esc(qt.text.trim()||qt.text)}</th>`+dw.map(()=>`<td class="cell"></td>`).join('')+'</tr>';
+  });
+  h+='</table>';
+  $('#attWrap').innerHTML=h;
+  const rows=[...$('#attWrap').querySelectorAll('tr[data-row]')];
+  rows.forEach(r=>{
+    r.querySelector('th').onmouseenter=()=>r.classList.add('hl');
+    r.querySelector('th').onmouseleave=()=>r.classList.remove('hl');
+    r.onmouseenter=()=>r.classList.add('hl');
+    r.onmouseleave=()=>r.classList.remove('hl');
+  });
+}
+
+$('#load').onclick=()=>ensure().catch(e=>{status.innerHTML='<span class="err">加载失败:'+esc(e.message||e)+'</span>';$('#load').disabled=false;});
+$('#go').onclick=()=>run().catch(e=>{status.innerHTML='<span class="err">出错:'+esc(e.message||e)+'</span>';});
+document.querySelectorAll('.presets button').forEach(b=>b.onclick=()=>{$('#q').value=b.dataset.q;$('#d').value=b.dataset.d;if(loaded)run();});
+</script>
+<a id="home-fab" href="./knowledge-map.html" style="position:fixed;right:16px;bottom:16px;z-index:9999;background:#245f73;color:#fff;text-decoration:none;font:600 13px/1 -apple-system,BlinkMacSystemFont,sans-serif;padding:10px 14px;border-radius:24px;box-shadow:0 2px 10px rgba(0,0,0,.18)">🏠 总览</a>
+</body>
+</html>

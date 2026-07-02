@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Milvus 深度白盒</title><style>
+:root{--bg:#fafaf7;--paper:#fff;--ink:#1a1a1a;--ink2:#4a4a4a;--muted:#8a8a8a;--line:#e8e6df;--accent:#245f73;--good:#1f6f4f;--warn:#b84a36;--gold:#8a5d1f;--font:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;--mono:"SF Mono",ui-monospace,Menlo,monospace}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.7;font-size:15px}
+.page{max-width:980px;margin:0 auto;padding:30px 22px 90px}
+h1{font-size:25px;margin:0 0 4px}.sub{color:var(--muted);margin:0 0 12px}a{color:var(--accent)}
+.stats{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}
+.stat{background:var(--paper);border:1px solid var(--line);border-radius:9px;padding:7px 11px;font-size:12.5px}
+.stat b{display:block;color:var(--muted);font-size:11px;font-weight:700;margin-bottom:2px}
+.seg{margin-top:20px;background:var(--paper);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.seg-h{padding:12px 18px;background:#f6f5ef;border-bottom:1px solid var(--line)}
+.seg-h h2{margin:0;font-size:17px}
+.seg-b{padding:16px 18px}
+p{margin:0 0 10px}
+.diagram{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:#f6f5ef;border-radius:10px;padding:14px;font-size:12.5px;justify-content:center}
+.box{background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:8px 12px;text-align:center;font-weight:600}
+.box .s{display:block;font-size:11px;color:var(--muted);font-weight:400}
+.arrow{color:var(--accent);font-weight:800;font-size:16px}
+.store{background:#1f2328;color:#e6e6df;border-radius:8px;padding:13px 15px;font-family:var(--mono);font-size:12.5px;white-space:pre-wrap;overflow-x:auto;line-height:1.6}
+.store .c{color:#8a8a8a}.store .k{color:#79c0e8}.store .s2{color:#b6d99a}.store .n{color:#e0a849}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media(max-width:680px){.two{grid-template-columns:1fr}}
+.pros,.cons{border-radius:10px;padding:12px 14px;font-size:13.5px}
+.pros{background:#eef6f0;border:1px solid #cfe6d8}.cons{background:#fbeeea;border:1px solid #ecd0c7}
+.pros h3{color:var(--good);margin:0 0 6px;font-size:14px}.cons h3{color:var(--warn);margin:0 0 6px;font-size:14px}
+ul{margin:6px 0;padding-left:20px}li{margin:3px 0}
+.when{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media(max-width:680px){.when{grid-template-columns:1fr}}
+.tldr{background:#eef6f0;border:1px solid #cfe6d8;border-radius:10px;padding:12px 15px;font-size:14px;color:#155;margin-top:18px}
+.note{font-size:12.5px;color:var(--ink2);margin-top:14px;padding:11px 14px;background:#f4f6f7;border:1px solid #e2ebec;border-radius:8px}
+</style></head>
+<body><div class="page">
+  <h1>Milvus · 向量库深度白盒</h1>
+  <p class="sub">为「海量向量 + 分布式扩展」而生的开源向量数据库,云原生、存算分离、生产级。<a href="./vectordb-lab.html">← 选型对比</a> · <a href="./">导航</a></p>
+
+  <div class="stats">
+    <div class="stat"><b>语言</b>核心 Go + C++(SDK:Python/Java/Go/Node)</div>
+    <div class="stat"><b>许可</b>Apache 2.0(LF AI &amp; Data 基金会)</div>
+    <div class="stat"><b>部署形态</b>嵌入式(Lite)/ 单机 / 分布式集群(K8s)</div>
+    <div class="stat"><b>适用规模</b>百万 → 数十亿向量</div>
+    <div class="stat"><b>元数据过滤</b>支持(标量字段 + 布尔表达式 expr)</div>
+    <div class="stat"><b>混合检索</b>支持(稠密向量 + BM25 全文 + 多路召回)</div>
+    <div class="stat"><b>托管版</b>有 — Zilliz Cloud(官方全托管)</div>
+    <div class="stat"><b>最适合</b>大规模、需要水平扩展的生产 RAG / 检索系统</div>
+  </div>
+
+  <div class="seg"><div class="seg-h"><h2>① 来源:谁、何时、为什么造它</h2></div><div class="seg-b">
+    <p><b>谁做的:</b>由 <b>Zilliz(中文常称「星智云」/上海赜睿)</b> 这家公司发起并主导开发,创始团队从 2017 年左右开始做这件事。后来 Milvus 捐给了 <b>Linux 基金会下属的 LF AI &amp; Data 基金会</b>(大致 2020 年成为孵化项目,2021 年毕业),变成一个有中立基金会托管的开源项目,而不是某家公司私有。</p>
+    <p><b>什么时候开源:</b>第一个开源版本大约在 <b>2019 年</b>放出。后来经历过一次大重写:早期是单机为主,从 <b>2.0 版本</b>起改成了现在这套「云原生、存算分离」的分布式架构。</p>
+    <p><b>为什么造它(解决什么痛点):</b>传统数据库(MySQL/PostgreSQL)擅长「精确查找」——你给一个 ID,它返回这一行。但 AI 时代的需求变了:你有一张图片/一段文字,想找「跟它最像的」内容。这些内容被模型转成几百上千维的<b>向量(embedding)</b>,要在<b>上亿条向量里</b>快速找到「最相似的 Top-K」。普通数据库做不了这种「相似度搜索」,自己写又难以扩展到几十亿规模。Milvus 就是专门解决「<b>海量向量的近似最近邻(ANN)搜索 + 能像数据库一样水平扩展、做过滤、保证一致性</b>」这个痛点的。</p>
+    <p><b>用什么语言写的:</b>系统主体(协调、调度、节点)用 <b>Go</b> 写,最吃性能的向量计算和索引引擎(底层叫 Knowhere)用 <b>C++</b>。你写代码时用的是 <b>Python SDK(pymilvus)</b>,还有 Java / Go / Node.js 等官方客户端。</p>
+    <p><b>开源协议:</b><b>Apache License 2.0</b>,非常宽松,商用免费、可改可分发。</p>
+    <p><b>背后的公司 / 社区:</b>商业公司是 <b>Zilliz</b>,它提供官方全托管云服务 <b>Zilliz Cloud</b>(跑在 AWS/GCP/Azure 上,省去你自己运维集群)。开源项目本身归基金会,社区活跃、GitHub 星标很高,是目前最主流的开源向量数据库之一。</p>
+  </div></div>
+
+  <div class="seg"><div class="seg-h"><h2>② 原理 + 架构</h2></div><div class="seg-b">
+    <div class="diagram">
+      <div class="box">客户端<span class="s">pymilvus / SDK</span></div>
+      <span class="arrow">→</span>
+      <div class="box">接入层 Proxy<span class="s">校验/路由/汇总结果</span></div>
+      <span class="arrow">→</span>
+      <div class="box">协调层 Coordinator<span class="s">调度/建索引指挥/一致性</span></div>
+      <span class="arrow">→</span>
+      <div class="box">工作节点<span class="s">Query/Data/Index Node</span></div>
+      <span class="arrow">→</span>
+      <div class="box">存储层<span class="s">etcd · 对象存储 · 消息队列</span></div>
+    </div>
+    <p style="margin-top:12px"><b>读懂这张图(从左到右):</b></p>
+    <p><b>1. 接入层(Proxy 代理):</b>无状态的「前台」。你的请求先到这里,它负责校验、做负载均衡、把请求分发下去,最后把各节点返回的结果<b>汇总排序</b>再给你。</p>
+    <p><b>2. 协调层(Coordinator,Milvus 的「大脑」):</b>管整个集群——谁存哪块数据、什么时候该建索引、什么时候该把数据压实(compaction)、保证集群一致性。它只指挥,不亲自干活。</p>
+    <p><b>3. 工作节点(真正干活的,无状态、可随便加机器):</b><br>
+    · <b>Query Node(查询节点)</b>:从对象存储把数据和索引加载进内存,执行相似度搜索。<br>
+    · <b>Data Node / Streaming Node(数据节点)</b>:接收新写入的数据,把内存里「还在长大的」数据落成固定的数据块。<br>
+    · <b>Index Node(索引节点)</b>:在后台为数据块构建 ANN 索引,建好后存回对象存储。</p>
+    <p><b>4. 存储层(数据真正落在哪,存算分离的关键):</b><br>
+    · <b>etcd</b>:存「元数据」——集合的 schema、各种位点/检查点,要求强一致、高可用,也用来做服务注册和健康检查。<br>
+    · <b>对象存储(MinIO / S3 / Azure Blob / GCS)</b>:存真正的大头——向量数据快照、标量数据、各种索引文件。便宜、可无限扩。<br>
+    · <b>消息队列 / WAL(Pulsar / Kafka,新版还有自研 Woodpecker)</b>:所有写入先进这条「日志流」,保证写入持久、可回放、可恢复,也实现了「写入后很快就能查到」的实时性。</p>
+    <p><b>底层用什么 ANN:</b>Milvus 不绑死一种算法,而是支持<b>一大堆索引</b>让你按「速度 vs 精度 vs 内存」权衡。CPU 内存类:<b>FLAT(暴力精确)、IVF_FLAT / IVF_SQ8 / IVF_PQ(倒排聚类,省内存)、HNSW 及其量化变体 HNSW_SQ / HNSW_PQ(图索引,查询快、最常用)、SCANN</b>;磁盘类:<b>DiskANN</b>(数据放 SSD,内存放不下也能搜上亿向量);还有 <b>GPU 索引</b>。简单理解:数据量小用 HNSW 求快,内存紧用 IVF_PQ 压缩,数据超大放不进内存就上 DiskANN。</p>
+    <p><b>查询是怎么走的(一句话串起来):</b>请求 → Proxy 分发 → 各 Query Node 在自己负责的数据块上,用建好的 ANN 索引各算各的 Top-K,同时按你的标量过滤条件(expr)筛掉不符合的 → 结果回 Proxy 做<b>全局归并排序</b> → 返回最终 Top-K。</p>
+  </div></div>
+
+  <div class="seg"><div class="seg-h"><h2>③ 存入的数据长什么样(真实代码白盒)</h2></div><div class="seg-b">
+    <div class="store"><span class="c"># 安装: pip install pymilvus   (本地零依赖可用 Milvus Lite,生产用单机/集群)</span>
+<span class="k">from</span> pymilvus <span class="k">import</span> (
+    MilvusClient, FieldSchema, CollectionSchema, DataType,
+)
+
+<span class="c"># 1) 连接。 给一个本地文件名 => 用嵌入式 Milvus Lite;</span>
+<span class="c">#    生产则填 uri=<span class="s2">"http://localhost:19530"</span> 连单机/集群</span>
+client = MilvusClient(uri=<span class="s2">"./milvus_demo.db"</span>)
+
+<span class="c"># 2) 定义“表结构”(Schema):一个集合 = 一张表</span>
+fields = [
+    <span class="c"># 主键: 64 位整数, 自动生成</span>
+    FieldSchema(name=<span class="s2">"id"</span>, dtype=DataType.INT64, is_primary=<span class="k">True</span>, auto_id=<span class="k">True</span>),
+    <span class="c"># 向量字段: 768 维浮点向量(比如 BERT/bge 的 embedding 输出)</span>
+    FieldSchema(name=<span class="s2">"embedding"</span>, dtype=DataType.FLOAT_VECTOR, dim=<span class="n">768</span>),
+    <span class="c"># 标量字段: 用来做元数据过滤</span>
+    FieldSchema(name=<span class="s2">"category"</span>, dtype=DataType.VARCHAR, max_length=<span class="n">64</span>),
+    FieldSchema(name=<span class="s2">"price"</span>,    dtype=DataType.INT64),
+]
+schema = CollectionSchema(fields, description=<span class="s2">"商品向量库 demo"</span>)
+
+<span class="c"># 3) 建集合</span>
+client.create_collection(collection_name=<span class="s2">"products"</span>, schema=schema)
+
+<span class="c"># 4) 为向量字段建索引(决定搜索快不快/准不准)</span>
+index_params = client.prepare_index_params()
+index_params.add_index(
+    field_name=<span class="s2">"embedding"</span>,
+    index_type=<span class="s2">"HNSW"</span>,          <span class="c"># 也可换 IVF_FLAT / DiskANN</span>
+    metric_type=<span class="s2">"COSINE"</span>,        <span class="c"># 相似度度量: COSINE / L2 / IP</span>
+    params={<span class="s2">"M"</span>: <span class="n">16</span>, <span class="s2">"efConstruction"</span>: <span class="n">200</span>},  <span class="c"># HNSW 图的关键参数</span>
+)
+<span class="c"># 若用 IVF_FLAT 则是: index_type=<span class="s2">"IVF_FLAT"</span>, params={<span class="s2">"nlist"</span>: <span class="n">1024</span>}</span>
+client.create_index(collection_name=<span class="s2">"products"</span>, index_params=index_params)
+
+<span class="c"># 5) 插入实体数据(向量 + 元数据一起写)</span>
+rows = [
+    {<span class="s2">"embedding"</span>: [<span class="n">0.12</span>] * <span class="n">768</span>, <span class="s2">"category"</span>: <span class="s2">"鞋"</span>,  <span class="s2">"price"</span>: <span class="n">299</span>},
+    {<span class="s2">"embedding"</span>: [<span class="n">0.34</span>] * <span class="n">768</span>, <span class="s2">"category"</span>: <span class="s2">"包"</span>,  <span class="s2">"price"</span>: <span class="n">899</span>},
+    {<span class="s2">"embedding"</span>: [<span class="n">0.56</span>] * <span class="n">768</span>, <span class="s2">"category"</span>: <span class="s2">"鞋"</span>,  <span class="s2">"price"</span>: <span class="n">1299</span>},
+]
+client.insert(collection_name=<span class="s2">"products"</span>, data=rows)
+
+<span class="c"># 6) load: 把集合加载进内存才能搜(集群里就是分发到 Query Node)</span>
+client.load_collection(collection_name=<span class="s2">"products"</span>)
+
+<span class="c"># 7) 搜索: 带标量过滤(expr)——只在“鞋且价格<1000”里找最相似的 2 条</span>
+results = client.search(
+    collection_name=<span class="s2">"products"</span>,
+    data=[[<span class="n">0.2</span>] * <span class="n">768</span>],                 <span class="c"># 查询向量</span>
+    limit=<span class="n">2</span>,                              <span class="c"># Top-K</span>
+    filter=<span class="s2">'category == "鞋" and price < 1000'</span>,  <span class="c"># 元数据过滤表达式</span>
+    output_fields=[<span class="s2">"category"</span>, <span class="s2">"price"</span>],   <span class="c"># 返回哪些标量字段</span>
+    search_params={<span class="s2">"params"</span>: {<span class="s2">"ef"</span>: <span class="n">64</span>}},   <span class="c"># HNSW 查询期参数: ef 越大越准越慢</span>
+)
+<span class="k">print</span>(results)</div>
+    <p style="margin-top:12px"><b>它在磁盘 / 内存里大概怎么落地:</b>Milvus 把每个集合的数据切成一块块 <b>segment(数据段)</b>;新写入先进消息队列、在内存里形成「growing segment」,攒够后<b>封存(sealed)</b>并落到<b>对象存储(MinIO/S3)</b>,索引节点再为它单独建好 ANN 索引也存回对象存储——<b>向量、标量、索引是分开存的文件</b>;集合的 schema 等元数据放在 <b>etcd</b>。查询时,Query Node 把需要的 segment 和索引从对象存储<b>加载进内存</b>(所以要先 load),在内存里跑搜索。这套「计算节点无状态 + 数据在对象存储」的设计,就是它能水平扩到几十亿向量的根本原因。</p>
+  </div></div>
+
+  <div class="seg"><div class="seg-h"><h2>④ 优势 / 劣势</h2></div><div class="seg-b"><div class="two">
+    <div class="pros"><h3>✓ 优势</h3><ul>
+      <li><b>真能扩到几十亿向量</b>:存算分离 + 计算节点无状态,加机器就能扛更大数据量和并发,这是它相对轻量库最大的护城河。</li>
+      <li><b>索引选择最丰富</b>:HNSW / IVF 系列 / DiskANN / GPU 索引全有,能按「速度-精度-内存-成本」精细权衡,别的库往往只给一两种。</li>
+      <li><b>功能完整且生产级</b>:标量过滤、混合检索(稠密向量 + BM25 全文)、多路召回、分区、RBAC、多租户,该有的都有。</li>
+      <li><b>部署弹性大</b>:从嵌入式 Milvus Lite(一个 pip 包)到单机 Docker,再到 K8s 分布式集群,同一套 API 平滑长大。</li>
+      <li><b>生态成熟</b>:LangChain / LlamaIndex / Dify 等几乎都原生支持,文档全、社区大、有官方托管云 Zilliz Cloud 兜底。</li>
+    </ul></div>
+    <div class="cons"><h3>✗ 劣势</h3><ul>
+      <li><b>分布式版运维重</b>:完整集群涉及 etcd、对象存储、消息队列等多个依赖组件,自建和调优门槛高,小团队容易被运维拖垮。</li>
+      <li><b>架构概念多、学习曲线陡</b>:segment、load、coordinator、各类节点……比「一个进程搞定」的轻量库(如 Chroma)难懂得多。</li>
+      <li><b>必须先 load 再查</b>:数据要加载进内存才可搜,内存是主要成本和容量瓶颈(放不下才上 DiskANN,但会更慢)。</li>
+      <li><b>小数据量是「杀鸡用牛刀」</b>:几万到几十万向量场景,它的分布式优势用不上,反而徒增复杂度。</li>
+      <li><b>资源占用偏高</b>:即便单机版,内存/CPU 开销也明显高于嵌入式方案,不适合极端轻量或边缘部署。</li>
+    </ul></div>
+  </div></div></div>
+
+  <div class="seg"><div class="seg-h"><h2>⑤ 什么时候选 / 什么时候别选</h2></div><div class="seg-b"><div class="when">
+    <div class="pros"><h3>✓ 适合</h3><ul>
+      <li>向量规模<b>千万到几十亿</b>,需要水平扩展和高并发的生产系统。</li>
+      <li>要求<b>高级检索能力</b>:复杂标量过滤、稠密+全文混合检索、多路召回、分区。</li>
+      <li>团队<b>有运维能力</b>(或愿意用 Zilliz Cloud 托管),想要长期可演进的基础设施。</li>
+      <li>需要<b>多种索引按场景调优</b>(用 DiskANN 装下超大数据、用 GPU 加速等)。</li>
+      <li>企业级需求:<b>RBAC 权限、多租户、高可用</b>。</li>
+    </ul></div>
+    <div class="cons"><h3>✗ 别用</h3><ul>
+      <li>只有<b>几万到几十万</b>向量的小项目或 Demo——Chroma / pgvector 更省事。</li>
+      <li>已经在用 Postgres 且数据量不大,只想加点向量能力——直接上 <b>pgvector</b> 别引入新系统。</li>
+      <li>团队<b>没人能运维分布式系统</b>,又不想花钱用托管云。</li>
+      <li>要嵌入到客户端 / 边缘设备、追求<b>极致轻量零依赖</b>(虽有 Lite,但定位仍偏服务端)。</li>
+      <li>需求只是「临时跑个原型」,几天就丢——为它搭一套架构不划算。</li>
+    </ul></div>
+  </div></div></div>
+
+  <div class="tldr"><b>一句话:</b>Milvus 是为「<b>海量向量 + 水平扩展 + 生产级功能</b>」而生的开源向量数据库——数据量大、要高并发、要丰富索引和混合检索时它最强;但分布式运维偏重、概念多,小项目用它属于杀鸡用牛刀(那种场景选 Chroma / pgvector,嫌运维麻烦就直接上官方托管 Zilliz Cloud)。</div>
+
+  <div class="note">说明:本页关键事实(创建方 Zilliz、Apache 2.0 协议、LF AI &amp; Data 基金会托管、2.0 起的云原生存算分离架构、HNSW/IVF/DiskANN/GPU 索引、Milvus 2.5 的 BM25 全文与混合检索、Zilliz Cloud 托管)均来自官方文档与博客核实;部分早期年份用「约/大致」表述,以官方为准。</div>
+
+</div><a id="home-fab" href="./knowledge-map.html" style="position:fixed;right:16px;bottom:16px;z-index:9999;background:#245f73;color:#fff;text-decoration:none;font:600 13px/1 -apple-system,BlinkMacSystemFont,sans-serif;padding:10px 14px;border-radius:24px;box-shadow:0 2px 10px rgba(0,0,0,.18)">🏠 总览</a>
+</body></html>

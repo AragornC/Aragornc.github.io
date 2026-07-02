@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RAGAS Context Recall 从头白盒 · 不给相关清单怎么算召回</title>
+<style>
+  :root{--bg:#fafaf7;--paper:#fff;--ink:#1a1a1a;--ink2:#4a4a4a;--muted:#8a8a8a;--line:#e8e6df;
+    --accent:#245f73;--good:#1f6f4f;--warn:#b84a36;--gold:#8a5d1f;
+    --font:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    --mono:"SF Mono",ui-monospace,Menlo,monospace;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.7;font-size:15px}
+  .page{max-width:960px;margin:0 auto;padding:30px 20px 90px}
+  h1{font-size:22px;margin:0 0 4px}.sub{color:var(--muted);margin:0 0 10px}a{color:var(--accent)}
+  .key{background:#eef6f0;border:1px solid #cfe6d8;border-radius:10px;padding:12px 15px;font-size:13.5px;color:#155;margin:12px 0}
+  .key b{color:#0a4}
+  .bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:10px 0}
+  button{font:inherit;font-weight:700;padding:8px 13px;border:1px solid var(--accent);border-radius:8px;background:var(--accent);color:#fff;cursor:pointer}button:disabled{opacity:.4}
+  button.ghost{background:#fff;color:var(--accent);font-size:12px;padding:5px 9px}
+  .status{font-size:13px;color:var(--ink2)}
+  .step{margin-top:16px;background:var(--paper);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .step-h{padding:11px 16px;background:#f6f5ef;border-bottom:1px solid var(--line)}
+  .step-h h2{margin:0;font-size:15.5px}.step-h .q{margin-top:2px;font-size:12.5px;color:var(--ink2)}
+  .step-b{padding:14px 16px}
+  .qa{font-size:14px;margin:4px 0}.qa .lab{font-size:11px;font-weight:800;color:var(--muted)}
+  .ref{background:#fbf7ee;border:1px solid #ecdfc7;border-radius:8px;padding:9px 12px;font-size:13.5px;margin-top:4px}
+  .claim{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:9px;padding:9px 12px;margin:7px 0;background:#fff}
+  .claim .ci{font-family:var(--mono);font-weight:800;color:var(--accent);min-width:26px}
+  .claim .ct{flex:1;font-size:13.5px}
+  .claim .verdict{font-weight:800;font-size:13px;min-width:64px;text-align:right}
+  .claim.sup{background:#eef6f0;border-color:#9ad0b0}.claim.sup .verdict{color:var(--good)}
+  .claim.unsup{background:#faf0ec;border-color:#e3b6a6}.claim.unsup .verdict{color:var(--warn)}
+  .claim .why{font-size:11.5px;color:var(--muted);margin-top:3px}
+  .ctx{display:flex;gap:10px;align-items:center;border:1px solid var(--line);border-radius:9px;padding:8px 12px;margin:6px 0;background:#fff;cursor:pointer;user-select:none}
+  .ctx .tog{font-weight:800;font-size:13px;min-width:46px}
+  .ctx.on{background:#eef4f5;border-color:#cfe0e4}.ctx.on .tog{color:var(--accent)}
+  .ctx.off{opacity:.5}.ctx.off .tog{color:var(--muted)}
+  .ctx .cx{flex:1;font-size:13px}
+  .score{font-family:var(--mono);font-weight:800;font-size:26px;color:var(--good)}
+  .formula{font-family:var(--mono);font-size:13px;background:#1f2328;color:#e6e6df;padding:11px 14px;border-radius:8px;margin:8px 0;line-height:1.7}
+  .formula .hl{color:#e0a849}.formula .hl2{color:#79c0e8}.formula .hl3{color:#b6d99a}
+  .note{font-size:12.5px;color:var(--ink2);margin-top:14px;padding:11px 14px;background:#f4f6f7;border:1px solid #e2ebec;border-radius:8px}
+  .note b{color:var(--accent)}.warn{background:#fbf7ee;border-color:#ecdfc7}.warn b{color:#5e3f12}
+  .err{color:var(--warn);font-weight:700}
+  .llmout{font-family:var(--mono);font-size:11.5px;color:#555;background:#f6f5ef;border-radius:6px;padding:6px 9px;margin-top:6px;white-space:pre-wrap;display:none}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>RAGAS Context Recall 从头白盒</h1>
+  <p class="sub">回答那个死结:<b>不给"库里哪些相关"的清单,RAGAS 怎么算出召回?</b> 本地真跑 Qwen 当裁判,一步步给你看。<a href="./rag-eval-lab.html">← 评测体系</a> · <a href="./">导航</a></p>
+
+  <div class="key">🔑 <b>核心诀窍(先记住再看):</b> RAGAS 的 LLM 版 Context Recall <b>根本不数"库里有几个相关 chunk"</b>。它把<b>标准答案拆成几个事实点(claim)</b>,逐条问"检索回来的内容支不支撑这条",最后 <b>= 被支撑的 claim 数 / 答案的 claim 总数</b>。<b>分母是"答案有几个事实点",不是"库里有几个相关数据"</b> —— 所以你压根不用给那 10 个。</div>
+
+  <div class="bar"><button id="load">加载本地裁判 LLM(Qwen2.5-0.5B)</button><span class="status" id="status">点加载;之后点"开跑"让裁判逐条判定。</span></div>
+
+  <!-- 输入 -->
+  <div class="step"><div class="step-h"><h2>① 你要准备的(只有三样,没有"相关清单")</h2>
+    <div class="q">注意:全程<b>不需要</b>"库里哪些 chunk 相关"。只要问题 + 标准答案 + 你检索回来的内容。</div></div>
+    <div class="step-b">
+      <div class="qa"><span class="lab">问题 question</span><div id="qShow"></div></div>
+      <div class="qa"><span class="lab">标准答案 reference(人工写好的理想答案)</span><div class="ref" id="refShow"></div></div>
+    </div></div>
+
+  <!-- 拆 claim -->
+  <div class="step"><div class="step-h"><h2>② 把标准答案拆成事实点(claim)→ 这就是分母</h2>
+    <div class="q">RAGAS 用 LLM 自动拆;这里为演示清楚先拆好 3 条。点按钮可让本地 LLM 现场拆一遍给你看。</div></div>
+    <div class="step-b">
+      <div id="claimList"></div>
+      <div class="bar"><button class="ghost" id="decompose">▷ 让本地 LLM 现场拆这答案看看</button></div>
+      <div class="llmout" id="decompOut"></div>
+      <div class="note">分母 = 这里 claim 的条数 = <b id="denom">3</b>。<b>看清楚:这个数来自"标准答案",跟向量库里存了多少相关 chunk 毫无关系。</b></div>
+    </div></div>
+
+  <!-- 检索内容(可toggle) -->
+  <div class="step"><div class="step-h"><h2>③ 你检索器实际捞回来的内容(点击可开关,模拟"召回到没")</h2>
+    <div class="q">把某条关掉 = 模拟检索时漏掉了它。看 recall 怎么变。</div></div>
+    <div class="step-b"><div id="ctxList"></div></div></div>
+
+  <!-- 判定 -->
+  <div class="step"><div class="step-h"><h2>④ 裁判逐条判:每个 claim,能被"开着的检索内容"支撑吗?</h2></div>
+    <div class="step-b">
+      <div class="bar"><button id="go" disabled>开跑(裁判逐条判定)</button><span class="status" id="goSt"></span></div>
+      <div id="judgeList"></div>
+    </div></div>
+
+  <!-- 结果 -->
+  <div class="step"><div class="step-h"><h2>⑤ Context Recall = 被支撑的 claim 数 / 总 claim 数</h2></div>
+    <div class="step-b">
+      <div class="formula" id="calc">等裁判判定后出结果…</div>
+      <div style="text-align:center;margin:6px 0">Context Recall = <span class="score" id="score">—</span></div>
+      <div class="note" id="insight"></div>
+    </div></div>
+
+  <div class="note warn">⚠️ <b>这版量的是"答案覆盖度",不是经典检索 recall</b>:它问"答案需要的信息凑齐没",分母是答案的事实点;经典 recall 问"库里全部相关捞全没",分母才是你说的那 10 个(那种得用 RAGAS 的 NonLLM/ID 版,并给"相关 chunk/ID 清单")。两者都叫 recall,量的不是一回事——这正是 RAGAS 用前者绕开"必须知道全库相关"的办法。</div>
+</div>
+
+<script type="module">
+const $=s=>document.querySelector(s);
+const status=$('#status');
+const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+let LLM=null;
+
+const QUESTION='明远科技的年假和病假政策分别是怎样的?';
+const REFERENCE='明远科技正式员工每年有15天带薪年假;病假需要在OA系统提前申请,并在三个工作日内补交医院证明。';
+// 标准答案拆出的事实点(分母来自这里,与"库里相关数"无关)
+let CLAIMS=[
+  '明远科技正式员工每年有15天带薪年假',
+  '病假需要在OA系统提前申请',
+  '病假需在三个工作日内补交医院证明',
+];
+// 检索器实际捞回来的内容(可开关)
+const CTX=[
+  {id:'r1', text:'明远科技正式员工每年享有15天带薪年假。', on:true},
+  {id:'r2', text:'病假需提前在OA系统提交申请,并在三个工作日内补交医院证明。', on:true},
+  {id:'r3', text:'公司实行每周五天工作制,标准工时为每天8小时。', on:true},
+  {id:'r4', text:'2024年公司营收同比增长18%,主要来自云计算业务。', on:true},
+];
+let verdicts=null; // 每个claim: true/false/null
+
+function renderStatic(){
+  $('#qShow').textContent=QUESTION;
+  $('#refShow').textContent=REFERENCE;
+  renderClaims();renderCtx();$('#denom').textContent=CLAIMS.length;
+}
+function renderClaims(){
+  $('#claimList').innerHTML=CLAIMS.map((c,i)=>`<div class="claim" id="cl${i}"><span class="ci">P${i+1}</span><div class="ct">${esc(c)}</div><span class="verdict" id="v${i}"></span></div>`).join('');
+}
+function renderCtx(){
+  $('#ctxList').innerHTML=CTX.map((c,i)=>`<div class="ctx ${c.on?'on':'off'}" data-i="${i}"><span class="tog">${c.on?'✓召回':'✗漏掉'}</span><span class="cx"><b class="mono">${c.id}</b> ${esc(c.text)}</span></div>`).join('');
+  $('#ctxList').querySelectorAll('.ctx').forEach(el=>el.onclick=()=>{const i=+el.dataset.i;CTX[i].on=!CTX[i].on;renderCtx();clearVerdicts();});
+}
+function clearVerdicts(){verdicts=null;CLAIMS.forEach((_,i)=>{const cl=$('#cl'+i);if(cl){cl.className='claim';$('#v'+i).textContent='';const w=cl.querySelector('.why');if(w)w.remove();}});$('#calc').textContent='检索内容变了,重新点"开跑"判定…';$('#score').textContent='—';$('#insight').innerHTML='';}
+
+async function ensureLLM(){
+  if(LLM)return LLM;$('#load').disabled=true;status.textContent='加载 Qwen2.5-0.5B…';
+  try{const m=await import('./src/generate.js?v=1');await m.loadLLM(e=>{if(e&&e.status)status.textContent='加载:'+(e.file||e.status)+(e.progress?(' '+Math.round(e.progress)+'%'):'');});
+    LLM=m;status.textContent='裁判就绪 ✓ 点"开跑"。';$('#go').disabled=false;$('#decompose').disabled=false;
+  }catch(e){status.innerHTML='<span class="err">加载失败:'+esc(e.message||e)+'</span>';$('#load').disabled=false;throw e;}
+  return LLM;
+}
+
+// 裁判:给定开着的检索内容,判断一个claim能否被支撑
+async function judge(claim, ctxText){
+  const sys='你是严格的事实核查员。只根据【参考资料】判断【陈述】能否被支撑。能支撑就回答"是",不能就回答"否"。只输出一个字。';
+  const user=`【参考资料】\n${ctxText}\n\n【陈述】${claim}\n\n这条陈述能从参考资料中得到支撑吗?只回答 是 或 否。`;
+  const out=await LLM.generate(sys,user,{max_new_tokens:6});
+  const t=(out||'').trim();
+  // 解析:取首个 是/否
+  const yes=t.indexOf('是'), no=t.indexOf('否');
+  if(yes>=0 && (no<0 || yes<no)) return {ok:true, raw:t};
+  if(no>=0) return {ok:false, raw:t};
+  return {ok:false, raw:t+' (未明确→按否)'};
+}
+
+async function run(){
+  await ensureLLM();const q=$('#go');q.disabled=true;
+  const onCtx=CTX.filter(c=>c.on);
+  const ctxText=onCtx.map(c=>c.text).join('\n')||'(无检索内容)';
+  verdicts=[];
+  for(let i=0;i<CLAIMS.length;i++){
+    $('#goSt').textContent=`裁判判定中… ${i+1}/${CLAIMS.length}`;
+    const cl=$('#cl'+i);cl.className='claim';$('#v'+i).textContent='…';
+    const r=await judge(CLAIMS[i], ctxText);
+    verdicts.push(r.ok);
+    cl.className='claim '+(r.ok?'sup':'unsup');
+    $('#v'+i).textContent=r.ok?'✓ 被支撑':'✗ 没支撑';
+    const old=cl.querySelector('.why');if(old)old.remove();
+    cl.querySelector('.ct').insertAdjacentHTML('beforeend',`<div class="why">裁判原始输出:"${esc(r.raw)}"</div>`);
+  }
+  $('#goSt').textContent='完成 ✓';
+  const sup=verdicts.filter(Boolean).length, tot=CLAIMS.length;
+  $('#calc').innerHTML=`Context Recall = <span class="hl3">被支撑的 claim 数</span> / <span class="hl">总 claim 数</span> = <span class="hl3">${sup}</span> / <span class="hl">${tot}</span> = <b>${(sup/tot).toFixed(3)}</b>`;
+  $('#score').textContent=(sup/tot).toFixed(3);
+  $('#score').style.color = sup===tot?'var(--good)':(sup===0?'var(--warn)':'var(--gold)');
+  const onIds=onCtx.map(c=>c.id).join('、')||'无';
+  $('#insight').innerHTML=`<b>读法</b>:当前召回内容=[${onIds}]。答案的 ${tot} 个事实点里有 ${sup} 个能被这些内容支撑。<b>分母始终是 ${tot}(答案的事实点),永远没用到"库里有多少相关"。</b> 试着把支撑某条 claim 的检索内容关掉(比如 r2),那条 claim 立刻变"没支撑",recall 掉下来——这就是它在度量"该捞的信息捞回来没"。`;
+}
+
+async function decompose(){
+  await ensureLLM();$('#decompose').disabled=true;
+  const out=$('#decompOut');out.style.display='block';out.textContent='让 LLM 拆 claim 中…';
+  try{
+    const o=await LLM.generate('你是信息抽取助手。把给定答案拆成几条独立的、原子的事实点,每条一行,用「- 」开头,不要多余解释。',`答案:${REFERENCE}\n\n请拆成事实点:`,{max_new_tokens:120});
+    out.textContent='LLM 拆出来的(仅供你对照,计算仍用上面 3 条固定 claim):\n'+o;
+  }catch(e){out.textContent='拆解出错:'+(e.message||e);}
+  $('#decompose').disabled=false;
+}
+
+$('#load').onclick=()=>ensureLLM().catch(()=>{});
+$('#go').onclick=()=>run().catch(e=>{$('#goSt').innerHTML='<span class="err">出错:'+esc(e.message||e)+'</span>';});
+$('#decompose').onclick=()=>decompose().catch(()=>{});
+renderStatic();
+</script>
+<a id="home-fab" href="./knowledge-map.html" style="position:fixed;right:16px;bottom:16px;z-index:9999;background:#245f73;color:#fff;text-decoration:none;font:600 13px/1 -apple-system,BlinkMacSystemFont,sans-serif;padding:10px 14px;border-radius:24px;box-shadow:0 2px 10px rgba(0,0,0,.18)">🏠 总览</a>
+</body>
+</html>
