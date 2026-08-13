@@ -1,0 +1,2017 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>从零拆开 DeepSeek Harness：Cordis 内核与整机架构</title>
+  <style>
+    :root {
+      --paper: #f7f3ea;
+      --paper-2: #fffdf8;
+      --ink: #17201d;
+      --muted: #66706b;
+      --line: #d9d7cd;
+      --green: #146c57;
+      --green-2: #dff2e8;
+      --green-3: #0f4d40;
+      --orange: #e06d38;
+      --orange-2: #fff0e5;
+      --blue: #3366cc;
+      --blue-2: #e8efff;
+      --purple: #7353a6;
+      --purple-2: #f1eafa;
+      --red: #b84040;
+      --red-2: #fdeaea;
+      --shadow: 0 14px 40px rgba(23, 32, 29, .08);
+      --radius: 18px;
+      --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      --sans: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; scroll-padding-top: 28px; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 92% 2%, rgba(224,109,56,.12), transparent 23rem),
+        linear-gradient(90deg, rgba(20,108,87,.035) 1px, transparent 1px),
+        linear-gradient(rgba(20,108,87,.035) 1px, transparent 1px),
+        var(--paper);
+      background-size: auto, 24px 24px, 24px 24px, auto;
+      font-family: var(--sans);
+      line-height: 1.72;
+    }
+    button, select, input { font: inherit; }
+    button { color: inherit; }
+    a { color: var(--green); text-underline-offset: 3px; }
+    code, pre { font-family: var(--mono); }
+    code {
+      padding: .12em .38em;
+      border: 1px solid rgba(20,108,87,.14);
+      border-radius: 6px;
+      background: rgba(20,108,87,.07);
+      font-size: .9em;
+    }
+    pre {
+      overflow: auto;
+      margin: 1rem 0 0;
+      padding: 1.1rem 1.2rem;
+      color: #eef7f2;
+      background: #172823;
+      border-radius: 14px;
+      line-height: 1.6;
+      font-size: .84rem;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.06);
+    }
+    pre code { padding: 0; border: 0; background: none; color: inherit; }
+    .progress {
+      position: fixed;
+      inset: 0 0 auto;
+      z-index: 50;
+      height: 4px;
+      background: rgba(20,108,87,.1);
+    }
+    .progress > span {
+      display: block;
+      width: 0;
+      height: 100%;
+      background: linear-gradient(90deg, var(--green), var(--orange));
+      transition: width .1s linear;
+    }
+    .shell {
+      display: grid;
+      grid-template-columns: 278px minmax(0, 1fr);
+      max-width: 1520px;
+      min-height: 100vh;
+      margin: 0 auto;
+    }
+    .side {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      padding: 28px 20px;
+      border-right: 1px solid var(--line);
+      background: rgba(247,243,234,.88);
+      backdrop-filter: blur(16px);
+      overflow: auto;
+    }
+    .brand {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 25px;
+      text-decoration: none;
+      color: inherit;
+    }
+    .brand-mark {
+      display: grid;
+      place-items: center;
+      width: 42px;
+      height: 42px;
+      border-radius: 13px;
+      color: white;
+      background: var(--green);
+      box-shadow: 0 9px 20px rgba(20,108,87,.22);
+      font-weight: 850;
+      letter-spacing: -.05em;
+    }
+    .brand strong { display: block; line-height: 1.2; }
+    .brand small { color: var(--muted); }
+    .nav-label {
+      margin: 20px 10px 8px;
+      color: #8a918d;
+      font-size: .72rem;
+      font-weight: 800;
+      letter-spacing: .13em;
+      text-transform: uppercase;
+    }
+    nav a {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      padding: 8px 10px;
+      margin: 2px 0;
+      color: #4f5954;
+      border-radius: 10px;
+      text-decoration: none;
+      font-size: .88rem;
+      line-height: 1.25;
+      transition: .18s ease;
+    }
+    nav a:hover, nav a.active {
+      color: var(--green-3);
+      background: var(--green-2);
+      transform: translateX(2px);
+    }
+    nav a span {
+      display: grid;
+      place-items: center;
+      min-width: 22px;
+      height: 22px;
+      border: 1px solid currentColor;
+      border-radius: 50%;
+      font: 700 .7rem var(--mono);
+    }
+    .side-note {
+      margin: 24px 8px 8px;
+      padding: 13px;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: rgba(255,255,255,.55);
+      color: var(--muted);
+      font-size: .76rem;
+      line-height: 1.55;
+    }
+    main { min-width: 0; padding: 0 clamp(24px, 5vw, 76px) 120px; }
+    section {
+      max-width: 1050px;
+      margin: 0 auto;
+      padding: 84px 0 28px;
+    }
+    .hero {
+      min-height: 92vh;
+      display: grid;
+      align-content: center;
+      padding-top: 70px;
+    }
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      width: fit-content;
+      padding: 5px 10px;
+      border: 1px solid rgba(20,108,87,.22);
+      border-radius: 999px;
+      color: var(--green-3);
+      background: rgba(223,242,232,.72);
+      font-size: .77rem;
+      font-weight: 750;
+      letter-spacing: .04em;
+    }
+    .eyebrow::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 0 4px rgba(20,108,87,.12);
+    }
+    h1 {
+      max-width: 900px;
+      margin: 24px 0 18px;
+      font-size: clamp(2.8rem, 6.7vw, 6.3rem);
+      line-height: .98;
+      letter-spacing: -.065em;
+    }
+    h1 em {
+      color: var(--orange);
+      font-style: normal;
+      white-space: nowrap;
+    }
+    .lede {
+      max-width: 760px;
+      margin: 0;
+      color: #4f5954;
+      font-size: clamp(1.05rem, 1.8vw, 1.28rem);
+    }
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 28px 0 36px;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 42px;
+      padding: 9px 15px;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: var(--paper-2);
+      cursor: pointer;
+      text-decoration: none;
+      font-weight: 720;
+      transition: transform .16s ease, box-shadow .16s ease, background .16s ease;
+    }
+    .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 22px rgba(23,32,29,.1); }
+    .btn.primary { color: white; border-color: var(--green); background: var(--green); }
+    .btn.small { min-height: 34px; padding: 5px 10px; font-size: .82rem; }
+    .hero-map {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-top: 10px;
+    }
+    .hero-map article {
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255,253,248,.74);
+      box-shadow: 0 8px 24px rgba(23,32,29,.04);
+    }
+    .hero-map b { display: block; margin-bottom: 4px; font-size: 1rem; }
+    .hero-map p { margin: 0; color: var(--muted); font-size: .82rem; line-height: 1.5; }
+    .section-kicker {
+      color: var(--orange);
+      font: 800 .78rem var(--mono);
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+    h2 {
+      margin: 8px 0 14px;
+      font-size: clamp(2rem, 4vw, 3.5rem);
+      line-height: 1.08;
+      letter-spacing: -.045em;
+    }
+    h3 {
+      margin: 32px 0 10px;
+      font-size: clamp(1.25rem, 2vw, 1.65rem);
+      line-height: 1.25;
+      letter-spacing: -.02em;
+    }
+    h4 { margin: 0 0 7px; font-size: 1rem; }
+    .section-intro {
+      max-width: 790px;
+      margin: 0 0 30px;
+      color: var(--muted);
+      font-size: 1.03rem;
+    }
+    .callout {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 14px;
+      align-items: start;
+      margin: 22px 0;
+      padding: 18px;
+      border: 1px solid rgba(20,108,87,.2);
+      border-radius: 15px;
+      background: rgba(223,242,232,.6);
+    }
+    .callout.warn { border-color: rgba(224,109,56,.28); background: rgba(255,240,229,.76); }
+    .callout.danger { border-color: rgba(184,64,64,.25); background: rgba(253,234,234,.7); }
+    .callout-icon {
+      display: grid;
+      place-items: center;
+      width: 32px; height: 32px;
+      border-radius: 10px;
+      color: white;
+      background: var(--green);
+      font-weight: 900;
+    }
+    .warn .callout-icon { background: var(--orange); }
+    .danger .callout-icon { background: var(--red); }
+    .callout p { margin: 2px 0 0; color: #45504a; }
+    .claim {
+      position: relative;
+      margin: 20px 0;
+      padding: 18px 20px 17px;
+      border-left: 4px solid var(--green);
+      background: rgba(255,255,255,.58);
+    }
+    .claim .label {
+      display: inline-block;
+      margin-right: 7px;
+      color: var(--green);
+      font-size: .7rem;
+      font-weight: 850;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+    }
+    .claim.paper { border-color: var(--purple); }
+    .claim.paper .label { color: var(--purple); }
+    .claim.inference { border-color: var(--orange); }
+    .claim.inference .label { color: var(--orange); }
+    .cite {
+      display: inline-grid;
+      place-items: center;
+      min-width: 20px;
+      height: 20px;
+      margin: 0 2px;
+      padding: 0 5px;
+      transform: translateY(-1px);
+      border: 1px solid rgba(20,108,87,.25);
+      border-radius: 6px;
+      color: var(--green-3);
+      background: var(--paper-2);
+      cursor: pointer;
+      font: 750 .65rem var(--mono);
+      vertical-align: middle;
+    }
+    .term {
+      padding: 0 2px;
+      color: var(--green-3);
+      border-bottom: 1px dashed var(--green);
+      cursor: help;
+      font-weight: 720;
+    }
+    .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 16px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 14px; }
+    .card {
+      padding: 20px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255,253,248,.8);
+      box-shadow: 0 7px 26px rgba(23,32,29,.045);
+    }
+    .card p { margin: 7px 0 0; color: var(--muted); }
+    .number {
+      display: grid;
+      place-items: center;
+      width: 34px; height: 34px;
+      margin-bottom: 13px;
+      border: 1px solid currentColor;
+      border-radius: 11px;
+      color: var(--green);
+      font: 800 .82rem var(--mono);
+    }
+    .stack-diagram {
+      position: relative;
+      display: grid;
+      gap: 12px;
+      max-width: 860px;
+      margin: 28px auto;
+      padding: 26px;
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background: rgba(255,253,248,.86);
+      box-shadow: var(--shadow);
+    }
+    .stack-row {
+      display: grid;
+      grid-template-columns: 140px 1fr 110px;
+      gap: 16px;
+      align-items: center;
+      padding: 15px 18px;
+      border-radius: 13px;
+      border: 1px solid rgba(20,108,87,.18);
+      background: var(--green-2);
+    }
+    .stack-row:nth-child(2) { border-color: rgba(51,102,204,.18); background: var(--blue-2); }
+    .stack-row:nth-child(3) { border-color: rgba(115,83,166,.18); background: var(--purple-2); }
+    .stack-row:nth-child(4) { border-color: rgba(224,109,56,.2); background: var(--orange-2); }
+    .stack-row strong { font-size: .93rem; }
+    .stack-row p { margin: 0; color: #55605a; font-size: .82rem; }
+    .stack-row small { color: var(--muted); text-align: right; font: 700 .7rem var(--mono); }
+    .equation {
+      margin: 24px 0;
+      padding: 22px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: #192923;
+      color: #f2f6f4;
+      text-align: center;
+      font: 700 clamp(1rem,2vw,1.25rem) var(--mono);
+    }
+    .equation span { color: #8fe0bd; }
+    .lab {
+      margin: 30px 0;
+      border: 1px solid #c8ccc6;
+      border-radius: 22px;
+      overflow: clip;
+      background: var(--paper-2);
+      box-shadow: var(--shadow);
+    }
+    .lab-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: center;
+      padding: 14px 18px;
+      color: white;
+      background: #20332c;
+    }
+    .lab-head strong { display: flex; gap: 9px; align-items: center; }
+    .lab-head strong::before {
+      content: "LAB";
+      padding: 3px 6px;
+      border: 1px solid rgba(255,255,255,.4);
+      border-radius: 5px;
+      color: #9be1c3;
+      font: 800 .62rem var(--mono);
+      letter-spacing: .08em;
+    }
+    .lab-head small { color: #b9c8c1; }
+    .lab-body { padding: 22px; }
+    .robot-grid {
+      display: grid;
+      grid-template-columns: 1fr 95px 1fr;
+      gap: 18px;
+      align-items: stretch;
+    }
+    .machine {
+      position: relative;
+      min-height: 310px;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: #fbfaf5;
+    }
+    .machine h4 { display: flex; justify-content: space-between; align-items: center; }
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: var(--red-2);
+      color: var(--red);
+      font-size: .68rem;
+      font-weight: 800;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+    .status::before { content:""; width:7px; height:7px; border-radius:50%; background: currentColor; }
+    .status.on { color: var(--green); background: var(--green-2); }
+    .parts { display: grid; gap: 9px; margin-top: 16px; }
+    .part {
+      display: grid;
+      grid-template-columns: 32px 1fr auto;
+      gap: 10px;
+      align-items: center;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: white;
+      transition: .25s ease;
+    }
+    .part.off { opacity: .38; filter: grayscale(1); }
+    .part .plug {
+      display: grid; place-items: center;
+      width: 30px; height: 30px;
+      color: white;
+      border-radius: 9px;
+      background: var(--green);
+      font-weight: 900;
+    }
+    .part small { color: var(--muted); }
+    .part button {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fafafa;
+      cursor: pointer;
+      font-size: .73rem;
+    }
+    .wire {
+      display: grid;
+      place-items: center;
+      color: var(--muted);
+      font: 700 .7rem var(--mono);
+      text-align: center;
+    }
+    .wire svg { width: 76px; height: 130px; overflow: visible; }
+    .wire path { fill:none; stroke: var(--green); stroke-width:3; stroke-dasharray:7 5; }
+    .log {
+      max-height: 210px;
+      margin-top: 16px;
+      padding: 12px;
+      overflow: auto;
+      border-radius: 11px;
+      background: #16241f;
+      color: #cfe4d9;
+      font: .76rem/1.65 var(--mono);
+    }
+    .log div::before { content: "› "; color: #80d4af; }
+    .definition-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0,1fr));
+      gap: 12px;
+    }
+    .def {
+      position: relative;
+      padding: 18px 18px 17px 62px;
+      border: 1px solid var(--line);
+      border-radius: 15px;
+      background: rgba(255,255,255,.66);
+    }
+    .def .glyph {
+      position: absolute;
+      left: 16px; top: 17px;
+      display: grid; place-items: center;
+      width: 32px; height: 32px;
+      border-radius: 10px;
+      color: white;
+      background: var(--green);
+      font: 800 .78rem var(--mono);
+    }
+    .def:nth-child(3n+2) .glyph { background: var(--orange); }
+    .def:nth-child(3n) .glyph { background: var(--purple); }
+    .def b { display: block; }
+    .def p { margin: 3px 0 0; color: var(--muted); font-size: .86rem; }
+    .lifecycle {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 7px;
+      align-items: center;
+      margin: 24px 0;
+    }
+    .life-node {
+      position: relative;
+      padding: 13px 7px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: white;
+      text-align: center;
+      font: 750 .76rem var(--mono);
+    }
+    .life-node:not(:last-child)::after {
+      content: "→";
+      position: absolute;
+      right: -13px;
+      top: 50%;
+      z-index: 2;
+      width: 18px;
+      transform: translateY(-50%);
+      color: var(--orange);
+      background: var(--paper);
+      font-size: 1rem;
+    }
+    .life-node.good { color: var(--green); border-color: rgba(20,108,87,.35); background: var(--green-2); }
+    .life-node.wait { color: var(--purple); border-color: rgba(115,83,166,.3); background: var(--purple-2); }
+    .life-node.stop { color: var(--red); border-color: rgba(184,64,64,.26); background: var(--red-2); }
+    .lifecycle.state-set { grid-template-columns: repeat(6, 1fr); }
+    .lifecycle.state-set .life-node::after { display: none; }
+    .effect-board { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    .effect-stack {
+      min-height: 265px;
+      padding: 15px;
+      border: 1px dashed #aeb6b1;
+      border-radius: 14px;
+      background: #f8f7f2;
+    }
+    .effect-item {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 8px 0;
+      padding: 9px 11px;
+      border-radius: 9px;
+      color: var(--green-3);
+      background: var(--green-2);
+      animation: appear .22s ease both;
+    }
+    .effect-item.undo { color: var(--orange); background: var(--orange-2); }
+    @keyframes appear { from { opacity:0; transform:translateY(6px) } }
+    .controls { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+    .controls button, .segmented button {
+      padding: 7px 10px;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: white;
+      cursor: pointer;
+    }
+    .controls button:hover, .segmented button:hover { border-color: var(--green); }
+    .timeline {
+      position: relative;
+      display: grid;
+      gap: 10px;
+      margin: 24px 0;
+      padding-left: 30px;
+    }
+    .timeline::before {
+      content:"";
+      position:absolute;
+      left:10px; top:10px; bottom:10px;
+      width:2px; background:var(--line);
+    }
+    .timeline article {
+      position: relative;
+      padding: 14px 16px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: rgba(255,255,255,.72);
+    }
+    .timeline article::before {
+      content:"";
+      position:absolute;
+      left:-25px; top:20px;
+      width:10px; height:10px;
+      border:3px solid var(--paper);
+      border-radius:50%;
+      background:var(--green);
+    }
+    .timeline b { font-family: var(--mono); font-size:.8rem; }
+    .timeline p { margin:3px 0 0; color:var(--muted); font-size:.87rem; }
+    .table-wrap { overflow-x:auto; margin:22px 0; border:1px solid var(--line); border-radius:15px; }
+    table { width:100%; border-collapse:collapse; background:rgba(255,255,255,.72); font-size:.86rem; }
+    th, td { padding:12px 14px; border-bottom:1px solid var(--line); text-align:left; vertical-align:top; }
+    th { color:var(--green-3); background:rgba(223,242,232,.64); font-size:.76rem; letter-spacing:.02em; }
+    tr:last-child td { border-bottom:0; }
+    td p { margin:0; color:var(--muted); }
+    .source-link { white-space:nowrap; font:700 .72rem var(--mono); }
+    .event-lab { display:grid; grid-template-columns: 220px 1fr; gap:18px; }
+    .segmented { display:grid; gap:7px; align-content:start; }
+    .segmented button { text-align:left; }
+    .segmented button.active { color:white; border-color:var(--green); background:var(--green); }
+    .event-track { min-height:250px; padding:18px; border-radius:14px; background:#182721; color:#eaf4ef; }
+    .event-track .runner {
+      display:flex; align-items:center; gap:10px;
+      margin:9px 0; padding:8px 10px;
+      border-left:3px solid #86d7b3; background:rgba(255,255,255,.06);
+      opacity:.35; transform:translateX(-6px); transition:.25s ease;
+    }
+    .event-track .runner.active { opacity:1; transform:none; }
+    .event-track small { color:#9db3aa; }
+    .realm-diagram { display:grid; grid-template-columns:1fr auto 1fr; gap:16px; align-items:center; margin:25px 0; }
+    .realm { padding:20px; border:2px solid rgba(51,102,204,.25); border-radius:22px; background:var(--blue-2); }
+    .realm:nth-child(3) { border-color:rgba(115,83,166,.25); background:var(--purple-2); }
+    .realm .service-pill { margin-top:11px; padding:9px; border-radius:9px; color:white; background:var(--blue); font:700 .76rem var(--mono); }
+    .realm:nth-child(3) .service-pill { background:var(--purple); }
+    .config-layers { position:relative; display:grid; gap:9px; width:min(620px,100%); margin:25px auto; }
+    .config-layer {
+      display:grid; grid-template-columns:110px 1fr auto; gap:12px; align-items:center;
+      padding:14px 16px; border:1px solid var(--line); border-radius:13px; background:white;
+      transition:.2s ease;
+    }
+    .config-layer.off { opacity:.3; transform:scale(.985); }
+    .config-layer b { font:750 .78rem var(--mono); }
+    .config-layer small { color:var(--muted); }
+    .config-layer button { border:0; border-radius:8px; padding:5px 8px; color:white; background:var(--green); cursor:pointer; font-size:.72rem; }
+    .config-result { padding:18px; border:2px solid var(--green); border-radius:16px; background:var(--green-2); }
+    .architecture {
+      position:relative;
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:13px;
+      margin:28px 0;
+    }
+    .arch-zone { padding:18px; border:1px solid var(--line); border-radius:18px; background:rgba(255,255,255,.74); }
+    .arch-zone.core { grid-column:1/-1; border-color:rgba(20,108,87,.28); background:rgba(223,242,232,.62); }
+    .arch-zone.surface { border-color:rgba(51,102,204,.22); background:rgba(232,239,255,.62); }
+    .arch-zone.policy { border-color:rgba(224,109,56,.22); background:rgba(255,240,229,.65); }
+    .arch-zone.data { border-color:rgba(115,83,166,.22); background:rgba(241,234,250,.65); }
+    .pills { display:flex; flex-wrap:wrap; gap:7px; margin-top:12px; }
+    .pills span { padding:5px 8px; border:1px solid rgba(23,32,29,.12); border-radius:8px; background:rgba(255,255,255,.7); font:700 .7rem var(--mono); }
+    .seam {
+      display:grid; grid-template-columns:1fr 42px 1fr 42px 1fr;
+      gap:8px; align-items:center; margin:25px 0;
+    }
+    .seam > div { min-height:120px; padding:15px; border:1px solid var(--line); border-radius:14px; background:white; }
+    .seam .arrow { display:grid; place-items:center; padding:0; border:0; background:none; color:var(--orange); font-size:1.6rem; }
+    .seam b { display:block; color:var(--green-3); }
+    .seam small { color:var(--muted); }
+    .flow-lab { display:grid; grid-template-columns:minmax(240px,.8fr) 1.7fr; gap:20px; }
+    .flow-controls { align-self:start; position:sticky; top:20px; padding:17px; border:1px solid var(--line); border-radius:15px; background:#fbfaf6; }
+    .flow-controls .counter { font:800 2.4rem/1 var(--mono); color:var(--orange); }
+    .flow-controls p { color:var(--muted); font-size:.84rem; }
+    .flow-stage { position:relative; display:grid; gap:10px; }
+    .flow-step {
+      display:grid; grid-template-columns:46px 1fr auto; gap:12px; align-items:start;
+      padding:14px; border:1px solid var(--line); border-radius:13px;
+      background:rgba(255,255,255,.72); opacity:.38; transition:.22s ease;
+    }
+    .flow-step.active { opacity:1; border-color:var(--green); background:var(--green-2); transform:translateX(4px); }
+    .flow-step.done { opacity:.72; }
+    .flow-step .step-no { display:grid; place-items:center; width:34px; height:34px; border-radius:10px; background:#20332c; color:white; font:800 .72rem var(--mono); }
+    .flow-step p { margin:3px 0 0; color:var(--muted); font-size:.82rem; }
+    .flow-step code { white-space:nowrap; font-size:.7rem; }
+    .paper-map { display:grid; grid-template-columns:1fr 90px 1fr; gap:14px; align-items:stretch; margin:26px 0; }
+    .paper-col { padding:20px; border:1px solid var(--line); border-radius:18px; background:white; }
+    .paper-col.theory { border-color:rgba(115,83,166,.25); background:var(--purple-2); }
+    .paper-col.code { border-color:rgba(20,108,87,.25); background:var(--green-2); }
+    .mapping { display:grid; place-items:center; color:var(--muted); font:700 .7rem var(--mono); text-align:center; }
+    .mapping svg { width:75px; height:100%; min-height:180px; }
+    .mapping path { fill:none; stroke:var(--orange); stroke-width:2; stroke-dasharray:5 5; }
+    .source-tabs { display:flex; flex-wrap:wrap; gap:7px; margin-bottom:13px; }
+    .source-tabs button { padding:7px 10px; border:1px solid var(--line); border-radius:9px; background:white; cursor:pointer; }
+    .source-tabs button.active { color:white; border-color:var(--green); background:var(--green); }
+    .source-panel { display:none; }
+    .source-panel.active { display:block; animation:appear .2s ease; }
+    .source-panel pre { margin-top:0; }
+    .annotated-code .line { display:grid; grid-template-columns:34px 1fr; gap:10px; }
+    .annotated-code .ln { color:#789086; user-select:none; text-align:right; }
+    .annotated-code .hi { display:inline; color:#ffd38c; }
+    .tradeoff {
+      display:grid; grid-template-columns:1fr 1fr;
+      border:1px solid var(--line); border-radius:16px; overflow:hidden; margin:15px 0;
+    }
+    .tradeoff > div { padding:17px; background:rgba(255,255,255,.72); }
+    .tradeoff > div:first-child { border-right:1px solid var(--line); }
+    .tradeoff .gain b { color:var(--green); }
+    .tradeoff .cost b { color:var(--orange); }
+    .tradeoff p { margin:5px 0 0; color:var(--muted); font-size:.86rem; }
+    .quiz { display:grid; gap:12px; margin:24px 0; }
+    .quiz-item { padding:18px; border:1px solid var(--line); border-radius:14px; background:white; }
+    .quiz-item p { margin:0 0 10px; font-weight:720; }
+    .quiz-item button { margin:4px 5px 4px 0; padding:7px 10px; border:1px solid var(--line); border-radius:8px; background:#fafafa; cursor:pointer; }
+    .quiz-item button.right { border-color:var(--green); color:var(--green); background:var(--green-2); }
+    .quiz-item button.wrong { border-color:var(--red); color:var(--red); background:var(--red-2); }
+    .quiz-feedback { min-height:24px; margin-top:8px; color:var(--muted); font-size:.84rem; }
+    .checklist { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+    .checklist label { display:flex; gap:10px; padding:12px; border:1px solid var(--line); border-radius:11px; background:rgba(255,255,255,.66); cursor:pointer; }
+    .checklist input { accent-color:var(--green); }
+    .footer {
+      max-width:1050px; margin:60px auto 0; padding:26px 0;
+      border-top:1px solid var(--line); color:var(--muted); font-size:.82rem;
+    }
+    .drawer {
+      position:fixed; inset:0 0 0 auto; z-index:100;
+      width:min(460px,92vw); padding:26px;
+      border-left:1px solid var(--line); background:var(--paper-2);
+      box-shadow:-24px 0 60px rgba(23,32,29,.16);
+      overflow:auto; transform:translateX(105%); transition:transform .22s ease;
+    }
+    .drawer.open { transform:none; }
+    .drawer-close { float:right; width:34px; height:34px; border:1px solid var(--line); border-radius:9px; background:white; cursor:pointer; }
+    .drawer .drawer-type { color:var(--orange); font:800 .7rem var(--mono); letter-spacing:.1em; text-transform:uppercase; }
+    .drawer h3 { clear:both; margin-top:30px; }
+    .drawer .drawer-meta { padding:12px; border-radius:11px; background:#f0eee7; color:var(--muted); font-size:.8rem; }
+    .drawer-backdrop { position:fixed; inset:0; z-index:90; background:rgba(23,32,29,.25); opacity:0; pointer-events:none; transition:.2s ease; }
+    .drawer-backdrop.open { opacity:1; pointer-events:auto; }
+    .mobile-menu { display:none; position:fixed; z-index:60; right:16px; bottom:16px; width:48px; height:48px; border:0; border-radius:50%; color:white; background:var(--green); box-shadow:var(--shadow); }
+    .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+    @media (max-width: 1050px) {
+      .shell { grid-template-columns: 230px minmax(0,1fr); }
+      .side { padding-inline:14px; }
+      main { padding-inline:28px; }
+      .hero-map { grid-template-columns:repeat(2,1fr); }
+    }
+    @media (max-width: 800px) {
+      .shell { display:block; }
+      .side { position:fixed; inset:0 auto 0 0; z-index:70; width:278px; transform:translateX(-105%); transition:.22s ease; box-shadow:var(--shadow); }
+      .side.open { transform:none; }
+      .mobile-menu { display:block; }
+      main { padding-inline:20px; }
+      section { padding-top:68px; }
+      .hero { min-height:auto; padding-top:90px; }
+      .grid-2, .grid-3, .definition-grid, .effect-board, .architecture, .checklist { grid-template-columns:1fr; }
+      .arch-zone.core { grid-column:auto; }
+      .robot-grid, .flow-lab, .event-lab { grid-template-columns:1fr; }
+      .wire { transform:rotate(90deg); height:45px; }
+      .wire svg { height:70px; }
+      .flow-controls { position:static; }
+      .seam { grid-template-columns:1fr; }
+      .seam .arrow { transform:rotate(90deg); min-height:30px; }
+      .paper-map, .realm-diagram { grid-template-columns:1fr; }
+      .mapping { min-height:45px; transform:rotate(90deg); }
+      .mapping svg { min-height:80px; }
+      .lifecycle { grid-template-columns:1fr; }
+      .life-node:not(:last-child)::after { content:"↓"; right:50%; top:auto; bottom:-18px; transform:translateX(50%); }
+      .stack-row { grid-template-columns:1fr; gap:3px; }
+      .stack-row small { text-align:left; }
+    }
+    @media (max-width: 520px) {
+      h1 { font-size:2.75rem; }
+      .hero-map { grid-template-columns:1fr; }
+      .lab-body { padding:15px; }
+      .tradeoff { grid-template-columns:1fr; }
+      .tradeoff > div:first-child { border-right:0; border-bottom:1px solid var(--line); }
+      .flow-step { grid-template-columns:38px 1fr; }
+      .flow-step > code { grid-column:2; justify-self:start; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior:auto !important; animation:none !important; transition:none !important; }
+    }
+    @media print {
+      .side, .progress, .mobile-menu, .drawer, .drawer-backdrop, .hero-actions, .controls { display:none !important; }
+      .shell { display:block; }
+      main { padding:0; }
+      section { break-inside:avoid; padding-top:35px; }
+      body { background:white; }
+      .lab, .card, .stack-diagram { box-shadow:none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="progress" aria-hidden="true"><span id="readingProgress"></span></div>
+  <button class="mobile-menu" id="mobileMenu" aria-label="打开目录">目录</button>
+  <div class="shell">
+    <aside class="side" id="side">
+      <a class="brand" href="#top">
+        <span class="brand-mark">C</span>
+        <span><strong>Cordis 拆解课</strong><small>DeepSeek Harness 架构</small></span>
+      </a>
+      <div class="nav-label">从直觉到代码</div>
+      <nav id="nav">
+        <a href="#map"><span>0</span>先看整张地图</a>
+        <a href="#why"><span>1</span>它解决什么问题</a>
+        <a href="#words"><span>2</span>八个核心名词</a>
+        <a href="#core"><span>3</span>Cordis 内核</a>
+        <a href="#effects"><span>4</span>副作用与卸载</a>
+        <a href="#dependencies"><span>5</span>依赖与 Fiber</a>
+        <a href="#events"><span>6</span>事件与中间件</a>
+        <a href="#realms"><span>7</span>隔离与拦截</a>
+        <a href="#loader"><span>8</span>Loader 与配置树</a>
+        <a href="#harness"><span>9</span>Harness 整机</a>
+        <a href="#turn"><span>10</span>一次对话怎么跑</a>
+        <a href="#source"><span>11</span>下潜到源码</a>
+        <a href="#paper"><span>12</span>论文如何解释它</a>
+        <a href="#tradeoffs"><span>13</span>边界、代价与判断</a>
+        <a href="#finish"><span>14</span>验收与继续阅读</a>
+      </nav>
+      <div class="side-note">
+        <b>阅读约定</b><br>
+        绿色「源码事实」来自当前仓库；紫色「论文主张」来自 2026-08-13 预印本；橙色「解释」是为理解而做的类比或推论。点击术语和角标可看定义与出处。
+      </div>
+    </aside>
+
+    <main id="top">
+      <section class="hero" id="map">
+        <span class="eyebrow">零前置 · 单文件交互讲义 · 对照当前源码</span>
+        <h1>把 Harness 拆成一间<br><em>会自己接线的机器人工作室</em></h1>
+        <p class="lede">
+          这不是一份“把文件夹念一遍”的说明书。我们从一个最小问题开始：
+          给机器人装上模型、记事本和工具箱；拔掉任何零件时，依赖它的东西要安全停下，现场也要收拾干净。
+          Cordis 就是负责这套插拔、接线、断线和收尾规则的底座。
+        </p>
+        <div class="hero-actions">
+          <a class="btn primary" href="#why">开始拆解 →</a>
+          <button class="btn" id="conceptMode">开启“只看结论”</button>
+          <a class="btn" href="#source">直接看源码链</a>
+        </div>
+        <div class="hero-map">
+          <article><b>第 1 层：直觉</b><p>为什么“普通 import + 全局单例”不够，以及 Cordis 到底是什么。</p></article>
+          <article><b>第 2 层：机制</b><p>Context、Service、Fiber、Effect、Inject、Event 如何协作。</p></article>
+          <article><b>第 3 层：整机</b><p>配置层如何装出 Web/Headless，消息如何经过模型与工具。</p></article>
+          <article><b>第 4 层：证据</b><p>逐段对照源码与论文，同时明确保证的边界和未验证的部分。</p></article>
+        </div>
+        <div class="callout">
+          <div class="callout-icon">!</div>
+          <div>
+            <b>先纠正一个容易混淆的点</b>
+            <p><span class="term" data-term="cordis">Cordis</span> 不是模型、不是 Agent loop，也不是 Web 框架。它是一个“元框架”：规定动态组件怎样组合，但不规定业务是什么。<button class="cite" data-cite="paper-meta">P54</button></p>
+          </div>
+        </div>
+      </section>
+
+      <section id="why">
+        <div class="section-kicker">01 · The problem</div>
+        <h2>先不谈代码：为什么需要 Cordis？</h2>
+        <p class="section-intro">
+          假设机器人已经在工作。你现在要热插拔一个搜索工具、切换文件系统后端，或换掉模型适配器。
+          难点不是“怎么调用函数”，而是变化发生后，整台机器还能不能处于一致状态。
+        </p>
+        <div class="grid-3">
+          <article class="card">
+            <div class="number">A</div>
+            <h4>装上去很容易</h4>
+            <p>注册事件、开定时器、放进服务表、创建子插件——普通代码都能做到。</p>
+          </article>
+          <article class="card">
+            <div class="number">B</div>
+            <h4>拔下来很难</h4>
+            <p>监听器是否移除？计时器是否关闭？子组件是否先停？遗漏一个就会“幽灵运行”。</p>
+          </article>
+          <article class="card">
+            <div class="number">C</div>
+            <h4>换依赖更难</h4>
+            <p>文件系统提供方被替换时，谁依赖它？应该先停谁、再启动谁？半拆状态能否被看见？</p>
+          </article>
+        </div>
+        <div class="equation">
+          动态系统要同时解决：
+          <span>撤销我做过的事</span>
+          ＋
+          <span>响应我依赖的东西</span>
+        </div>
+        <div class="grid-2">
+          <div class="claim paper">
+            <span class="label">论文主张</span>
+            <b>时间可组合性（temporal composability）</b>：组件移除时，它对共享环境的修改应被完整、安全地撤销。<button class="cite" data-cite="paper-dimensions">P4</button>
+          </div>
+          <div class="claim paper">
+            <span class="label">论文主张</span>
+            <b>空间可组合性（spatial composability）</b>：组件能声明依赖；依赖出现、消失或换身份时，生命周期会被协调。<button class="cite" data-cite="paper-dimensions">P4</button>
+          </div>
+        </div>
+        <div class="claim">
+          <span class="label">源码事实</span>
+          DeepSeek Harness 的模型适配器、工具注册表、会话日志、Agent loop 都作为插件装进同一棵树；它没有一块不可替换的业务“神圣内核”。<button class="cite" data-cite="architecture-cordis">A9</button>
+        </div>
+        <div class="callout warn">
+          <div class="callout-icon">≠</div>
+          <div>
+            <b>“可卸载”不等于“时光倒流”</b>
+            <p>已经发到网络上的字节、已经被别人读走的文件、已经扣掉的钱，不会被一个 disposer 魔法抹除。论文只在 inverse 正确、步骤满足 pairwise independence 等假设时，证明经 Context 介导的状态达到 <code>≈</code>：环境和 coeffect/service tables 精确一致，只忽略 registry control fields；这不是泛化的“看起来一样”。当前运行时只追踪并尝试调用作者提供的 disposer，不验证这些数学前提。外部发射需要延迟提交或补偿动作。<button class="cite" data-cite="paper-recovery">P44</button><button class="cite" data-cite="paper-boundary">P67</button><button class="cite" data-cite="effect-errors">F675</button></p>
+          </div>
+        </div>
+      </section>
+
+      <section id="words">
+        <div class="section-kicker">02 · Vocabulary</div>
+        <h2>八个词，先用儿童版记住</h2>
+        <p class="section-intro">下面每个比喻都只负责帮你建立第一印象。真正精确定义在后续源码段落里。</p>
+        <div class="definition-grid">
+          <article class="def"><span class="glyph">C</span><b><span class="term" data-term="context">Context</span>：工作台</b><p>组件从这里拿服务、发事件、装子组件，也通过它登记需要回收的动作。</p></article>
+          <article class="def"><span class="glyph">P</span><b><span class="term" data-term="plugin">Plugin / Component</span>：零件说明书</b><p>一个函数、类或带 apply 的对象；告诉 Cordis “装我时做什么”。</p></article>
+          <article class="def"><span class="glyph">S</span><b><span class="term" data-term="service">Service</span>：插座上的能力</b><p>例如 ctx.llm、ctx.tools、ctx.fs。名字是接口位置，提供方把实现插进去。</p></article>
+          <article class="def"><span class="glyph">I</span><b><span class="term" data-term="inject">Inject / Coeffect</span>：用电清单</b><p>组件提前声明“我需要 fs 和 tools”；没有插上时先别运行。</p></article>
+          <article class="def"><span class="glyph">F</span><b><span class="term" data-term="fiber">Fiber</span>：一个零件的活体档案</b><p>记录它的状态、依赖版本、子 Context、清理栈和正在进行的切换。</p></article>
+          <article class="def"><span class="glyph">E</span><b><span class="term" data-term="effect">Effect</span>：做事＋收据</b><p>每次改变环境，都同时交回一张“怎么撤销”的收据；Fiber 替你保管。</p></article>
+          <article class="def"><span class="glyph">V</span><b><span class="term" data-term="event">Event</span>：广播与接力赛</b><p>插件之间的扩展点；有并行广播、顺序处理、遇到结果停止和洋葱中间件等模式。</p></article>
+          <article class="def"><span class="glyph">L</span><b><span class="term" data-term="loader">Loader</span>：照清单装机器</b><p>把 YAML/JSON 配置行变成插件树；更新失败时尝试恢复旧组合。</p></article>
+        </div>
+        <div class="callout">
+          <div class="callout-icon">1</div>
+          <div><b>一句话版</b><p>Context 是统一入口；Plugin 在自己的 Fiber 中运行；Service 是被提供的能力；Inject 声明所需能力；Effect 记录撤销；Event 提供协作；Loader 把声明式清单变成整棵树。</p></div>
+        </div>
+      </section>
+
+      <section id="core">
+        <div class="section-kicker">03 · Core mechanism</div>
+        <h2>内核不是“总指挥”，而是几条守规矩的通道</h2>
+        <p class="section-intro">
+          根 <span class="term" data-term="context">Context</span> 创建时就被 Proxy 包住，并挂上反射、注册表、事件与日志服务。
+          子 Context 通过原型链继承父环境，但可覆盖隔离与拦截信息。<button class="cite" data-cite="context-root">C71</button>
+        </p>
+        <div class="stack-diagram" aria-label="Cordis 内核分层图">
+          <div class="stack-row"><strong>你写的插件</strong><p><code>apply(ctx, config)</code>；只通过 ctx 触碰组合环境</p><small>application</small></div>
+          <div class="stack-row"><strong>Context Proxy</strong><p>属性访问守门：依赖是否声明？当前看到哪个 service realm？</p><small>reflect.ts</small></div>
+          <div class="stack-row"><strong>Fiber + Registry</strong><p>创建活体实例、解析依赖、执行、停机、重载、等待稳定</p><small>fiber.ts</small></div>
+          <div class="stack-row"><strong>Effect + Event</strong><p>登记逆操作；事件监听本身也是会随 Fiber 自动撤销的 effect</p><small>events.ts</small></div>
+        </div>
+        <h3>调用 <code>ctx.plugin()</code> 时，真正发生什么？</h3>
+        <div class="timeline">
+          <article><b>01 · Registry 接收插件</b><p>识别函数、类或对象 apply，找到/创建 Runtime，再创建一个 Fiber。<button class="cite" data-cite="registry-plugin">R316</button></p></article>
+          <article><b>02 · Fiber 拥有一个子 Context</b><p>插件不是直接拿根上下文；它获得带自己 Fiber、inject 与 intercept 状态的派生 Context。</p></article>
+          <article><b>03 · 父 Fiber 通过 effect 拥有子 Fiber</b><p>因此父组件卸载时，子组件也是其副作用的一部分，会被一并清理。<button class="cite" data-cite="fiber-child">F265</button></p></article>
+          <article><b>04 · 解析 Inject</b><p>缺少必须依赖时保持 PENDING；依赖齐全才进入加载。提供方身份变化会产生新 epoch。</p></article>
+          <article><b>05 · 执行插件</b><p>校验/解析配置后调用插件；产生的所有 effect、事件监听、服务和子插件都归这个 Fiber。</p></article>
+          <article><b>06 · ACTIVE / reload / unload</b><p>依赖变化触发重新计算；提供方退出 ACTIVE 会通知依赖者，<code>provide</code> 的清理还会等待它们稳定。其他兄弟 effects 可能并发，不能简化成全局串行。<button class="cite" data-cite="fiber-refresh">F611</button></p></article>
+        </div>
+        <div class="claim inference">
+          <span class="label">解释性判断</span>
+          Cordis 的“内核小”不是因为功能少，而是因为它只垄断组合语义：谁拥有谁、谁依赖谁、怎样清理、什么时候可见；模型调用和工具执行则交给 Harness 插件。
+        </div>
+      </section>
+
+      <section id="effects">
+        <div class="section-kicker">04 · Temporal composability</div>
+        <h2>Effect：每做一组事，就把“后悔药”一起收好</h2>
+        <p class="section-intro">
+          <code>ctx.effect(callback)</code> 先为本次操作登记清理包装器，再执行 callback。
+          <b>同一个 effect 内</b>，callback 返回或 yield 的 disposer 会按 LIFO（后进先出）执行；但一个 Fiber 的多个顶层 effects 在卸载时会经 <code>Promise.all</code> 并发清理。
+          先登记包装器是为了应对 setup 期间的重入与失败。<button class="cite" data-cite="fiber-effect">F415</button>
+        </p>
+        <div class="lab">
+          <div class="lab-head"><strong>单个 effect 的清理栈实验</strong><small>点击添加，再清理这一组资源</small></div>
+          <div class="lab-body">
+            <div class="effect-board">
+              <div>
+                <h4>同一个 effect 中做过的事</h4>
+                <div class="effect-stack" id="effectLive"><p style="color:var(--muted)">还没有副作用。</p></div>
+                <div class="controls">
+                  <button data-effect="事件监听">+ 监听事件</button>
+                  <button data-effect="定时器">+ 开定时器</button>
+                  <button data-effect="工具注册">+ 注册工具</button>
+                  <button data-effect="子插件">+ 装子插件</button>
+                </div>
+              </div>
+              <div>
+                <h4>撤销记录</h4>
+                <div class="effect-stack" id="effectUndo"><p style="color:var(--muted)">清理这个 effect 时，这里会按相反顺序执行。</p></div>
+                <div class="controls">
+                  <button class="btn primary small" id="unloadEffects">清理这个 effect</button>
+                  <button class="btn small" id="resetEffects">重置</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <pre><code>// 教学化伪代码：表达机制，不是逐字复制源码
+ctx.effect(() =&gt; {
+  const timer = setInterval(tick, 1000)
+  return () =&gt; clearInterval(timer)  // 与创建动作放在一起
+})
+
+// 若顺序是：监听 → 定时器 → 工具
+// 清理这一个 effect 的顺序是：工具 → 定时器 → 监听
+// 若它们是三个独立顶层 effect，Fiber 卸载时会并发启动三组清理</code></pre>
+        <div class="grid-2">
+          <div class="claim">
+            <span class="label">源码事实</span>
+            <code>ctx.on()</code> 最终通过当前 Fiber 的 effect 登记移除监听器，所以插件卸载时监听自动消失。<button class="cite" data-cite="events-register">E254</button>
+          </div>
+          <div class="claim">
+            <span class="label">源码事实</span>
+            <code>ctx.reflect.provide()</code> 也包在 effect 中；清理时先移除全局绑定，通知并等待依赖者，再删除提供方自己的已提交快照。<button class="cite" data-cite="reflect-provide">X277</button>
+          </div>
+        </div>
+        <div class="callout danger">
+          <div class="callout-icon">!</div>
+          <div>
+            <b>保证有一个作者义务</b>
+            <p>运行时会跟踪 disposer，并在正常清理路径中按结构尝试执行；但某个串行 disposer 同步抛错、异步拒绝或永久不结算，都可能让该 effect 后面的清理无法完成。它更不能证明 disposer 真的是原动作的数学逆操作。论文明确把逆操作正确性留给组件作者。<button class="cite" data-cite="paper-effect-duty">P56</button></p>
+          </div>
+        </div>
+        <div class="callout warn">
+          <div class="callout-icon">∥</div>
+          <div>
+            <b>有清理先后要求时，不要拆成多个顶层 effect</b>
+            <p>当前 <code>Fiber._unload()</code> 会并发启动顶层 disposer。比如“必须先停止轮询，再关闭数据库”时，应把两步放入同一个 effect 的 disposer 链，或写一个明确串行的总 disposer。仓库 primer 也给出相同约束。<button class="cite" data-cite="effect-concurrency">F675</button></p>
+          </div>
+        </div>
+      </section>
+
+      <section id="dependencies">
+        <div class="section-kicker">05 · Spatial composability</div>
+        <h2>Inject + Fiber：插座变化，依赖者自动停和重开</h2>
+        <p class="section-intro">
+          组件不应偷偷摸摸读取任意全局服务；它声明 <code>inject</code>。
+          Context Proxy 读取服务属性时会检查声明，并依据当前隔离 realm 找到实现；未声明的访问会报错。<button class="cite" data-cite="reflect-proxy">X135</button>
+        </p>
+        <div class="lab">
+          <div class="lab-head"><strong>响应式依赖实验</strong><small>拔掉“模型插座”看看谁停止</small></div>
+          <div class="lab-body">
+            <div class="robot-grid">
+              <div class="machine">
+                <h4>能力提供方 <span class="status on" id="providerStatus">active</span></h4>
+                <div class="parts">
+                  <div class="part" id="modelPart"><span class="plug">M</span><span><b>模型服务</b><br><small>provide: llm</small></span><button id="toggleModel">拔掉</button></div>
+                  <div class="part"><span class="plug">S</span><span><b>会话服务</b><br><small>provide: sessions</small></span><button disabled>固定</button></div>
+                </div>
+              </div>
+              <div class="wire">
+                <svg viewBox="0 0 80 130" aria-hidden="true"><path d="M8 25 C68 25 14 105 72 105"/></svg>
+                inject
+              </div>
+              <div class="machine">
+                <h4>依赖方 <span class="status on" id="consumerStatus">active</span></h4>
+                <div class="parts">
+                  <div class="part" id="agentPart"><span class="plug">A</span><span><b>Agent loop</b><br><small>inject: llm, sessions</small></span><span></span></div>
+                  <div class="part" id="uiPart"><span class="plug">U</span><span><b>日志观察器</b><br><small>inject: sessions</small></span><span></span></div>
+                </div>
+                <div class="log" id="dependencyLog"><div>初始：所有依赖满足，两个组件 ACTIVE</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="lifecycle state-set" aria-label="Fiber 的六个实际状态；转换不是从左到右的单向链">
+          <div class="life-node wait">PENDING<br><small>等依赖</small></div>
+          <div class="life-node">LOADING<br><small>执行 apply</small></div>
+          <div class="life-node good">ACTIVE<br><small>已提交</small></div>
+          <div class="life-node stop">UNLOADING<br><small>撤销 effects</small></div>
+          <div class="life-node stop">FAILED<br><small>启动失败</small></div>
+          <div class="life-node wait">DISPOSED<br><small>永久移除</small></div>
+        </div>
+        <p class="fineprint">这是实际的六个状态，不是从左到右的单向流程：依赖缺失会稳定在 PENDING；依赖恢复进入 LOADING；启动异常清理后是 FAILED；显式 dispose 后是不可重启的 DISPOSED；“reload”是 UNLOADING → LOADING 的转换，不是一个状态。<button class="cite" data-cite="fiber-states">F139</button></p>
+        <h3>为什么比较“提供方身份”，不只比较服务名？</h3>
+        <p>
+          同一个键 <code>fs</code> 仍然存在，但实现可能从本地文件系统换成远程沙箱。
+          Fiber 计算的 epoch 包含所解析提供方 Fiber 的 uid；新提供方意味着 uid 变化，依赖者因此重载。<button class="cite" data-cite="fiber-epoch">F611</button>
+        </p>
+        <h3>为什么需要 committed view？</h3>
+        <p>
+          提供方正在卸载时，它内部可能已经拆掉一部分资源。Cordis 的 Proxy 沿 Fiber 链读取已提交快照；
+          <code>ctx.provide</code> 的 disposer 会先移除全局绑定、通知并等待依赖者，再删除提供方自己的快照。<button class="cite" data-cite="reflect-committed">X165</button>
+          但这不等于一个 Fiber 内所有兄弟 effects 都有全局先后屏障——它们仍可能并发清理。
+        </p>
+        <div class="callout warn">
+          <div class="callout-icon">↻</div>
+          <div><b>环依赖不会被“聪明猜开”</b><p>A 必须等 B，B 又必须等 A，则双方都可能永久不活跃（当前代码状态名为 PENDING）。论文把依赖粒度与互相依赖列为开放设计张力；通常要抽出更小的共同服务或改成 broker。<button class="cite" data-cite="paper-cycles">P71</button></p></div>
+        </div>
+      </section>
+
+      <section id="events">
+        <div class="section-kicker">06 · Events</div>
+        <h2>事件不是只有“广播”：它还是可插拔控制流</h2>
+        <p class="section-intro">
+          Cordis 事件监听器归所属 Fiber；作用域过滤发生在每次 dispatch。不同 dispatch 模式表达不同协作契约。<button class="cite" data-cite="events-modes">E25</button>
+        </p>
+        <div class="lab">
+          <div class="lab-head"><strong>事件模式播放器</strong><small>选择模式并运行</small></div>
+          <div class="lab-body event-lab">
+            <div class="segmented" id="eventModes">
+              <button class="active" data-mode="emit"><b>emit</b><br><small>同步广播，不等结果</small></button>
+              <button data-mode="parallel"><b>parallel</b><br><small>并发等待所有</small></button>
+              <button data-mode="serial"><b>serial</b><br><small>依次等待，可提前停</small></button>
+              <button data-mode="bail"><b>bail</b><br><small>首个有效结果结束</small></button>
+              <button data-mode="waterfall"><b>waterfall</b><br><small>洋葱中间件，需 next</small></button>
+            </div>
+            <div class="event-track">
+              <b id="eventTitle">emit：同步点名</b>
+              <p id="eventDescription" style="color:#a9bbb3">每位监听器立即被调用；返回值被忽略。</p>
+              <div id="eventRunners"></div>
+              <button class="btn small" id="runEvent">运行一次</button>
+            </div>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>模式</th><th>像什么</th><th>适合</th><th>Harness 示例</th></tr></thead>
+            <tbody>
+              <tr><td><code>emit</code></td><td>广播通知</td><td>同步观察，忽略返回</td><td><code>agent/status</code>、内部生命周期通知</td></tr>
+              <tr><td><code>parallel</code></td><td>同时派工</td><td>彼此独立，等全部结束</td><td>并行收集或关停工作</td></tr>
+              <tr><td><code>serial</code></td><td>排队过检查点</td><td>顺序重要，可停止</td><td><code>agent/turn-stopping</code></td></tr>
+              <tr><td><code>bail</code></td><td>抢答</td><td>第一个不是 <code>null / false / undefined</code> 的结果胜出；<code>0</code> 和空字符串也会停止</td><td>查找第一个能处理者</td></tr>
+              <tr><td><code>waterfall</code></td><td>洋葱中间件</td><td>包装/改写下游；不调用 next 即截断</td><td><code>agent/request</code>、<code>llm/stream</code>、<code>tools/pre-execute</code>、<code>tools/execute</code>、<code>tools/post-execute</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout">
+          <div class="callout-icon">→</div>
+          <div><b>把 waterfall 想成一排安检门</b><p>每扇门可以先检查，再调用 <code>next()</code> 让请求进入下一扇门，回来后还可加工结果；不调用 next 就是明确拦截。它让重试、压缩、权限、日志等策略无需塞进 Agent loop 主体。</p></div>
+        </div>
+      </section>
+
+      <section id="realms">
+        <div class="section-kicker">07 · Isolation &amp; interception</div>
+        <h2>同名插座，可以在不同房间接不同电源</h2>
+        <p class="section-intro">
+          <span class="term" data-term="isolate">isolate</span> 改变“这个 service 名解析到哪个槽”；
+          <span class="term" data-term="intercept">intercept</span> 改变“依赖者怎样使用这个绑定”。
+          它们都沿 Context 原型链继承。<button class="cite" data-cite="loader-isolate">L91</button>
+        </p>
+        <div class="realm-diagram">
+          <div class="realm">
+            <h4>Standard preset 的 service realm</h4>
+            <p>读取同名 <code>ctx.planMode</code></p>
+            <div class="service-pill">Symbol(planMode#planning) · 身份 A</div>
+          </div>
+          <div style="text-align:center;color:var(--orange);font-weight:800">同名<br>≠<br>同实例</div>
+          <div class="realm">
+            <h4>Code preset 的 service realm</h4>
+            <p>读取同名 <code>ctx.planMode</code></p>
+            <div class="service-pill">Symbol(planMode#planning) · 身份 B</div>
+          </div>
+        </div>
+        <div class="grid-2">
+          <article class="card">
+            <h4>isolate：换插座编号</h4>
+            <p>Loader 为 entry 创建本地或具名 realm，把服务名映射到 Symbol。共享同一标签的 provider 与 consumer 会进入同一隔离域。<button class="cite" data-cite="loader-realm">L25</button></p>
+          </article>
+          <article class="card">
+            <h4>intercept：给插座加使用说明</h4>
+            <p>例如依赖 loader 的组件可声明是否必须等待所有加载任务结束；Service 的配置会从依赖者上下文解析。</p>
+          </article>
+        </div>
+        <div class="claim inference">
+          <span class="label">解释性判断</span>
+          isolate 是“一个进程里同名 service 有多套实现”的基础；上图使用 shipped Standard/Code preset 中真实被隔离的 <code>planMode</code> 举例。两个 entry 的 group id 都是 <code>planning</code>，所以 Symbol 描述可相同；真正隔离它们的是 Symbol 身份，而不是后缀文本。
+          工具则注册到共享 Host <code>ctx.tools</code> registry，每 Agent 的可见工具/提示主要由 <code>dsh-scope</code> 过滤，不应画成隔离的 tools service。<button class="cite" data-cite="preset-plan-realms">R102</button>
+        </div>
+        <h3>三个看似相近、其实不同的东西</h3>
+        <div class="grid-3">
+          <article class="card"><h4><code>Context.extend()</code></h4><p>派生一个沿原型链继承的 Context；每个 Fiber 都自动获得它。不是安全隔离。</p></article>
+          <article class="card"><h4>Cordis <code>isolate</code></h4><p>只把指定 service key 重定向到另一个 realm Symbol；不会复制整个容器。</p></article>
+          <article class="card"><h4>Harness <code>dsh-scope</code></h4><p>控制共享 registry 中工具、提示与事件的可见范围；它是 Cordis 之上的 Harness 领域层。<button class="cite" data-cite="scope-distinction">S159</button></p></article>
+        </div>
+      </section>
+
+      <section id="loader">
+        <div class="section-kicker">08 · Declarative assembly</div>
+        <h2>Loader：把“怎么装”从代码搬到可更新清单</h2>
+        <p class="section-intro">
+          Loader 管理一棵带稳定 id 的 entry 树。每行指定模块名、config、inject、disabled、isolate、intercept 等；
+          导入成功后交给 Registry 创建 Fiber。更新配置时按 id 对账，并包含失败回滚路径。<button class="cite" data-cite="loader-entry">L8</button>
+        </p>
+        <pre><code># 教学化配置：一行就是一个可管理的组件
+# “只读”由 policy 决定，还必须有真正执行该 policy 的 fs provider
+- id: sandbox-policy
+  name: "@deepseek-ai/dsh-sandbox-policy"
+  config:
+    mode: read-only
+    workspaceRoot: !!js process.cwd()
+
+- id: fs
+  name: "@deepseek-ai/dsh-fs-sandbox"  # 代替 dsh-fs-local，拦截 write/edit
+
+- id: tool-fs
+  name: "@deepseek-ai/dsh-tool-fs"
+  inject: [fs, tools, sandboxPolicy]</code></pre>
+        <h3>Harness 再加了一层：Profile + Bundle + Patch</h3>
+        <div class="lab">
+          <div class="lab-head"><strong>配置叠层实验</strong><small>后面的层可以按 id 改前面的行</small></div>
+          <div class="lab-body">
+            <div class="config-layers" id="configLayers">
+              <div class="config-layer" data-layer="base"><b>1 · dsh-base</b><small>插入核心模型、会话、工具、沙箱等</small><button>启用</button></div>
+              <div class="config-layer" data-layer="web"><b>2 · web-app</b><small>加入 webserver、API、浏览器插件；设 persona=coding</small><button>启用</button></div>
+              <div class="config-layer" data-layer="profile"><b>3 · profile</b><small>用户 profile 的 cordis.patch.yml；覆盖 model=demo</small><button>启用</button></div>
+              <div class="config-layer" data-layer="home"><b>4 · home</b><small>全局 home patch；这里示范关闭 telemetry</small><button>启用</button></div>
+              <div class="config-layer" data-layer="cli"><b>5 · --patch</b><small>本次启动临时 overlay；这里示范 port=4090</small><button>启用</button></div>
+              <div class="config-result" id="configResult"></div>
+            </div>
+          </div>
+        </div>
+        <div class="claim">
+          <span class="label">源码事实</span>
+          用户可见的基础顺序是：profile 中列出的 bundles → profile patch → home patch → CLI patch；启动器随后还会追加 shipped preset-root overlay，以及环境变量要求时的 telemetry hard-disable overlay。
+          后层按 id 覆盖，row 的 <code>config</code> 是整体替换而非深合并。<button class="cite" data-cite="architecture-profile">A15</button><button class="cite" data-cite="profile-boot">C121</button>
+        </div>
+        <div class="grid-2">
+          <article class="card"><h4>Web profile</h4><p><code>dsh-base</code> + <code>dsh-web-app</code>。常驻服务，带 HTTP、API 与浏览器 UI，适合持续对话。</p></article>
+          <article class="card"><h4>Headless profile</h4><p><code>dsh-base</code> + <code>dsh-headless</code>。一次性任务，不挂 Web server 或浏览器插件。<button class="cite" data-cite="bundle-headless">B5</button></p></article>
+        </div>
+        <div class="callout">
+          <div class="callout-icon">CLI</div>
+          <div>
+            <b>对“能不能持续对话”的精确回答</b>
+            <p><b>内置 Web 可以</b>：同一 Session 可反复 <code>followup()</code>，仓库 E2E 在一个 session 连跑 12 轮。<b>内置 headless 终端不可以</b>：它是一题一答后退出。当前随仓没有交互式 TUI profile；插件文档展示了安装第三方 TUI profile 的扩展方式。<button class="cite" data-cite="continuous-chat">W1</button></p>
+          </div>
+        </div>
+        <div class="callout warn">
+          <div class="callout-icon">↩</div>
+          <div><b>“事务式”要看边界</b><p>Entry 更新若新插件应用失败，会尝试重新启动旧插件；Group 更新也会删除新增项并重建旧项。但外部不可逆发射仍不在这个事务里。<button class="cite" data-cite="loader-rollback">L214</button></p></div>
+        </div>
+      </section>
+
+      <section id="harness">
+        <div class="section-kicker">09 · The whole machine</div>
+        <h2>DeepSeek Harness：Cordis 树上长出来的 Agent 产品</h2>
+        <p class="section-intro">
+          Cordis 只管“组件怎样安全组合”；Harness 定义领域词汇：模型、会话、Agent、工具、沙箱、审批、持久化、网页等。
+          这些能力以 service seams 和事件扩展点连接。
+        </p>
+        <div class="architecture">
+          <article class="arch-zone core">
+            <h4>稳定主干：一次 Agent 轮次所需的核心抽象</h4>
+            <div class="pills"><span>ctx.sessions</span><span>ctx.systemPrompt</span><span>ctx.tools</span><span>ctx.agents</span><span>ctx.agentLoop</span><span>ctx.llm</span></div>
+          </article>
+          <article class="arch-zone surface">
+            <h4>入口与表面</h4>
+            <p>Web UI、API、SDK、Headless runner。它们驱动 Agent，并消费会话事件。</p>
+            <div class="pills"><span>webserver</span><span>apiproxy</span><span>client runtime</span></div>
+          </article>
+          <article class="arch-zone policy">
+            <h4>执行与策略</h4>
+            <p>工具、文件系统、Shell、sandbox、approval、超时、压缩、重复调用保护。</p>
+            <div class="pills"><span>fs</span><span>shell</span><span>sandbox</span><span>approval</span></div>
+          </article>
+          <article class="arch-zone data">
+            <h4>状态与外部适配</h4>
+            <p>会话持久化、附件、设置、凭据、遥测、LLM provider、subagent provider。</p>
+            <div class="pills"><span>jsonl</span><span>credentials</span><span>DeepSeek adapter</span></div>
+          </article>
+        </div>
+        <h3>Seam：不是一个接口，而是三种角色的完整接缝</h3>
+        <div class="seam">
+          <div><b>Service Definition</b><small>声明稳定接口与 ctx 键</small><p>例：<code>dsh-fs</code> 定义文件系统能力。</p></div>
+          <div class="arrow">→</div>
+          <div><b>Provider</b><small>提供具体实现</small><p>例：本地、沙箱或 E2B 文件系统。</p></div>
+          <div class="arrow">→</div>
+          <div><b>Consumer</b><small>使用能力</small><p>例：面向模型的文件工具与 LSP。</p></div>
+        </div>
+        <p>
+          替换 Provider 可以改变整条能力链，而 Consumer 不必知道具体后端。
+          例如把文件系统与进程后端指向远程沙箱，Bash、PTY、LSP 可继续消费相同 seam。<button class="cite" data-cite="architecture-seam">A102</button>
+        </p>
+        <h3>Profile 与 Agent preset 也不是一回事</h3>
+        <div class="grid-2">
+          <article class="card">
+            <h4>Profile：装这一整个进程</h4>
+            <p>决定 Host 有哪些基础 provider、是否带 Web/Headless 表面、持久化和沙箱怎样配置。它通过 Loader entry tree 落地。</p>
+          </article>
+          <article class="card">
+            <h4>Preset：给某类 Agent 配书包</h4>
+            <p>决定该 Agent scope 可见的 persona、提示段和 model-facing tools。Web 中 preset 是 standing mount，再由每个 Agent scope 继承；真正提供独立 service 的行还必须进入 Cordis isolate group。<button class="cite" data-cite="preset-scope">P241</button></p>
+          </article>
+        </div>
+        <div class="callout">
+          <div class="callout-icon">2×</div>
+          <div><b>Web 实际上横跨两棵 Cordis 组合树</b><p>Node/Host 树承载模型、会话、工具、API 与服务器；浏览器端还有独立 Cordis 应用，加载 connection、client runtime、conversation、tool 与 settings 等 UI 插件。两边用 typed RPC + 事件流连接。<button class="cite" data-cite="web-two-planes">W145</button></p></div>
+        </div>
+        <h3>三类“事件”不要混在一起</h3>
+        <div class="grid-3">
+          <article class="card"><h4>Session events</h4><p>追加到日志的持久事实：<code>user/message</code>、<code>assistant/message</code>、<code>tool/result</code>。重放后仍存在。</p></article>
+          <article class="card"><h4>Agent events</h4><p>活跃过程的控制面：inbox、状态、pre-step、request、steering、错误恢复。通常不等于历史事实。</p></article>
+          <article class="card"><h4>Capability events</h4><p>能力局部的扩展点：<code>tools/*</code>、<code>fs/*</code>、<code>telemetry/*</code>，不用改主循环。</p></article>
+        </div>
+        <div class="claim">
+          <span class="label">源码事实</span>
+          Harness 的关键不变量是“模型可见即已记录”：模型请求历史从 Session 的事件 surface 派生，而不是从 UI 或临时数组拼出来。<button class="cite" data-cite="architecture-log">A96</button>
+        </div>
+      </section>
+
+      <section id="turn">
+        <div class="section-kicker">10 · End-to-end trace</div>
+        <h2>你发一句话，机器内部走了哪 12 站？</h2>
+        <p class="section-intro">点击“下一站”。左边给儿童版，右边保留真实事件/方法名。这个流程来自实际默认 ReactLoopAgent，而不是抽象教科书；主线跟随普通 <code>queue → followup</code>，进行中提交的 <code>steer</code> 会改走 next-step 分支。</p>
+        <div class="lab">
+          <div class="lab-head"><strong>一次完整对话回合</strong><small>Web UI → Agent → LLM → Tool → 下一步</small></div>
+          <div class="lab-body flow-lab">
+            <div class="flow-controls">
+              <div class="counter"><span id="flowCounter">1</span>/12</div>
+              <h4 id="flowTitle">消息进入 inbox</h4>
+              <p id="flowExplain">queue 模式由 Host 调用 Agent.followup，进入 next-turn 并唤醒 driver；steer 模式则调用 Agent.steer，进入 next-step。</p>
+              <div class="controls">
+                <button id="flowPrev">← 上一站</button>
+                <button class="btn primary small" id="flowNext">下一站 →</button>
+                <button id="flowAuto">自动播放</button>
+              </div>
+            </div>
+            <div class="flow-stage" id="flowStage">
+              <article class="flow-step active" data-title="消息进入 inbox" data-explain="queue 模式由 Host 调用 Agent.followup，进入 next-turn 并唤醒 driver；steer 模式则调用 Agent.steer，进入 next-step。"><span class="step-no">01</span><div><b>把纸条放进收件箱</b><p>主线：queue → followup → next-turn；分支：steer → next-step。</p></div><code>followup() | steer()</code></article>
+              <article class="flow-step" data-title="打开持久 Turn" data-explain="Driver 追加 turn/start；即便输入后来被拒绝，这次尝试也有一个可审计边界。"><span class="step-no">02</span><div><b>翻开一页新作业</b><p>先记录回合边界，再领取消息。</p></div><code>turn/start</code></article>
+              <article class="flow-step" data-title="组装提示与工具" data-explain="systemPrompt 收集注册的提示词段与工具 schema；runtime context 也在这里投影。"><span class="step-no">03</span><div><b>准备课本和工具清单</b><p>每个插件贡献自己负责的部分。</p></div><code>systemPrompt.assemble</code></article>
+              <article class="flow-step" data-title="Pre-step 安检" data-explain="agent/pre-step 是 waterfall，可改写、补充或拒绝本步骤的输入。"><span class="step-no">04</span><div><b>过第一道安检</b><p>策略插件决定是否让这些消息进模型。</p></div><code>agent/pre-step</code></article>
+              <article class="flow-step" data-title="写入 Step 与用户消息" data-explain="只有获准进入后才追加 step/start 与 user/message；消息成为可重放事实。"><span class="step-no">05</span><div><b>把题目写进正式作业本</b><p>不是只留在 UI 内存里。</p></div><code>step/start + user/message</code></article>
+              <article class="flow-step" data-title="从日志派生历史" data-explain="deriveMessages 读取有 surface 标记的消息节点；chunk 与边界事件不会误入模型历史。"><span class="step-no">06</span><div><b>从作业本整理上下文</b><p>日志是唯一真相来源。</p></div><code>deriveMessages()</code></article>
+              <article class="flow-step" data-title="解析、记录并冻结模型请求" data-explain="agent/request 产生候选配置；llm.prepareCall 绑定适配器与默认值；随后记录 request/header 与 request/context，最后冻结完整请求。llm/stream 仍可被重试、遥测等插件包装。"><span class="step-no">07</span><div><b>选模型、先记请求，再送出</b><p>候选配置 → 适配器解析 → durable header/context → frozen request。</p></div><code>agent/request → prepareCall → llm/stream</code></article>
+              <article class="flow-step" data-title="记录流式块" data-explain="每个 StreamChunk 立即追加 assistant/chunk，供实时 UI 与忠实回放消费。"><span class="step-no">08</span><div><b>模型边说边记</b><p>每小块都有顺序号。</p></div><code>assistant/chunk*</code></article>
+              <article class="flow-step" data-title="提交助手消息" data-explain="BlockAssembler 完成后追加 assistant/message，并用 sourceEventSeqs 指向组成它的 chunk。"><span class="step-no">09</span><div><b>把零散口述装订成答案</b><p>成功调用即使内容为空也保留用量事实。</p></div><code>assistant/message</code></article>
+              <article class="flow-step" data-title="调度工具请求" data-explain="若消息含 tool-call，调度器按执行模式处理。tool/call 是模型请求该调用的持久事实，不等于 body 已启动；取消后未 dispatch 的调用也会补记 call 与失败 result。其余调用经过 tools/pre-execute、tools/execute、tools/post-execute，策略可在 body 前短路。"><span class="step-no">10</span><div><b>登记工具请求，再决定是否执行</b><p>权限、取消或策略都可能让具体 body 不运行。</p></div><code>tools/pre-execute → execute → post-execute</code></article>
+              <article class="flow-step" data-title="按模型顺序写回结果" data-explain="并行执行不等于乱序入历史；结果按模型调用顺序追加 tool/result。"><span class="step-no">11</span><div><b>把工具答案贴回作业本</b><p>下一次请求可从日志读到。</p></div><code>tool/result*</code></article>
+              <article class="flow-step" data-title="结束步骤或继续" data-explain="追加 step/end；若工具结果欠下一次模型请求或有 steering，则再开一步，否则过 turn-stopping 并写 turn/end。"><span class="step-no">12</span><div><b>检查是否还要继续做题</b><p>没有欠账才合上这一页。</p></div><code>step/end → turn/end</code></article>
+            </div>
+          </div>
+        </div>
+        <h3>12 站之外，还有两条“外壳链”</h3>
+        <div class="grid-2">
+          <article class="card">
+            <h4>进站：Browser → Host</h4>
+            <p>Input hub → <code>ConversationService.sendSession</code> → <code>Session.prompt(content, mode)</code> RPC → Host ApiProxy 找到或恢复 Agent → <code>followup</code> / <code>steer</code>。普通 RPC 走 fetch，实时事件走 WebSocket。<button class="cite" data-cite="browser-host">H142</button></p>
+          </article>
+          <article class="card">
+            <h4>出站：Session event → 两路</h4>
+            <p>每次 append 同时喂给持久化 write-behind，以及 ApiProxy → WebSocket → Browser Session → conversation assembler。UI 是日志的投影，不是另一份权威历史。<button class="cite" data-cite="session-fanout">H550</button></p>
+          </article>
+        </div>
+        <div class="callout warn">
+          <div class="callout-icon">盘</div>
+          <div><b>模型和顶层工具副作用之前，先做持久化检查点</b><p>请求 checkpoint 在 provider dispatch 前 flush 已记录请求；顶层工具 checkpoint 在工具 body 前 flush <code>tool/call</code>。这让崩溃恢复至少知道“系统准备做什么”，而不是副作用发生后才补记。<button class="cite" data-cite="checkpoint">K20</button></p></div>
+        </div>
+        <div class="claim">
+          <span class="label">源码事实</span>
+          <code>followup()</code> 进入 next-turn 并唤醒；driver 打开 turn，获准后才写 step/user 消息；模型流、助手消息、工具调用与结果均进入同一追加日志。<button class="cite" data-cite="agent-loop">G122</button>
+        </div>
+        <div class="callout">
+          <div class="callout-icon">∞</div>
+          <div><b>为什么 Web 模式能持续对话？</b><p>同一个 Agent 有 inbox、持久 Session 与反复唤醒的 driver。每次 followup 可开启新 turn；若某一步产生工具调用，还会在同一 turn 中继续下一 step。Headless 是一次性入口选择，不是 Cordis 或 Agent loop 的能力限制。</p></div>
+        </div>
+      </section>
+
+      <section id="source">
+        <div class="section-kicker">11 · Source dive</div>
+        <h2>从架构图下潜到 5 段关键源码</h2>
+        <p class="section-intro">下列代码忠实摘取当前 commit；跨行省略只用 <code>…</code> 表示，解释放在代码框外，不改写标识符或条件。按钮可切换层次。</p>
+        <div class="lab">
+          <div class="lab-head"><strong>源码显微镜</strong><small>HEAD 47f9438 · 2026-08-13</small></div>
+          <div class="lab-body">
+            <div class="source-tabs" role="tablist">
+              <button class="active" data-source="context">1 · Context</button>
+              <button data-source="plugin">2 · Plugin → Fiber</button>
+              <button data-source="effect">3 · Effect</button>
+              <button data-source="service">4 · Service notify</button>
+              <button data-source="agent">5 · Agent step</button>
+            </div>
+            <div class="source-panel active" data-panel="context">
+              <pre class="annotated-code"><code><span class="line"><span class="ln">71</span><span>constructor() {</span></span>
+<span class="line"><span class="ln">72</span><span>  this[symbols.isolate] = Object.create(null)</span></span>
+<span class="line"><span class="ln">73</span><span>  this[symbols.intercept] = Object.create(null)</span></span>
+<span class="line"><span class="ln">74</span><span>  const self = <span class="hi">new Proxy&lt;this&gt;(this, ReflectService.handler)</span></span></span>
+<span class="line"><span class="ln">75</span><span>  this.root = self</span></span>
+<span class="line"><span class="ln">77</span><span>  this.fiber = new Fiber(self, {}, Object.create(null), null, () =&gt; [])</span></span>
+<span class="line"><span class="ln">78</span><span>  this.reflect = new ReflectService(self)</span></span>
+<span class="line"><span class="ln">79</span><span>  this.registry = new RegistryService(self)</span></span>
+<span class="line"><span class="ln">80</span><span>  this.events = new EventsService(self)</span></span>
+<span class="line"><span class="ln">81</span><span>  this.logger = new LoggerService(self)</span></span>
+<span class="line"><span class="ln">82</span><span>  this.fiber._disposables.clear()</span></span>
+<span class="line"><span class="ln">83</span><span>  return self</span></span></code></pre>
+              <p>根 Context 一出生就不是裸对象：Proxy 守住服务属性访问，根 Fiber 提供所有权边界，四个基础服务提供反射、插件、事件和日志。<a class="source-link" href="https://github.com/deepseek-ai/deepseek-harness/blob/47f943859bef60e4160492346772ded9b24f765a/vendor/cordis/src/context.ts#L71-L83">打开原文件 ↗</a></p>
+            </div>
+            <div class="source-panel" data-panel="plugin">
+              <pre class="annotated-code"><code><span class="line"><span class="ln">316</span><span>plugin(plugin: Plugin, config?: any, getOuterStack = buildOuterStack()) {</span></span>
+<span class="line"><span class="ln">318</span><span>  const callback = this.resolve(plugin)</span></span>
+<span class="line"><span class="ln">319</span><span>  if (!callback) throw new Error('invalid plugin, expect function or object with an "apply" method, received ' + typeof plugin)</span></span>
+<span class="line"><span class="ln">320</span><span>  this.ctx.fiber.assertActive()</span></span>
+<span class="line"><span class="ln">322</span><span>  let runtime = this._internal.get(callback)</span></span>
+<span class="line"><span class="ln">323</span><span>  if (!runtime) {</span></span>
+<span class="line"><span class="ln">324</span><span>    let name = plugin.name</span></span>
+<span class="line"><span class="ln">325</span><span>    if (name === 'apply') name = undefined</span></span>
+<span class="line"><span class="ln">326</span><span>    runtime = { name, callback, fibers: new DisposableList(), Config: plugin.Config }</span></span>
+<span class="line"><span class="ln">327</span><span>    this._internal.set(callback, runtime)</span></span>
+<span class="line"><span class="ln">328</span><span>  }</span></span>
+<span class="line"><span class="ln">330</span><span>  const fiber = <span class="hi">new Fiber(this.ctx, config, Inject.resolve(plugin.inject), runtime, getOuterStack)</span></span>
+<span class="line"><span class="ln">331</span><span>  const wrapped = Object.create(fiber) as Fiber &amp; PromiseLike&lt;Fiber&gt;</span></span>
+<span class="line"><span class="ln">332</span><span>  wrapped.then = (onFulfilled, onRejected) =&gt; {</span></span>
+<span class="line"><span class="ln">333</span><span>    return fiber.await().then(onFulfilled, onRejected)</span></span>
+<span class="line"><span class="ln">334</span><span>  }</span></span>
+<span class="line"><span class="ln">335</span><span>  return wrapped</span></span>
+<span class="line"><span class="ln">336</span><span>}</span></span></code></pre>
+              <p>Registry 负责把多种插件外形归一到 callback/runtime；每次挂载产生独立 Fiber，实例状态不塞回模块对象。<a class="source-link" href="https://github.com/deepseek-ai/deepseek-harness/blob/47f943859bef60e4160492346772ded9b24f765a/vendor/cordis/src/registry.ts#L316-L335">打开原文件 ↗</a></p>
+            </div>
+            <div class="source-panel" data-panel="effect">
+              <pre class="annotated-code"><code><span class="line"><span class="ln">418</span><span>effect(execute: () =&gt; Effect, label = 'anonymous'): any {</span></span>
+<span class="line"><span class="ln">419</span><span>  this.assertActive()</span></span>
+<span class="line"><span class="ln">420</span><span>  if (this.state === FiberState.UNLOADING) {</span></span>
+<span class="line"><span class="ln">421</span><span>    throw new CordisError('INACTIVE_EFFECT')</span></span>
+<span class="line"><span class="ln">422</span><span>  }</span></span>
+<span class="line"><span class="ln">424</span><span>  const disposables: Disposable[] = []</span></span>
+<span class="line"><span class="ln">427</span><span>  const dispose = () =&gt; {</span></span>
+<span class="line"><span class="ln">431</span><span>    for (const disposable of <span class="hi">disposables.splice(0).reverse()</span>) {</span></span>
+<span class="line"><span class="ln">432</span><span>      if (task) {</span></span>
+<span class="line"><span class="ln">433</span><span>        task = task.then(() =&gt; runDisposable(disposable))</span></span>
+<span class="line"><span class="ln">…</span><span>      }</span></span>
+<span class="line"><span class="ln">…</span><span>    }</span></span>
+<span class="line"><span class="ln">441</span><span>    return disposalTask = task</span></span>
+<span class="line"><span class="ln">442</span><span>  }</span></span>
+<span class="line"><span class="ln">…</span><span></span></span>
+<span class="line"><span class="ln">520</span><span>  removeWrapper = this._disposables.push(wrapper)</span></span>
+<span class="line"><span class="ln">522</span><span>  task = this._execute(runner)</span></span>
+<span class="line"><span class="ln">560</span><span>  return wrapper</span></span>
+<span class="line"><span class="ln">561</span><span>}</span></span></code></pre>
+              <p>这里是时间维度的工程核心：一个 effect 内逆操作 LIFO、幂等包装、setup 失败清理与重入防护集中在一处；Fiber 顶层 effects 的并发清理在 <code>_unload()</code>。<a class="source-link" href="https://github.com/deepseek-ai/deepseek-harness/blob/47f943859bef60e4160492346772ded9b24f765a/vendor/cordis/src/fiber.ts#L415-L560">打开原文件 ↗</a></p>
+            </div>
+            <div class="source-panel" data-panel="service">
+              <pre class="annotated-code"><code><span class="line"><span class="ln">277</span><span>provide(name: string, value?: any, check?: () =&gt; boolean) {</span></span>
+<span class="line"><span class="ln">278</span><span>  return this.ctx.fiber.effect(() =&gt; {</span></span>
+<span class="line"><span class="ln">…</span><span></span></span>
+<span class="line"><span class="ln">286</span><span>    this.ctx.root[symbols.isolate][name] ??= Symbol(name)</span></span>
+<span class="line"><span class="ln">287</span><span>    const key = this.ctx[symbols.isolate][name]</span></span>
+<span class="line"><span class="ln">288</span><span>    const impl: Impl = { name, value, fiber: this.ctx.fiber, check }</span></span>
+<span class="line"><span class="ln">292</span><span>    this.store[key] = impl</span></span>
+<span class="line"><span class="ln">293</span><span>    this.ctx.fiber.store![name] = impl</span></span>
+<span class="line"><span class="ln">294</span><span>    if (this.ctx.fiber.state === FiberState.ACTIVE) {</span></span>
+<span class="line"><span class="ln">295</span><span>      this.notify([name])</span></span>
+<span class="line"><span class="ln">296</span><span>    }</span></span>
+<span class="line"><span class="ln">297</span><span>    return async () =&gt; {</span></span>
+<span class="line"><span class="ln">298</span><span>      delete this.store[key]</span></span>
+<span class="line"><span class="ln">299</span><span>      const fibers = <span class="hi">this.notify([name])</span></span>
+<span class="line"><span class="ln">300</span><span>      await Promise.allSettled(fibers.map(fiber =&gt; fiber.await()))</span></span>
+<span class="line"><span class="ln">302</span><span>      delete this.ctx.fiber.store![name]</span></span>
+<span class="line"><span class="ln">303</span><span>    }</span></span>
+<span class="line"><span class="ln">304</span><span>  }, `ctx.provide(${JSON.stringify(name)})`)</span></span></code></pre>
+              <p>“提供服务”本身是 effect。槽位变化会通知全树；命中依赖声明的 Fiber 重新计算 epoch 并切换生命周期。<a class="source-link" href="https://github.com/deepseek-ai/deepseek-harness/blob/47f943859bef60e4160492346772ded9b24f765a/vendor/cordis/src/reflect.ts#L277-L335">打开原文件 ↗</a></p>
+            </div>
+            <div class="source-panel" data-panel="agent">
+              <pre class="annotated-code"><code><span class="line"><span class="ln">332</span><span>private async step(assembly: PromptAssembly): Promise&lt;StepEndReason | null&gt; {</span></span>
+<span class="line"><span class="ln">…</span><span></span></span>
+<span class="line"><span class="ln">339</span><span>  while (true) {</span></span>
+<span class="line"><span class="ln">340</span><span>    const { request, preparedCall } = await this.buildRequest(</span></span>
+<span class="line"><span class="ln">341</span><span>      turn, step, assembly.tools, system, <span class="hi">this.session.deriveMessages()</span>, signal,</span></span>
+<span class="line"><span class="ln">342</span><span>    )</span></span>
+<span class="line"><span class="ln">345</span><span>    const stream = preparedCall?.stream(request) ?? this.loopCtx.llm.stream(request)</span></span>
+<span class="line"><span class="ln">347</span><span>    for await (const chunk of stream) {</span></span>
+<span class="line"><span class="ln">349</span><span>      chunkSeqs.push(this.session.append('assistant/chunk', { turn, step, chunk }).seq)</span></span>
+<span class="line"><span class="ln">350</span><span>      assembler.push(chunk)</span></span>
+<span class="line"><span class="ln">351</span><span>    }</span></span>
+<span class="line"><span class="ln">…</span><span></span></span>
+<span class="line"><span class="ln">393</span><span>    const toolCalls = message.content.filter(block =&gt; block.type === 'tool-call')</span></span>
+<span class="line"><span class="ln">394</span><span>    if (toolCalls.length === 0) return { kind: 'completed' }</span></span>
+<span class="line"><span class="ln">395</span><span>    const { concluded } = await executeToolCalls(</span></span>
+<span class="line"><span class="ln">396</span><span>      this.loopCtx, turn, step, toolCalls, signal,</span></span>
+<span class="line"><span class="ln">397</span><span>      context =&gt; this.inbox.splice('next-step', this.inbox.nextStep.length, 0, [context]),</span></span>
+<span class="line"><span class="ln">398</span><span>    )</span></span>
+<span class="line"><span class="ln">399</span><span>    return concluded ? { kind: 'completed' } : null</span></span>
+<span class="line"><span class="ln">400</span><span>  }</span></span>
+<span class="line"><span class="ln">401</span><span>}</span></span></code></pre>
+              <p>Cordis 没有写死这段循环；它只是让 loop、llm、sessions、tools 可组合。这段才是 Harness 的领域逻辑。<a class="source-link" href="https://github.com/deepseek-ai/deepseek-harness/blob/47f943859bef60e4160492346772ded9b24f765a/packages/core/agent-loop/src/agent.ts#L332-L400">打开原文件 ↗</a></p>
+            </div>
+          </div>
+        </div>
+        <h3>一条必须能复述的源码调用链</h3>
+        <div class="equation">
+          <span>ctx.plugin</span> → Registry resolve runtime → Inject.resolve → new Fiber →
+          _checkImpl / _refresh → Fiber._reload → plugin apply → effects/services/events → ACTIVE
+        </div>
+        <p>卸载则大体反向：依赖者刷新 → <code>Fiber._unload</code> 并发启动各顶层 effect 的清理 → 每个 effect 内部逆序撤销 → 等待静止。依赖缺失时落到 PENDING；epoch 又可用时转入 LOADING；启动失败落到 FAILED；显式永久移除则是 DISPOSED。</p>
+      </section>
+
+      <section id="paper">
+        <div class="section-kicker">12 · Paper ↔ implementation</div>
+        <h2>论文不是“项目说明书”，而是这套组合语义的理论化</h2>
+        <p class="section-intro">
+          《A Programming Paradigm for Spatiotemporal Composability》是 2026-08-13 的 88 页预印本；仓库 README 将它标作持续修订中的 active preprint。
+          它先形式化 effect/coeffect，再给动态组合演算，最后用 Cordis 实现与 Koishi 案例连接理论和工程。<button class="cite" data-cite="paper-front">P1</button><button class="cite" data-cite="paper-readme">PR</button>
+        </p>
+        <div class="paper-map">
+          <div class="paper-col theory">
+            <h4>论文的抽象语言</h4>
+            <div class="pills"><span>统一 Context Γ</span><span>revertible effect</span><span>reactive coeffect</span><span>component</span><span>fiber</span><span>observational equivalence</span></div>
+            <p>目标是证明：局部组件交错装卸后，稳定状态仍能按组合规则推理。</p>
+          </div>
+          <div class="mapping">
+            <svg viewBox="0 0 80 220" aria-hidden="true"><path d="M7 20 C70 40 10 75 72 95 M7 105 C70 115 10 155 72 170 M7 188 C45 188 45 200 72 200"/></svg>
+            落地
+          </div>
+          <div class="paper-col code">
+            <h4>Cordis 的运行时对象</h4>
+            <div class="pills"><span>ctx</span><span>ctx.effect</span><span>inject</span><span>provide/notify</span><span>Fiber</span><span>committed view</span></div>
+            <p>再往上是 Loader 的声明式 entry、配置对账与 HMR；Harness 属于应用框架层。</p>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>论文概念</th><th>代码落点</th><th>用大白话说</th><th>证据</th></tr></thead>
+            <tbody>
+              <tr><td>统一 context</td><td><code>Context / ctx</code></td><td>读依赖与改环境都走同一工作台</td><td><button class="cite" data-cite="paper-table">P55</button></td></tr>
+              <tr><td>可逆 effect</td><td><code>ctx.effect</code></td><td>动作携带逆操作；单个 effect 内的 disposers 按 LIFO 清理，而当前 Fiber 的多个顶层 effects 并发清理</td><td><button class="cite" data-cite="paper-effect-duty">P56</button><button class="cite" data-cite="fiber-unload">F675</button></td></tr>
+              <tr><td>reactive coeffect</td><td><code>inject + provide + notify</code></td><td>声明依赖，插座变化就重新判断是否运行</td><td><button class="cite" data-cite="paper-core">P57</button></td></tr>
+              <tr><td>component / fiber</td><td><code>plugin / Fiber</code></td><td>说明书与它的一次活体实例</td><td><button class="cite" data-cite="paper-lifecycle">P58</button></td></tr>
+              <tr><td>declarative composition</td><td><code>Loader EntryTree</code></td><td>用稳定 id 的清单对账，不手写装机脚本</td><td><button class="cite" data-cite="paper-loader">P61</button></td></tr>
+              <tr><td>transactional HMR</td><td><code>hmr + loader rollback</code></td><td>论文算法的语义目标是失败时恢复 cache 与旧组件；当前 vendored HMR 是带 catch/log 的尽力回滚路径，不等于已经证明的原子事务</td><td><button class="cite" data-cite="paper-hmr">P66</button><button class="cite" data-cite="hmr-current">H482</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <h3>论文能证明/支持什么，不能偷换成什么？</h3>
+        <div class="grid-2">
+          <article class="card">
+            <h4 style="color:var(--green)">可以合理带走</h4>
+            <p>论文给出这套动态组合语义的形式模型、元理论与 Cordis 对应实现。论文作者把 Koishi 案例解释为 <i>existence-and-adoption evidence</i>；但案例运行的是 Cordis v3，且没有替代架构对照实验或 v4 的生产验证。</p>
+          </article>
+          <article class="card">
+            <h4 style="color:var(--red)">不可以夸大</h4>
+            <p>它不是与其他架构的受控性能/生产率实验；案例只有一个生态、一种宿主语言。对“自进化 Agent harness”的验证被明确列为未来工作，不是已完成结论。<button class="cite" data-cite="paper-validity">P67</button><button class="cite" data-cite="paper-future">P79</button></p>
+          </article>
+        </div>
+        <div class="callout warn">
+          <div class="callout-icon">v</div>
+          <div><b>版本差异必须保留</b><p>论文呈现 Cordis v4；论文的 Koishi 案例注明 Koishi 当时仍使用 v3。当前 Harness 的上游源码基线是 Cordis 4.0.0-rc.7 / Loader 1.0.0-rc.5，重新打包的 package 版本是 4.0.1 / 1.0.2，并叠加本仓生命周期、Loader/HMR 加固。因此“论文算法”和“当前源码细节”是对应关系，不是逐行相同。<button class="cite" data-cite="paper-version-gap">P66</button><button class="cite" data-cite="vendor-version">V1</button><button class="cite" data-cite="package-version">V2</button><button class="cite" data-cite="loader-package-version">V3</button></p></div>
+        </div>
+        <h3>论文伪代码与这个 checkout 的四处可见漂移</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>论文 §5 写法</th><th>当前源码</th><th>阅读时怎么处理</th></tr></thead>
+            <tbody>
+              <tr><td><code>ctx.use</code></td><td><code>ctx.plugin</code> / <code>registry.plugin</code></td><td>概念都是实例化 component；API 名称不能照抄论文。</td></tr>
+              <tr><td><code>ctx.set</code> 表示供给</td><td><code>ctx.provide</code> 建立绑定；<code>ctx.set</code> 只修改当前 Fiber 已有值且不通知依赖者</td><td>教学与插件代码应使用 <code>provide</code>。<button class="cite" data-cite="api-drift">D245</button></td></tr>
+              <tr><td><code>fiber.committed / target</code>（论文映射与伪代码字段）</td><td><code>fiber.store</code>、内部 <code>_store</code> 与 provider-uid epoch</td><td>把它们当语义对应，不声称字段一一相同。</td></tr>
+              <tr><td>Algorithm 5 的强卸载顺序</td><td>顶层 effects 由 <code>Promise.all</code> 并发清理；<code>provide</code> 自身含等待依赖者的局部屏障</td><td>不能把该算法的顺序定理直接当成此 commit 已机械验证的属性。</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="claim paper">
+          <span class="label">条件定理，不是产品口号</span>
+          <p>四组结论的前提不同，不能揉成一条“Cordis 保证”。当前运行时也不会机械验证这些数学前提。</p>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>结论</th><th>论文明确依赖的条件</th><th>它实际承诺什么</th></tr></thead>
+              <tbody>
+                <tr><td>Recovery，Thm. 61 / Cor. 62</td><td>演算中的 iterator/effect 带合法 inverse witness 并受 confinement 约束；步骤 pairwise independent</td><td>卸载后，环境与 coeffect tables 和“只保留其余步骤”的状态精确一致，只忽略 registry control fields（<code>≈</code>）。只有它注册的子 Fiber 在 episode 中没有执行步骤时，才能进一步读作“该 Fiber 从未开始”。<button class="cite" data-cite="paper-recovery">P44</button></td></tr>
+                <tr><td>Ordering，Thm. 63</td><td>受 guard 约束、registry well-formed 的生命周期演算</td><td>依赖已提供才开始；provider 的 episode 包住 consumer，且 consumer 看到的绑定在 episode 内固定。<button class="cite" data-cite="paper-ordering">P45</button></td></tr>
+                <tr><td>Progress，Thm. 66</td><td>provider precedence 无环；每个 iterator 长度有统一上界 K；Fiber 名有限；每步只用生命周期规则</td><td>无死锁，并且最大生命周期序列终止于 quiescent state。<button class="cite" data-cite="paper-progress">P47</button></td></tr>
+                <tr><td>Confluence，Thm. 73</td><td>到达无 failed Fiber 的 quiescent state；步骤 pairwise independent；每个 component 对其 provision 是 total；沿用该节的有限/无环设置</td><td>相同 orchestration steps 的合法调度，最终状态在重命名后同时满足 <code>≃</code>（coeffects 的观测等价，并保留 registry 域/控制字段）与 <code>≈</code>（环境/tables 精确一致，只忽略控制字段）。<button class="cite" data-cite="paper-confluence">P52</button></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section id="tradeoffs">
+        <div class="section-kicker">13 · Boundaries &amp; trade-offs</div>
+        <h2>为什么这样设计，以及要付什么代价</h2>
+        <p class="section-intro">架构不是“优点集合”。每项能力都换来新的约束；下面把因果关系写完整。</p>
+        <div class="tradeoff">
+          <div class="gain"><b>得到：局部热插拔</b><p>effect 让资源所有权与创建位置相邻；Fiber 让父子卸载可传播。</p></div>
+          <div class="cost"><b>付出：必须经过 Context</b><p>绕开 ctx 直接改全局变量、注册第三方监听却不交 disposer，框架就无法追踪。</p></div>
+        </div>
+        <div class="tradeoff">
+          <div class="gain"><b>得到：依赖响应式重载</b><p>inject + provider uid 让实现身份变化自动传播，不必每个组件手写 watch。</p></div>
+          <div class="cost"><b>付出：更多生命周期复杂度</b><p>异步 setup、重入、并发卸载、失败回滚、稳定视图都需要严格状态机。</p></div>
+        </div>
+        <div class="tradeoff">
+          <div class="gain"><b>得到：能力可替换</b><p>Definition/Provider/Consumer 分离，让同一工具链换本地、沙箱或远程后端。</p></div>
+          <div class="cost"><b>付出：接口与版本纪律</b><p>键名相同不代表语义兼容；依赖类型、版本漂移和多提供方策略仍要显式治理。<button class="cite" data-cite="paper-versioning">P72</button></p></div>
+        </div>
+        <div class="tradeoff">
+          <div class="gain"><b>得到：配置可重组</b><p>Profile/Bundle/Patch 让产品表面由数据组装，用户能覆盖具体 entry。</p></div>
+          <div class="cost"><b>付出：有效配置不再在一个文件里</b><p>必须用 <code>dsh --profile web --dump-config</code> 看最终树；整个 config 替换也要求覆盖者重述保留字段。</p></div>
+        </div>
+        <h3>四个常见误解</h3>
+        <div class="grid-2">
+          <article class="card"><h4>误解 1：Service 就是全局单例</h4><p>不准确。服务名可经 isolate 映射到不同 Symbol；同一进程可有多个 realm。</p></article>
+          <article class="card"><h4>误解 2：所有插件按 YAML 顺序启动</h4><p>不准确。Base patch 明确说行顺序不承载加载语义；激活由 service 可用性驱动。<button class="cite" data-cite="base-order">B12</button></p></article>
+          <article class="card"><h4>误解 3：Cordis 就是依赖注入容器</h4><p>只说对一半。它还规定 effect 回收、Fiber 生命周期、事件所有权、隔离与 Loader 对账。</p></article>
+          <article class="card"><h4>误解 4：论文证明 Harness 会自我进化</h4><p>错误。论文把自进化 harness 当动机与未来验证方向；当前仓库采用 Cordis 不等于完成了开放式自进化实证。</p></article>
+        </div>
+        <div class="callout danger">
+          <div class="callout-icon">盾</div>
+          <div><b>依赖声明不是恶意代码沙箱</b><p>Context Proxy 能限制经 Proxy 的服务访问，类似能力请求；但恶意插件仍可直接调用 Node API。论文明确说这需要外部 sandbox。Harness 因此另有 sandbox/approval/file-system policy 层。<button class="cite" data-cite="paper-sandbox">P69</button></p></div>
+        </div>
+      </section>
+
+      <section id="finish">
+        <div class="section-kicker">14 · Checkpoint</div>
+        <h2>如果你能回答这 5 题，就抓住了内核</h2>
+        <div class="quiz" id="quiz">
+          <div class="quiz-item" data-answer="b">
+            <p>1. Cordis 最核心的业务职责是什么？</p>
+            <button data-choice="a">负责调用 DeepSeek 模型</button><button data-choice="b">规定动态组件的组合与生命周期</button><button data-choice="c">渲染 Web UI</button>
+            <div class="quiz-feedback"></div>
+          </div>
+          <div class="quiz-item" data-answer="c">
+            <p>2. 为什么事件监听会随插件卸载？</p>
+            <button data-choice="a">JavaScript 自动清理</button><button data-choice="b">浏览器刷新</button><button data-choice="c">监听注册被当前 Fiber 记录为 effect</button>
+            <div class="quiz-feedback"></div>
+          </div>
+          <div class="quiz-item" data-answer="a">
+            <p>3. fs 服务仍存在，但提供方换了，依赖者为什么会重载？</p>
+            <button data-choice="a">epoch 看到提供方 Fiber uid 改变</button><button data-choice="b">服务名变长了</button><button data-choice="c">YAML 行顺序改变</button>
+            <div class="quiz-feedback"></div>
+          </div>
+          <div class="quiz-item" data-answer="b">
+            <p>4. 模型历史的权威来源是什么？</p>
+            <button data-choice="a">React 组件 state</button><button data-choice="b">Session 追加事件日志的 surface 投影</button><button data-choice="c">终端输出</button>
+            <div class="quiz-feedback"></div>
+          </div>
+          <div class="quiz-item" data-answer="c">
+            <p>5. Cordis 能自动撤回已经发到公网的请求吗？</p>
+            <button data-choice="a">总是能</button><button data-choice="b">只要用 TypeScript 就能</button><button data-choice="c">不能；外部发射需延迟提交或补偿</button>
+            <div class="quiz-feedback"></div>
+          </div>
+        </div>
+        <h3>下一步阅读路线（从便宜到昂贵）</h3>
+        <div class="checklist">
+          <label><input type="checkbox"> <span><b>10 分钟</b><br><small>重玩 effect 与依赖实验，口述装载/卸载链。</small></span></label>
+          <label><input type="checkbox"> <span><b>20 分钟</b><br><small>读 <a href="../docs/cordis-tutorial/index.zh.md">Cordis 教程</a> 第 1–3 章。</small></span></label>
+          <label><input type="checkbox"> <span><b>30 分钟</b><br><small>读 <a href="../docs/architecture.zh.md">Harness 架构</a> 与 <a href="../docs/agent-lifecycle.zh.md">Agent 时序图</a>。</small></span></label>
+          <label><input type="checkbox"> <span><b>45 分钟</b><br><small>沿本页源码链打断点：Registry → Fiber → Reflect。</small></span></label>
+          <label><input type="checkbox"> <span><b>60 分钟</b><br><small>运行 <code>dsh --profile web --dump-config</code>，挑一条 service seam 追 provider 与 consumer。</small></span></label>
+          <label><input type="checkbox"> <span><b>论文路线</b><br><small>先读 P4–6、P54–73、P79；形式化证明留到已有类型理论基础之后。</small></span></label>
+        </div>
+        <div class="callout">
+          <div class="callout-icon">✓</div>
+          <div>
+            <b>最后只记这一句也可以</b>
+            <p>Cordis 把“插件做了什么、依赖什么、谁拥有它、拔掉时怎么收拾”变成统一运行时规则；DeepSeek Harness 再把模型、会话、工具、策略和 UI 作为插件装在这些规则之上。</p>
+          </div>
+        </div>
+      </section>
+
+      <footer class="footer">
+        <b>证据范围：</b>本页源码结论基于 deepseek-harness commit
+        <a href="https://github.com/deepseek-ai/deepseek-harness/tree/47f943859bef60e4160492346772ded9b24f765a"><code>47f9438</code></a>
+        （2026-08-13）；论文为 Cordiverse 仓库同日活跃预印本。类比只用于教学，不替代源码契约。
+        <br>生成于 2026-08-14 · 所有图形、样式和交互均内嵌，可离线打开。
+      </footer>
+    </main>
+  </div>
+
+  <div class="drawer-backdrop" id="drawerBackdrop"></div>
+  <aside class="drawer" id="drawer" aria-live="polite" aria-label="术语或出处详情">
+    <button class="drawer-close" id="drawerClose" aria-label="关闭">×</button>
+    <div class="drawer-type" id="drawerType">术语</div>
+    <h3 id="drawerTitle">标题</h3>
+    <div id="drawerBody"></div>
+  </aside>
+
+  <script>
+    (function () {
+      "use strict";
+
+      var terms = {
+        cordis: {
+          title: "Cordis",
+          body: "<p>一个面向动态组合的元框架。它提供 Context、可逆 effect、响应式依赖、Fiber 生命周期、事件和声明式 Loader；它不规定模型、聊天、数据库或 UI 等业务领域。</p><p><b>英文：</b>meta-framework of spatiotemporal composability。</p>"
+        },
+        context: {
+          title: "Context（上下文）",
+          body: "<p>插件与组合环境交互的统一入口。服务读取、事件注册、子插件挂载、effect 登记都通过它完成。Cordis 的 Context 是 Proxy，可检查依赖声明并应用隔离/拦截规则。</p>"
+        },
+        plugin: {
+          title: "Plugin / Component（插件 / 组件）",
+          body: "<p>可挂载的行为说明。Cordis 接受函数、类或带 apply 的对象。论文用 component 作为形式概念；代码与 Koishi 生态常用 plugin。</p>"
+        },
+        service: {
+          title: "Service（服务）",
+          body: "<p>通过 Context 键发布的能力实现，例如 ctx.llm、ctx.tools、ctx.fs。键代表接缝位置；isolate 可使同名键在不同 realm 解析到不同实现。</p>"
+        },
+        inject: {
+          title: "Inject / Coeffect（依赖 / 余效）",
+          body: "<p>组件对环境的硬要求。列入 inject 的每个服务都会参与 Fiber 激活条件；对象值是该依赖的 intercept 配置，不代表 optional。可选查询应不列入 inject，并在需要时使用 ctx.get(name)。</p>"
+        },
+        fiber: {
+          title: "Fiber",
+          body: "<p>一次插件挂载的运行时实例与生命周期所有者。它记录 uid、状态、配置、子 Context、依赖 epoch、effects、已提交服务视图和异步切换任务。</p><p>不要和 JavaScript worker、操作系统线程或 React Fiber 混为一谈。</p>"
+        },
+        effect: {
+          title: "Effect（副作用）",
+          body: "<p>对组合环境的修改以及对应的撤销动作。Cordis 追踪 disposer 并按结构回收；它不能证明 disposer 在语义上正确，也不能自动逆转系统边界之外的发射。</p>"
+        },
+        event: {
+          title: "Event（事件）",
+          body: "<p>插件间可组合扩展点。监听器有 Fiber 所有权，卸载自动移除。dispatch 有 emit、parallel、serial、bail、waterfall 五类协作语义。</p>"
+        },
+        loader: {
+          title: "Loader",
+          body: "<p>管理声明式插件 entry 树的 Service。它负责模块导入、配置更新、禁用、隔离/拦截、等待稳定，以及更新失败时的恢复路径。</p>"
+        },
+        isolate: {
+          title: "isolate（隔离）",
+          body: "<p>改变服务名解析到哪个 Symbol 槽。它解决“同一个进程里，同名服务要有多份独立实例”的问题，例如两个子树各自提供同名但不同实现的 planMode 服务。Harness 的 Agent 工具可见性主要由 dsh-scope 管理，不能和 Cordis isolate 混为一谈。</p>"
+        },
+        intercept: {
+          title: "intercept（拦截配置）",
+          body: "<p>依赖者对某个服务绑定的使用配置。它不改变绑定到哪个实现，而改变该服务对这个依赖者的行为；通过 Context 原型链继承。</p>"
+        }
+      };
+
+      var commit = "47f943859bef60e4160492346772ded9b24f765a";
+      var gh = "https://github.com/deepseek-ai/deepseek-harness/blob/" + commit + "/";
+      var paperCommit = "948a07b369c62adb3b12e102458be5c18dfb69b9";
+      var paperRepo = "https://github.com/cordiverse/paper/blob/" + paperCommit + "/";
+      var paper = paperRepo + "paper.pdf";
+      var citations = {
+        "paper-meta": { title:"Cordis 是不绑定领域的元框架", meta:"论文 §5，PDF p.54", url:paper, body:"实现被分为三层：Cordis core、component loader、application framework；Cordis 只规定动态组合语义，不规定 Web、ORM 或聊天等业务。" },
+        "paper-dimensions": { title:"时间与空间可组合性", meta:"论文 §1.1，PDF p.4", url:paper, body:"论文把动态组合拆为两个正交维度：移除时撤销环境修改；依赖变化时协调组件生命周期。" },
+        "paper-boundary": { title:"系统边界、acquisition 与 emission", meta:"论文 §6.1，PDF p.67–68", url:paper, body:"边界内且可独占恢复的位置可被追踪。获得句柄/资源通常可撤销；已经跨边界发出的字节通常不可撤销，需要 withholding 或 compensation。" },
+        "architecture-cordis": { title:"Harness 的 Cordis 定位", meta:"docs/architecture.zh.md:9–13", url:gh+"docs/architecture.zh.md#L9-L13", body:"仓库文档明确：模型适配器、工具注册表、会话日志和 agent loop 都是插件；扩展方式是把插件挂到彼此旁边。" },
+        "context-root": { title:"根 Context 初始化", meta:"vendor/cordis/src/context.ts:71–83, 99–107", url:gh+"vendor/cordis/src/context.ts#L71-L107", body:"构造器创建 isolate/intercept 表、Proxy、根 Fiber 与基础服务；extend 通过原型创建派生 Context。" },
+        "registry-plugin": { title:"Registry 创建 Fiber", meta:"vendor/cordis/src/registry.ts:316–335", url:gh+"vendor/cordis/src/registry.ts#L316-L335", body:"Registry 解析插件形状，创建/复用 runtime，再为本次挂载构造 Fiber。" },
+        "fiber-child": { title:"父 Fiber 拥有子 Fiber", meta:"vendor/cordis/src/fiber.ts:265–297", url:gh+"vendor/cordis/src/fiber.ts#L265-L297", body:"Fiber 构造时用 parent.fiber.effect 登记子 Fiber；清理器等待子 Fiber dispose，使所有权树与卸载传播一致。" },
+        "fiber-refresh": { title:"依赖刷新与 reload/unload", meta:"vendor/cordis/src/fiber.ts:611–695", url:gh+"vendor/cordis/src/fiber.ts#L611-L695", body:"_refresh 从所解析提供方 uid 生成 epoch；缺依赖时清空 epoch；_setEpoch 串联 reload 或 unload。" },
+        "fiber-states": { title:"Fiber 的六个实际状态", meta:"vendor/cordis/src/fiber.ts:139–154, 574–579", url:gh+"vendor/cordis/src/fiber.ts#L139-L154", body:"源码枚举 PENDING、LOADING、ACTIVE、FAILED、DISPOSED、UNLOADING。reload 是由 epoch 变化触发的 unload/load 过程，不是枚举状态；uid 为 null 推导 DISPOSED，保存了启动错误时推导 FAILED。" },
+        "fiber-effect": { title:"Effect 跟踪、组内 LIFO 与顶层并发", meta:"vendor/cordis/src/fiber.ts:415–560, 675–686", url:gh+"vendor/cordis/src/fiber.ts#L415-L560", body:"effect 创建幂等清理包装器，先登记后执行 callback；一个 effect 内收集的 disposer 逆序运行。Fiber._unload 对多个顶层 effect 使用 Promise.all 并发清理。" },
+        "effect-errors": { title:"运行时尝试清理，但不证明语义逆转", meta:"vendor/cordis/src/fiber.ts:675–686", url:gh+"vendor/cordis/src/fiber.ts#L675-L686", body:"Fiber._unload 会调用已登记 disposer；每个顶层清理的异常被捕获并记录。它无法验证 disposer 是否真是 inverse，也无法把永久挂起的 Promise 变成成功回滚。" },
+        "fiber-unload": { title:"组内逆序，组间并发", meta:"vendor/cordis/src/fiber.ts:424–441, 675–686", url:gh+"vendor/cordis/src/fiber.ts#L424-L441", body:"单个 effect 收集的 disposer 通过 reverse() 串行执行；Fiber 卸载时，拥有的多个顶层 disposer 通过 Promise.all 同时启动。" },
+        "effect-concurrency": { title:"顶层 effects 并发清理", meta:"vendor/cordis/src/fiber.ts:675–686; docs/cordis-primer.md:40–44", url:gh+"vendor/cordis/src/fiber.ts#L675-L686", body:"_unload 对 _disposables.clear() 的结果执行 Promise.all。仓库 primer 明确建议：有 teardown 顺序要求的资源应放进同一个 effect。" },
+        "events-register": { title:"事件监听的 Fiber 所有权", meta:"vendor/cordis/src/events.ts:254–302", url:gh+"vendor/cordis/src/events.ts#L254-L302", body:"register 把监听器加入表，并用当前 Fiber 的 effect 返回移除动作；on/once 建立在它之上。" },
+        "reflect-provide": { title:"服务提供也是 effect", meta:"vendor/cordis/src/reflect.ts:277–335", url:gh+"vendor/cordis/src/reflect.ts#L277-L335", body:"provide 写入 realm 对应的 store、通知全树；清理时移除绑定并通知命中的依赖 Fiber 刷新。" },
+        "paper-effect-duty": { title:"运行时不验证逆操作正确性", meta:"论文 §5.1.1，PDF p.56", url:paper, body:"ctx.effect 跟踪作者提供的 inverse；inverse 是否真的恢复原 effect 是组件作者义务，而非运行时可验证性质。" },
+        "reflect-proxy": { title:"Context Proxy 的依赖守门", meta:"vendor/cordis/src/reflect.ts:135–206", url:gh+"vendor/cordis/src/reflect.ts#L135-L206", body:"服务属性读取会检查 inject 声明、realm 和 Fiber 状态；未声明服务访问会发出错误。" },
+        "fiber-epoch": { title:"提供方 uid 进入 epoch", meta:"vendor/cordis/src/fiber.ts:611–639", url:gh+"vendor/cordis/src/fiber.ts#L611-L639", body:"依赖 epoch 由解析到的 provider Fiber uid 组成，因此键名不变但实现身份改变仍会触发生命周期切换。" },
+        "reflect-committed": { title:"已提交服务快照与局部等待屏障", meta:"vendor/cordis/src/reflect.ts:152–167, 277–303", url:gh+"vendor/cordis/src/reflect.ts#L277-L303", body:"Proxy 从 fiber.store 读取已提交依赖快照。provide 的 disposer 移除全局绑定、notify 并 await 依赖 Fiber 后，才删提供方自己的快照；兄弟顶层 effects 仍可能并发。" },
+        "paper-cycles": { title:"互相依赖与组件粒度", meta:"论文 §6.5，PDF p.71–72", url:paper, body:"论文指出 mutual dependencies 可导致永久不活跃；拆分组件能打破环，但增加组件数量与认知成本。" },
+        "events-modes": { title:"五种事件 dispatch 模式", meta:"vendor/cordis/src/events.ts:25–77, 183–243", url:gh+"vendor/cordis/src/events.ts#L25-L77", body:"源码定义 emit、parallel、serial、bail、waterfall，并分别实现同步广播、并发等待、顺序中止、首值返回和 around-middleware。" },
+        "loader-isolate": { title:"Loader 为 Entry 建立隔离/拦截表", meta:"vendor/loader/src/config/isolate.ts:91–153", url:gh+"vendor/loader/src/config/isolate.ts#L91-L153", body:"entry 初始化时建立继承表；patch-context 计算新 realm 映射、替换 isolate/intercept，并精确通知受影响 Fiber。" },
+        "loader-realm": { title:"本地与具名 Realm", meta:"vendor/loader/src/config/isolate.ts:25–89", url:gh+"vendor/loader/src/config/isolate.ts#L25-L89", body:"LocalRealm 以 entry id 区分；GlobalRealm 以标签共享；服务名最终映射到带后缀描述的 Symbol。" },
+        "preset-plan-realms": { title:"Standard 与 Code 的 planMode 本地 realm", meta:"standard agent.cordis.yml:102–111; code agent.cordis.yml:109–118; isolate.ts:25–57", url:gh+"apps/cli/config/agent-presets/standard/agent.cordis.yml#L102-L111", body:"Standard 与 Code preset 都在 id=planning 的 group 上 isolate planMode，并挂载自己的 plan-mode。LocalRealm 每个 Entry 各持一张 Symbol store；即使生成的 Symbol 描述同为 planMode#planning，Symbol 身份仍不同。" },
+        "scope-distinction": { title:"Harness scope 不等于 Cordis isolate", meta:"scope/index.ts:32–39, 93–101, 159–184; scope/store.ts:152–217", url:gh+"packages/core/scope/src/index.ts#L159-L184", body:"Context.extend 派生上下文；Cordis isolate 只重定向 service realm；dsh-scope 负责 Harness 注册可见性与祖先/后代事件路由，ScopedLayers 让最近 scope 的注册胜出。它们解决不同问题。" },
+        "loader-entry": { title:"Loader Entry 数据模型", meta:"vendor/loader/src/config/entry.ts:8–22, 258–301", url:gh+"vendor/loader/src/config/entry.ts#L8-L22", body:"EntryOptions 包含稳定 id、模块名、config、group、disabled、inject；init 导入模块并交 Registry 启动 Fiber。" },
+        "architecture-profile": { title:"Profile 配置层顺序", meta:"docs/architecture.zh.md:15–37", url:gh+"docs/architecture.zh.md#L15-L37", body:"运行树从空列表开始，依次应用 profile bundles、profile patch、home patch 和 CLI overlays；patch 按 id 定位。" },
+        "profile-boot": { title:"启动器追加的最终 overlays", meta:"apps/cli/src/profile-boot.ts:121–170", url:gh+"apps/cli/src/profile-boot.ts#L121-L170", body:"CLI 先组装 bundle/profile/home/argv 层，再追加 shipped preset-root overlay；DSH_TELEMETRY_DISABLED 生效时追加 hard-disable overlay。" },
+        "bundle-headless": { title:"Headless 表面", meta:"packages/bundle/headless/README.md:5", url:gh+"packages/bundle/headless/README.md#L5", body:"Headless bundle 在 base 上加入一次性 runner，不挂 Host、HTTP server 或 browser plugin。" },
+        "continuous-chat": { title:"Web 持续对话与终端模式边界", meta:"apps/web/tests/chat-continuous-conversation.e2e.ts:171–256; apps/cli/README.md:9–16", url:gh+"apps/web/tests/chat-continuous-conversation.e2e.ts#L171-L256", body:"真实浏览器 E2E 在同一 session 连续运行 12 轮并含工具调用。内置 headless 是一次性任务；随仓 profile 只有 web/headless，文档另示范可安装外部 TUI profile。" },
+        "loader-rollback": { title:"Entry 更新失败恢复旧插件", meta:"vendor/loader/src/config/entry.ts:214–245; group.ts:59–105", url:gh+"vendor/loader/src/config/entry.ts#L214-L245", body:"替换型更新先导入新模块，停旧 Fiber，启动新 Fiber；失败时恢复 options 并尝试重启旧 callback。Group 也有对新增/旧条目的回滚路径。" },
+        "architecture-seam": { title:"Service seam 的三角色", meta:"docs/architecture.zh.md:102–106", url:gh+"docs/architecture.zh.md#L102-L106", body:"仓库把 seam 定义为 Service Definition、Provider、Consumer 的组合；替换 provider 可改变产品能力而保持消费者接口。" },
+        "preset-scope": { title:"Preset standing mount 与 Agent scope", meta:"packages/preset/agent-presets/src/index.ts:241–287, 490–534", url:gh+"packages/preset/agent-presets/src/index.ts#L241-L287", body:"Preset 按 generation standing mount；Agent scope 的 parent 指向 standing scope，从而继承工具/提示注册。提供 service 的 preset row 还需 Cordis isolate，仓库会拒绝 root-service leak。" },
+        "web-two-planes": { title:"Host 与 Browser 两个 Cordis plane", meta:"packages/bundle/web-app/cordis.patch.yml:93–275", url:gh+"packages/bundle/web-app/cordis.patch.yml#L93-L275", body:"Web bundle 在 Host 侧装 API/server/runtime，并声明 browser plugin roster；浏览器内的 connection/runtime/UI 模块也以 Cordis 插件组成独立应用。" },
+        "architecture-log": { title:"模型可见即已记录", meta:"docs/architecture.zh.md:96–100", url:gh+"docs/architecture.zh.md#L96-L100", body:"模型历史由 Session 日志投影；任何新增模型可见输入都需要相应会话事件，运行时不变量会检查一致性。" },
+        "agent-loop": { title:"一次 turn/step 的实际实现", meta:"packages/core/agent-loop/src/agent.ts:122–131, 210–400", url:gh+"packages/core/agent-loop/src/agent.ts#L210-L400", body:"followup/steer/inject 进入不同 inbox 目标；driver 打开 turn，preStep 领取与过滤，step 构造模型请求、记录 stream/message 并调度工具。" },
+        "browser-host": { title:"浏览器请求进入 Host", meta:"ui-conversation service:142–155; runtime session:184–259; ApiProxy:2461–2516", url:gh+"packages/client/ui-conversation/src/client/service.ts#L142-L155", body:"真实 composer 经 input hub 调 conversation.sendSession，再调 Session.prompt(content, mode)；连接层以 fetch 发 unary RPC、WebSocket 收事件。Host ApiProxy 恢复或找到 Agent，并把 queue/steer 分别送到 followup/steer。" },
+        "session-fanout": { title:"Session append 的持久化与 UI 分叉", meta:"packages/core/session/src/index.ts:550–655; host ApiProxy:3429–3531", url:gh+"packages/core/session/src/index.ts#L550-L655", body:"Session.append 校验并写入追加日志后同步发布 session/event。持久化协调器排队写盘；ApiProxy 将事件推到客户端，客户端再增量装配对话节点。" },
+        "checkpoint": { title:"副作用前的耐久检查点", meta:"packages/session/session-checkpoint-policy/src/index.ts:20–75", url:gh+"packages/session/session-checkpoint-policy/src/index.ts#L20-L75", body:"模型 dispatch 前 checkpoint 完整请求；顶层工具 dispatch 前 checkpoint tool/call。拒绝持久化会阻止对应外部调用。" },
+        "paper-front": { title:"论文版本与结构", meta:"论文封面与目录，PDF p.1–3", url:paper, body:"题目为 A Programming Paradigm for Spatiotemporal Composability，作者 Yifan Shi、Wei Zhang、Tianyi Cui；当前读取的 PDF 日期为 2026-08-13，共 88 页，实现章节从 p.54 开始，讨论与边界从 p.67 开始。" },
+        "paper-readme": { title:"论文仓库状态", meta:"cordiverse/paper README.md:1–7", url:paperRepo+"README.md#L1-L7", body:"仓库 README 将该文档描述为 an active preprint under continuous revision；这说明它仍可能变化，不应把本次快照当最终出版版本。" },
+        "paper-table": { title:"理论—实现对应表", meta:"论文 §5.1 Table 2，PDF p.55", url:paper, body:"论文把 context/effect/coeffect/component lifecycle 等形式概念映射到 ctx、ctx.effect、store/isolate/intercept、inject、Fiber、dispose、committed、inertia。当前 checkout 的 API/字段已有漂移。" },
+        "paper-core": { title:"Coeffect operations", meta:"论文 §5.1.2，PDF p.57–58", url:paper, body:"提供服务改变 store 并通知依赖者；isolation 改变绑定选择，interception 改变绑定的使用方式。" },
+        "paper-lifecycle": { title:"Component lifecycle", meta:"论文 §5.1.3，PDF p.58–61", url:paper, body:"Fiber 持有 component 一次实例的状态；依赖签名变化触发 reload/unload，并用 committed view 协调撤销期间的可见性。" },
+        "paper-loader": { title:"声明式 Component Loader", meta:"论文 §5.2.1，PDF p.61–64", url:paper, body:"Loader 把配置作为权威组件清单，使用稳定 identity 增量对账，并承载 config/isolate/intercept/disabled 等声明。" },
+        "paper-hmr": { title:"论文中的事务式 HMR 算法", meta:"论文 §5.2.2，PDF p.64–66", url:paper, body:"论文 Algorithm 10 先分类并检测 stale entries，再备份/失效缓存、替换 Fiber，并把失败路径写为恢复缓存与旧组件。这是论文算法的语义描述，不是对当前 vendored 实现原子性的证明。" },
+        "hmr-current": { title:"当前 vendored HMR 的回滚路径", meta:"vendor/hmr/src/index.ts:482–545", url:gh+"vendor/hmr/src/index.ts#L482-L545", body:"当前实现会备份 ESM/CJS cache；导入失败时恢复 cache。替换失败时恢复 cache，再逐个尝试删除新插件和注册旧插件；恢复中的异常只记录 warning，因此这是 best-effort recovery，不是全有或全无的已证明事务。" },
+        "paper-validity": { title:"Koishi 案例的有效性威胁", meta:"论文 §5.3，PDF p.67", url:paper, body:"作者限定这是单生态、单语言的观察性证据，只支持 existence-and-adoption，而非与替代架构的定量比较；开销与生产率留待未来研究。" },
+        "paper-future": { title:"自进化 Harness 是未来验证方向", meta:"论文 §8，PDF p.79", url:paper, body:"结论把 self-evolving agent harnesses 明确写成 compelling direction for future validation，而非已经完成的实证。" },
+        "paper-version-gap": { title:"论文与 Koishi 案例的版本差异", meta:"论文 §5.3 脚注 4，PDF p.66", url:paper, body:"论文明确注明 Koishi currently uses Cordis v3，而正文呈现的是 Cordis v4；案例不能直接充当 v4 生产验证。" },
+        "vendor-version": { title:"Harness vendored 上游快照与本地补丁", meta:"vendor/README.md:13–50", url:gh+"vendor/README.md#L13-L50", body:"manifest 表把 Cordis pin 到 4.0.0-rc.7、Loader pin 到 1.0.0-rc.5；同一文档随后逐项记录本仓对 lifecycle、Loader/Include、HMR 等源码的加固。" },
+        "package-version": { title:"Harness 重新打包的 Cordis 版本", meta:"vendor/cordis/package.json:2–4", url:gh+"vendor/cordis/package.json#L2-L4", body:"当前 @deepseek-ai/cordis 的 package.json 版本是 4.0.1；这是本仓发布包版本，不等于 README 中记录的上游源码版本 4.0.0-rc.7。" },
+        "loader-package-version": { title:"Harness 重新打包的 Loader 版本", meta:"vendor/loader/package.json:2–4", url:gh+"vendor/loader/package.json#L2-L4", body:"当前 @deepseek-ai/cordis-plugin-loader 的 package.json 版本是 1.0.2；这是本仓发布包版本，不等于 README 中记录的上游源码版本 1.0.0-rc.5。" },
+        "api-drift": { title:"论文 API 与当前源码漂移", meta:"vendor/cordis/src/reflect.ts:245–305; registry.ts:316–335", url:gh+"vendor/cordis/src/reflect.ts#L245-L305", body:"当前 ctx.provide 建立并通知服务绑定；ctx.set 只修改当前 Fiber 已提供的 Impl.value，不 notify。插件挂载 API 是 ctx.plugin，而非论文伪代码里的 ctx.use。" },
+        "paper-recovery": { title:"Recovery exactness / terminal recovery", meta:"论文 Thm. 61 与 Cor. 62，PDF p.44–45", url:paper, body:"在演算已经要求合法 inverse witness/confinement、并假设步骤 pairwise independent 时，Fiber 的 accumulator 会撤去自身贡献而保留其他交错步骤的结果。这里的 ≈ 要求 ambient state 与所有 coeffect tables 精确一致，只忽略 registry control fields；只有该 Fiber 注册的子 Fiber 未在 episode 中执行步骤时，右侧才可读作“该 Fiber 从未开始”。" },
+        "paper-ordering": { title:"Dependency ordering", meta:"论文 Thm. 63，PDF p.45–46", url:paper, body:"由受 guard 约束的生命周期规则与 well-formed registry 推出：依赖满足时才开始，consumer episode 嵌套于 provider episode，且 provider binding 在该 episode 内保持固定。这个定理本身不以 pairwise independence 为前提。" },
+        "paper-progress": { title:"Progress 与 termination", meta:"论文 Thm. 66，PDF p.47–48", url:paper, body:"前提是 provider precedence 无环、所有 iterator 长度由 K 统一有界、Fiber 名集合有限，且每一步都是 lifecycle rule；结论是非 quiet 状态总有规则可走，并最终到达 quiescent state。" },
+        "paper-confluence": { title:"Confluence", meta:"论文 Thm. 73，PDF p.52–53", url:paper, body:"在该节的无环/有限设置下，序列到达没有 failed Fiber 的 quiescent state、步骤 pairwise independent、组件对其 provision 为 total 时，相同 orchestration steps 的合法序列最终在重命名后同时满足 ≃ 与 ≈。前者比较 coeffects 的观测结果并保留 registry 域/控制字段；后者精确比较环境与 tables，只忽略控制字段。" },
+        "paper-versioning": { title:"依赖类型与版本仍是开放问题", meta:"论文 §6.6，PDF p.72–73", url:paper, body:"键级依赖可能遭遇 name collision 与 interface drift；类型与版本契约需要更强的生态或语言支持。" },
+        "base-order": { title:"配置行顺序不承载激活语义", meta:"packages/bundle/base/cordis.patch.yml:1–13", url:gh+"packages/bundle/base/cordis.patch.yml#L1-L13", body:"Base patch 注释明确：row order carries no load semantics；分组仅供阅读，activation 由 service availability 驱动。" },
+        "paper-sandbox": { title:"Context 能力控制与外部 sandbox", meta:"论文 §6.3，PDF p.69–70", url:paper, body:"inject/Proxy 只约束经代理的服务访问，类似 capability mediator；不可信组件仍需外部 sandbox 限制宿主环境访问。" }
+      };
+
+      var drawer = document.getElementById("drawer");
+      var backdrop = document.getElementById("drawerBackdrop");
+      function openDrawer(type, title, body, meta, url) {
+        document.getElementById("drawerType").textContent = type;
+        document.getElementById("drawerTitle").textContent = title;
+        var html = body;
+        if (meta) html += '<div class="drawer-meta"><b>定位</b><br>' + meta + '</div>';
+        if (url) html += '<p><a class="btn small" target="_blank" rel="noreferrer" href="' + url + '">打开原始出处 ↗</a></p>';
+        document.getElementById("drawerBody").innerHTML = html;
+        drawer.classList.add("open");
+        backdrop.classList.add("open");
+      }
+      function closeDrawer() {
+        drawer.classList.remove("open");
+        backdrop.classList.remove("open");
+      }
+      document.querySelectorAll("[data-term]").forEach(function (el) {
+        el.addEventListener("click", function () {
+          var item = terms[el.dataset.term];
+          if (item) openDrawer("术语", item.title, item.body);
+        });
+      });
+      document.querySelectorAll("[data-cite]").forEach(function (el) {
+        el.addEventListener("click", function () {
+          var item = citations[el.dataset.cite];
+          if (item) openDrawer("证据", item.title, "<p>" + item.body + "</p>", item.meta, item.url);
+        });
+      });
+      document.getElementById("drawerClose").addEventListener("click", closeDrawer);
+      backdrop.addEventListener("click", closeDrawer);
+      document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeDrawer(); });
+
+      var side = document.getElementById("side");
+      document.getElementById("mobileMenu").addEventListener("click", function () { side.classList.toggle("open"); });
+      document.querySelectorAll("#nav a").forEach(function (a) {
+        a.addEventListener("click", function () { side.classList.remove("open"); });
+      });
+
+      var sections = Array.from(document.querySelectorAll("main section"));
+      var navLinks = Array.from(document.querySelectorAll("#nav a"));
+      function updateScroll() {
+        var max = document.documentElement.scrollHeight - innerHeight;
+        document.getElementById("readingProgress").style.width = (max > 0 ? scrollY / max * 100 : 0) + "%";
+        var current = sections[0] ? sections[0].id : "";
+        sections.forEach(function (s) { if (s.getBoundingClientRect().top < 150) current = s.id; });
+        navLinks.forEach(function (a) { a.classList.toggle("active", a.getAttribute("href") === "#" + current); });
+      }
+      addEventListener("scroll", updateScroll, { passive:true });
+      updateScroll();
+
+      var concise = false;
+      document.getElementById("conceptMode").addEventListener("click", function (e) {
+        concise = !concise;
+        document.body.classList.toggle("concise", concise);
+        document.querySelectorAll(".claim.paper, .claim.inference, .source-panel p, .tradeoff p").forEach(function (el) {
+          el.style.display = concise ? "none" : "";
+        });
+        e.currentTarget.textContent = concise ? "恢复完整讲解" : "开启“只看结论”";
+      });
+
+      var effects = [];
+      var live = document.getElementById("effectLive");
+      var undo = document.getElementById("effectUndo");
+      function renderEffects() {
+        live.innerHTML = effects.length ? effects.map(function (x, i) {
+          return '<div class="effect-item"><span>' + (i + 1) + '. ' + x + '</span><small>已登记 disposer</small></div>';
+        }).join("") : '<p style="color:var(--muted)">还没有副作用。</p>';
+      }
+      document.querySelectorAll("[data-effect]").forEach(function (b) {
+        b.addEventListener("click", function () {
+          effects.push(b.dataset.effect);
+          undo.innerHTML = '<p style="color:var(--muted)">已保存 ' + effects.length + ' 张撤销收据。</p>';
+          renderEffects();
+        });
+      });
+      document.getElementById("unloadEffects").addEventListener("click", function () {
+        if (!effects.length) {
+          undo.innerHTML = '<p style="color:var(--muted)">没有东西需要撤销。</p>';
+          return;
+        }
+        undo.innerHTML = effects.slice().reverse().map(function (x, i) {
+          return '<div class="effect-item undo"><span>' + (i + 1) + '. 撤销 ' + x + '</span><small>LIFO</small></div>';
+        }).join("");
+        effects = [];
+        renderEffects();
+      });
+      document.getElementById("resetEffects").addEventListener("click", function () {
+        effects = []; renderEffects();
+        undo.innerHTML = '<p style="color:var(--muted)">清理这个 effect 时，这里会按相反顺序执行。</p>';
+      });
+
+      var modelOn = true;
+      document.getElementById("toggleModel").addEventListener("click", function (e) {
+        modelOn = !modelOn;
+        document.getElementById("modelPart").classList.toggle("off", !modelOn);
+        document.getElementById("agentPart").classList.toggle("off", !modelOn);
+        document.getElementById("providerStatus").classList.toggle("on", modelOn);
+        document.getElementById("consumerStatus").classList.toggle("on", modelOn);
+        document.getElementById("providerStatus").textContent = modelOn ? "active" : "missing";
+        document.getElementById("consumerStatus").textContent = modelOn ? "active" : "partial";
+        e.currentTarget.textContent = modelOn ? "拔掉" : "插回";
+        var log = document.getElementById("dependencyLog");
+        var lines = modelOn
+          ? ["provide(llm)：新 Fiber uid=42", "notify([llm])：Agent loop 命中", "依赖齐全：PENDING → LOADING → ACTIVE", "日志观察器未变化：它只依赖 sessions"]
+          : ["dispose llm provider：移除绑定并通知依赖者", "Agent loop 的 epoch 缺少 llm", "Agent loop：ACTIVE → UNLOADING → PENDING", "日志观察器保持 ACTIVE：无关依赖不重载"];
+        log.innerHTML = lines.map(function (x) { return "<div>" + x + "</div>"; }).join("");
+      });
+
+      var modeData = {
+        emit: { title:"emit：同步点名", desc:"每位监听器立即被调用；返回值被忽略。", steps:["监听器 A：立即执行","监听器 B：立即执行","监听器 C：立即执行"] },
+        parallel: { title:"parallel：同时出发", desc:"所有监听器并发；等待全部 settled，错误可聚合。", steps:["A：开始 120ms","B：开始 40ms","C：开始 80ms","全部 settled"] },
+        serial: { title:"serial：排队检查", desc:"依次 await；遇到 bail 值后停止后续监听器。", steps:["A：await 完成","B：返回 stop","C：不会运行"] },
+        bail: { title:"bail：第一个答案", desc:"同步依次调用；第一个非 null/false/undefined 的值获胜。", steps:["A：undefined","B：回答 provider-2","C：不会运行"] },
+        waterfall: { title:"waterfall：洋葱中间件", desc:"A 包住 B，B 包住核心；任何一层不调用 next 就截断。", steps:["A before","B before","核心处理","B after","A after"] }
+      };
+      var currentMode = "emit";
+      var runners = document.getElementById("eventRunners");
+      function renderMode() {
+        var d = modeData[currentMode];
+        document.getElementById("eventTitle").textContent = d.title;
+        document.getElementById("eventDescription").textContent = d.desc;
+        runners.innerHTML = d.steps.map(function (x, i) { return '<div class="runner" data-i="' + i + '"><b>' + (i + 1) + '</b><span>' + x + '</span></div>'; }).join("");
+      }
+      document.querySelectorAll("#eventModes button").forEach(function (b) {
+        b.addEventListener("click", function () {
+          currentMode = b.dataset.mode;
+          document.querySelectorAll("#eventModes button").forEach(function (x) { x.classList.toggle("active", x === b); });
+          renderMode();
+        });
+      });
+      document.getElementById("runEvent").addEventListener("click", function () {
+        var rows = Array.from(runners.querySelectorAll(".runner"));
+        rows.forEach(function (r) { r.classList.remove("active"); });
+        rows.forEach(function (r, i) { setTimeout(function () { r.classList.add("active"); }, i * 280); });
+      });
+      renderMode();
+
+      var layerState = { base:true, web:true, profile:true, home:true, cli:true };
+      function renderConfig() {
+        var result = {
+          surface: layerState.web ? "web" : "core only",
+          model: layerState.profile ? "demo-model（profile 覆盖）" : "deepseek-v4-flash（base）",
+          telemetry: layerState.home ? "disabled（home 覆盖）" : "由 base 配置决定",
+          port: layerState.cli ? 4090 : (layerState.web ? 3080 : "无 webserver")
+        };
+        if (!layerState.base) result = { error:"没有 base insert：核心 entry 列表为空；后续 patch 多数找不到目标" };
+        document.getElementById("configResult").innerHTML = result.error
+          ? "<b>有效结果</b><p>" + result.error + "</p>"
+          : "<b>最终有效配置（示意）</b><div class='pills'><span>surface=" + result.surface + "</span><span>model=" + result.model + "</span><span>telemetry=" + result.telemetry + "</span><span>port=" + result.port + "</span></div>";
+        document.querySelectorAll(".config-layer").forEach(function (row) {
+          var on = layerState[row.dataset.layer];
+          row.classList.toggle("off", !on);
+          row.querySelector("button").textContent = on ? "启用" : "关闭";
+        });
+      }
+      document.querySelectorAll(".config-layer button").forEach(function (b) {
+        b.addEventListener("click", function () {
+          var key = b.parentElement.dataset.layer;
+          layerState[key] = !layerState[key];
+          renderConfig();
+        });
+      });
+      renderConfig();
+
+      var flowIndex = 0;
+      var autoTimer = null;
+      var flowSteps = Array.from(document.querySelectorAll(".flow-step"));
+      function renderFlow() {
+        flowSteps.forEach(function (s, i) {
+          s.classList.toggle("active", i === flowIndex);
+          s.classList.toggle("done", i < flowIndex);
+        });
+        var step = flowSteps[flowIndex];
+        document.getElementById("flowCounter").textContent = flowIndex + 1;
+        document.getElementById("flowTitle").textContent = step.dataset.title;
+        document.getElementById("flowExplain").textContent = step.dataset.explain;
+        step.scrollIntoView({ block:"nearest", behavior:"smooth" });
+      }
+      document.getElementById("flowNext").addEventListener("click", function () { flowIndex = (flowIndex + 1) % flowSteps.length; renderFlow(); });
+      document.getElementById("flowPrev").addEventListener("click", function () { flowIndex = (flowIndex - 1 + flowSteps.length) % flowSteps.length; renderFlow(); });
+      document.getElementById("flowAuto").addEventListener("click", function (e) {
+        if (autoTimer) { clearInterval(autoTimer); autoTimer = null; e.currentTarget.textContent = "自动播放"; return; }
+        e.currentTarget.textContent = "停止播放";
+        autoTimer = setInterval(function () { flowIndex = (flowIndex + 1) % flowSteps.length; renderFlow(); }, 1600);
+      });
+      flowSteps.forEach(function (s, i) { s.addEventListener("click", function () { flowIndex = i; renderFlow(); }); });
+
+      document.querySelectorAll(".source-tabs button").forEach(function (b) {
+        b.addEventListener("click", function () {
+          document.querySelectorAll(".source-tabs button").forEach(function (x) { x.classList.toggle("active", x === b); });
+          document.querySelectorAll(".source-panel").forEach(function (p) { p.classList.toggle("active", p.dataset.panel === b.dataset.source); });
+        });
+      });
+
+      document.querySelectorAll(".quiz-item button").forEach(function (b) {
+        b.addEventListener("click", function () {
+          var item = b.closest(".quiz-item");
+          var ok = b.dataset.choice === item.dataset.answer;
+          item.querySelectorAll("button").forEach(function (x) { x.classList.remove("right", "wrong"); });
+          b.classList.add(ok ? "right" : "wrong");
+          if (!ok) {
+            var right = item.querySelector('[data-choice="' + item.dataset.answer + '"]');
+            if (right) right.classList.add("right");
+          }
+          item.querySelector(".quiz-feedback").textContent = ok ? "答对了。你抓住了这层机制。" : "这项不对；绿色项说明了真正的因果关系。";
+        });
+      });
+
+      var missingTerms = Array.from(document.querySelectorAll("[data-term]")).filter(function (el) { return !terms[el.dataset.term]; });
+      var missingCites = Array.from(document.querySelectorAll("[data-cite]")).filter(function (el) { return !citations[el.dataset.cite]; });
+      if (missingTerms.length || missingCites.length) {
+        console.error("Unresolved guide references", { terms:missingTerms, citations:missingCites });
+      }
+    })();
+  </script>
+</body>
+</html>
